@@ -1,0 +1,10 @@
+dist: trusty
+
+language: scala
+
+scala:
+  - 2.13.3
+  - 0.26.0-RC1
+
+jdk:
+  - openjdk11
