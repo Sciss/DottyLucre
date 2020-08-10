@@ -3,6 +3,7 @@ lazy val baseName = "DottyLucre"
 lazy val commonSettings = Seq(
   version      := "0.1.0-SNAPSHOT",
   scalaVersion := "0.26.0-RC1",
+  crossScalaVersions := Seq("0.26.0-RC1", "2.13.3"),
 )
 
 lazy val root = project.in(file("."))
@@ -16,7 +17,7 @@ lazy val base = project.in(file("base"))
   .settings(
     name := s"$baseName-base",
     libraryDependencies ++= Seq(
-      "de.sciss" %% "serial" % "1.1.3-SNAPSHOT"
+//      "de.sciss" %% "serial" % "1.1.3-SNAPSHOT"
     )
   )
 

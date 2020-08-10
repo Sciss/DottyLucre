@@ -17,13 +17,14 @@ import de.sciss.serial.{DataInput, Serializer}
 import de.sciss.lucre.stm
 
 trait Txn[T <: Txn[T]] {
-  type S <: Base[T]
+//  type S <: Base[T]
+  
   type Id <: Identifier[T]
   type Acc
   type Var[A] <: stm.Var[T, A]
   
-  /** Back link to the underlying system. */
-  val s: S
+//  /** Back link to the underlying system. */
+//  val s: S
 
   def newId(): Id
 
@@ -31,7 +32,8 @@ trait Txn[T <: Txn[T]] {
 
   def newRef[A](init: A): Ref[T, A]
 
-  def newVar[A](id: Id, init: A)(implicit serializer: Serializer[T, Acc, A]): Var[A]
+  def newVar[A](id: Id, init: A)(implicit serializer: TxSerializer[T,/* Acc,*/ A]): Var[A]
+
   def newBooleanVar(id: Id, init: Boolean): Var[Boolean]
   def newIntVar    (id: Id, init: Int    ): Var[Int]
   def newLongVar   (id: Id, init: Long   ): Var[Long]
@@ -52,7 +54,8 @@ trait Txn[T <: Txn[T]] {
 //  def newInMemorySet[A]    : RefSet[S, A]
 //  def newInMemoryMap[A, B] : RefMap[S, A, B]
 
-  def readVar[A](id: Id, in: DataInput)(implicit serializer: Serializer[T, Acc, A]): Var[A]
+  def readVar[A](id: Id, in: DataInput)(implicit serializer: TxSerializer[T, /*Acc,*/ A]): Var[A]
+  
   def readBooleanVar(id: Id, in: DataInput): Var[Boolean]
   def readIntVar    (id: Id, in: DataInput): Var[Int]
   def readLongVar   (id: Id, in: DataInput): Var[Long]
@@ -68,5 +71,7 @@ trait Txn[T <: Txn[T]] {
    * @param serializer    used to write and freshly read the object
    * @return              the handle
    */
-  def newHandle[A](value: A)(implicit serializer: Serializer[T, Acc, A]): Source[T, A]
+  def newHandle[A](value: A)(implicit serializer: TxSerializer[T, /*Acc,*/ A]): Source[T, A]
 }
+
+trait AnyTxn extends Txn[AnyTxn]
