@@ -14,23 +14,29 @@
 package de.sciss.lucre.stm
 
 import de.sciss.serial.{DataInput, Serializer}
+import de.sciss.lucre.stm
 
-trait Executor[S <: Base[S]] {
+trait Txn[T <: Txn[T]] {
+  type S <: Base[T]
+  type Id <: Identifier[T]
+  type Acc
+  type Var[A] <: stm.Var[T, A]
+  
   /** Back link to the underlying system. */
-  val system: S
+  val s: S
 
-  def newId(): S#Id
+  def newId(): Id
 
   // ---- variables ----
 
-  def newRef[A](init: A): Ref[S#Tx, A]
+  def newRef[A](init: A): Ref[T, A]
 
-  def newVar[A](id: S#Id, init: A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): S#Var[A]
-  def newBooleanVar(id: S#Id, init: Boolean): S#Var[Boolean]
-  def newIntVar    (id: S#Id, init: Int    ): S#Var[Int]
-  def newLongVar   (id: S#Id, init: Long   ): S#Var[Long]
+  def newVar[A](id: Id, init: A)(implicit serializer: Serializer[T, Acc, A]): Var[A]
+  def newBooleanVar(id: Id, init: Boolean): Var[Boolean]
+  def newIntVar    (id: Id, init: Int    ): Var[Int]
+  def newLongVar   (id: Id, init: Long   ): Var[Long]
 
-  def newVarArray[A](size: Int): Array[S#Var[A]]
+  def newVarArray[A](size: Int): Array[Var[A]]
 
   /** Creates a new in-memory transactional map for storing and retrieving values based on a mutable's identifier
    * as key. If a system is confluently persistent, the `get` operation will find the most recent key that
@@ -41,17 +47,17 @@ trait Executor[S <: Base[S]] {
    *
    * @tparam A         the value type in the map
    */
-  def newInMemoryIdMap[A]: IdentifierMap[S#Id, S#Tx, A]
+  def newInMemoryIdMap[A]: IdentifierMap[Id, T, A]
 
-  def newInMemorySet[A]    : RefSet[S, A]
-  def newInMemoryMap[A, B] : RefMap[S, A, B]
+//  def newInMemorySet[A]    : RefSet[S, A]
+//  def newInMemoryMap[A, B] : RefMap[S, A, B]
 
-  def readVar[A](id: S#Id, in: DataInput)(implicit serializer: Serializer[S#Tx, S#Acc, A]): S#Var[A]
-  def readBooleanVar(id: S#Id, in: DataInput): S#Var[Boolean]
-  def readIntVar    (id: S#Id, in: DataInput): S#Var[Int]
-  def readLongVar   (id: S#Id, in: DataInput): S#Var[Long]
+  def readVar[A](id: Id, in: DataInput)(implicit serializer: Serializer[T, Acc, A]): Var[A]
+  def readBooleanVar(id: Id, in: DataInput): Var[Boolean]
+  def readIntVar    (id: Id, in: DataInput): Var[Int]
+  def readLongVar   (id: Id, in: DataInput): Var[Long]
 
-  def readId(in: DataInput, acc: S#Acc): S#Id
+  def readId(in: DataInput, acc: Acc): Id
 
   /** Creates a handle (in-memory) to refresh a stale version of an object, assuming that the future transaction is issued
    * from the same cursor that is used to create the handle, except for potentially having advanced.
@@ -62,5 +68,5 @@ trait Executor[S <: Base[S]] {
    * @param serializer    used to write and freshly read the object
    * @return              the handle
    */
-  def newHandle[A](value: A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A]
+  def newHandle[A](value: A)(implicit serializer: Serializer[T, Acc, A]): Source[T, A]
 }
