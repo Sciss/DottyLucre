@@ -4,7 +4,7 @@
 
 ## statement
 
-A sandbox project to experiment with ways of porting Lucre to Dotty (Scala 3). This is currently not possible,
+A sandbox project to experiment with ways of porting Lucre to Dotty (Scala 3). This is currently not possible without major rewriting,
 because for academic reasons type projections were removed, which are a central element in Lucre.
 
 This project is (C)opyright 2020 by Hanns Holger Rutz. All rights reserved. It is released under 
