@@ -18,7 +18,7 @@ import de.sciss.lucre.stm
 object Plain {
   implicit val instance: Plain = impl.PlainImpl()
 
-  type Id = stm.Identifier[Plain]
+  type Id = stm.Ident[Plain]
 }
 trait Plain extends Base[Plain] with Cursor[Plain] with Txn[Plain] {
   type Tx     = Plain

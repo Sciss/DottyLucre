@@ -7,20 +7,20 @@ object TxSerializer {
     peer.asInstanceOf[TxSerializer[T, A]]
 }
 trait TxSerializer[T <: Txn[T], A] {
-  def read(in: DataInput, tx: T)(acc: tx.Acc): A
+  def read(in: DataInput, tx: T)(implicit acc: tx.Acc): A
 
   def write(v: A, out: DataOutput): Unit
 }
 
 object NewImmutSerializer {
   implicit object int extends NewImmutSerializer[Int] {
-    def read(in: DataInput): Int = in.readInt()
+    override def read(in: DataInput): Int = in.readInt()
 
-    def write(v: Int, out: DataOutput): Unit = out.writeInt(v)
+    override def write(v: Int, out: DataOutput): Unit = out.writeInt(v)
   }
 }
 trait NewImmutSerializer[A] extends TxSerializer[AnyTxn, A] {
-  def read(in: DataInput, tx: AnyTxn)(acc: tx.Acc): A = read(in)
+  override def read(in: DataInput, tx: AnyTxn)(implicit acc: tx.Acc): A = read(in)
   
   def read(in: DataInput): A
 }

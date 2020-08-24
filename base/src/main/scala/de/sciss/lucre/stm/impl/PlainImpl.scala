@@ -21,7 +21,7 @@ object PlainImpl {
 
   private def opNotSupported(name: String): Nothing = sys.error(s"Operation not supported: $name")
 
-  private final class IdImpl extends Identifier[Plain] {
+  private final class IdImpl extends Ident[Plain] {
     override def toString = s"Plain.Id@${hashCode.toHexString}"
 
     def dispose()(implicit tx: Plain): Unit = ()
@@ -120,7 +120,7 @@ object PlainImpl {
 
     def newId(): Id = new IdImpl
 
-    def readId(in: DataInput, acc: Acc): Id = opNotSupported("readId")
+    def readId(in: DataInput)(implicit acc: Acc): Id = opNotSupported("readId")
 
     def newRef[A](init: A): Ref[Tx, A] = new VarImpl(init)
 
@@ -133,7 +133,7 @@ object PlainImpl {
 
     def newVarArray[A](size: Int): Array[Var[A]] = new Array[S#Var[A]](size)
 
-    def newInMemoryIdMap[A]: IdentifierMap[Id, Tx, A] = new PlainIdentifierMap[A]
+    def newInMemoryIdMap[A]: IdentMap[Id, Tx, A] = new PlainIdentMap[A]
 
 //    def newInMemoryMap[K, V]: RefMap[S, K, V] = new PlainInMemoryMap[K, V]
 //    def newInMemorySet[A]   : RefSet[S, A]    = new PlainInMemorySet[A]

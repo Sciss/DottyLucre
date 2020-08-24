@@ -57,5 +57,5 @@ private[serial] abstract class FileWrapperImpl(file: File, mode: String)
     n.toInt
   }
 
-  final def position_=(value: Int): Unit = seek(value)
+  final def position_=(value: Int): Unit = seek(value.toLong)
 }

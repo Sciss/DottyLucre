@@ -19,9 +19,10 @@ import de.sciss.lucre.stm
 trait Txn[T <: Txn[T]] {
 //  type S <: Base[T]
   
-  type Id <: Identifier[T]
+  type Id = Ident[T]
   type Acc
-  type Var[A] <: stm.Var[T, A]
+  
+  type Var[A] = stm.Var[T, A]
   
 //  /** Back link to the underlying system. */
 //  val s: S
@@ -49,7 +50,7 @@ trait Txn[T <: Txn[T]] {
    *
    * @tparam A         the value type in the map
    */
-  def newInMemoryIdMap[A]: IdentifierMap[Id, T, A]
+  def newInMemoryIdMap[A]: IdentMap[Id, T, A]
 
 //  def newInMemorySet[A]    : RefSet[S, A]
 //  def newInMemoryMap[A, B] : RefMap[S, A, B]
@@ -60,7 +61,7 @@ trait Txn[T <: Txn[T]] {
   def readIntVar    (id: Id, in: DataInput): Var[Int]
   def readLongVar   (id: Id, in: DataInput): Var[Long]
 
-  def readId(in: DataInput, acc: Acc): Id
+  def readId(in: DataInput)(implicit acc: Acc): Id
 
   /** Creates a handle (in-memory) to refresh a stale version of an object, assuming that the future transaction is issued
    * from the same cursor that is used to create the handle, except for potentially having advanced.

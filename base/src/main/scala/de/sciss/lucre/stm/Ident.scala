@@ -17,10 +17,10 @@ package de.sciss.lucre.stm
 import de.sciss.serial
 import de.sciss.serial.Serializer
 
-object Identifier {
+object Ident {
 //  implicit def serializer[S <: Base[S]]: Serializer[S#Tx, S#Acc, S#Id] =
 //    anySer.asInstanceOf[IdentifierSerializer[S]]
 //
 //  private val anySer = new IdentifierSerializer[NoBase]
 }
-trait Identifier[-Tx] extends Disposable[Tx] with serial.Writable
+trait Ident[-Tx] extends Disposable[Tx] with serial.Writable

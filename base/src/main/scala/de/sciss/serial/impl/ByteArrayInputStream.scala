@@ -57,6 +57,6 @@ final class ByteArrayInputStream(val buffer: Array[Byte], off: Int, val size: In
     val rem = size - _off
     val res = if (n > rem) rem else n.toInt
     _off += res
-    res
+    res.toLong
   }
 }

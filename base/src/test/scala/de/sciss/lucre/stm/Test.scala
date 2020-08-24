@@ -9,7 +9,7 @@ object Test {
     
 //    def id: Tx#Id = _id
     
-    def id: Identifier[Tx] = _id
+    def id: Ident[Tx] = _id
     
     def apply()(implicit tx: Tx): Int = vr()
 
@@ -19,7 +19,7 @@ object Test {
 }
 trait Test[Tx <: Txn[Tx]] {
 //  def id: Tx#Id
-  def id: Identifier[Tx]
+  def id: Ident[Tx]
   
   def apply()(implicit tx: Tx): Int
   
