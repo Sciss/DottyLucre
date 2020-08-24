@@ -72,7 +72,7 @@ object HASkipList {
                                                  keySerializer: NewImmutSerializer[A],
                                                  valueSerializer: TxSerializer[T, B])
     extends TxSerializer[T, HASkipList.Map[T, A, B]] {
-    
+
     override def read(in: DataInput, tx: T)(implicit acc: tx.Acc): HASkipList.Map[T, A, B] =
       HASkipList.Map.read[T, A, B](in, tx, keyObserver)
 
@@ -1418,9 +1418,9 @@ object HASkipList {
      * @param   keySerializer  the serializer for the elements, in case a persistent STM is used.
      */
     def empty[T <: Txn[T], A](minGap: Int = 2,
-                               keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
-                              (implicit tx: T, ord: scala.Ordering[A],
-                               keySerializer: NewImmutSerializer[A]): HASkipList.Set[T, A] = {
+                              keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
+                             (implicit tx: T, ord: scala.Ordering[A],
+                              keySerializer: NewImmutSerializer[A]): HASkipList.Set[T, A] = {
 
       // 255 <= arrMaxSz = (minGap + 1) << 1
       // ; this is, so we can write a node's size as signed byte, and
