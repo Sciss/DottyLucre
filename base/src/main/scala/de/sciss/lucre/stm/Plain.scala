@@ -23,8 +23,9 @@ object Plain {
 trait Plain extends Base[Plain] with Cursor[Plain] with Txn[Plain] {
   type Tx     = Plain
   type Acc    = Unit
-  type Var[A] = stm.Var[Tx, A]
-  type Id     = Plain.Id
+  
+//  type Var[A] = stm.Var[Tx, A]
+//  type Id     = Plain.Id
 
   type I      = Plain
 }

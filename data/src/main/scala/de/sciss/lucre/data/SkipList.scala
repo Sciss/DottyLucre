@@ -44,29 +44,29 @@ object SkipList {
   }
 
   object Set {
-    def empty[T <: Txn[T], A](implicit tx: T, ord: Ordering[T, A],
-                               keySerializer: Serializer[T, tx.Acc, A]): SkipList.Set[T, A] =
-      ??? // HASkipList.Set.empty[S, A]
+    def empty[T <: Txn[T], A](implicit tx: T, ord: scala.Ordering[A],
+                               keySerializer: NewImmutSerializer[A]): SkipList.Set[T, A] =
+      HASkipList.Set.empty[T, A]
 
     def empty[T <: Txn[T], A](keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
                               (implicit tx: T, ord: scala.Ordering[/*T,*/ A],
-                               keySerializer: Serializer[T, tx.Acc, A]): SkipList.Set[T, A] =
-      ??? // HASkipList.Set.empty[S, A](keyObserver = keyObserver)
+                               keySerializer: NewImmutSerializer[A]): SkipList.Set[T, A] =
+      HASkipList.Set.empty[T, A](keyObserver = keyObserver)
 
     def read[T <: Txn[T], A](in: DataInput, tx: T,
                               keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
                             (implicit acc: tx.Acc, ord: scala.Ordering[/*T,*/ A],
-                              keySerializer: ImmutableSerializer[A]): SkipList.Set[T, A] =
-      ??? // HASkipList.Set.read[S, A](in, access, keyObserver)
+                              keySerializer: NewImmutSerializer[A]): SkipList.Set[T, A] =
+      HASkipList.Set.read[T, A](in, tx, keyObserver)
 
     implicit def serializer[T <: Txn[T], A](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
                                             (implicit ord: scala.Ordering[/*T,*/ A],
-                                             keySerializer: ImmutableSerializer[A]): TxSerializer[T, Set[T, A]] =
+                                             keySerializer: NewImmutSerializer[A]): TxSerializer[T, Set[T, A]] =
       new SetSer[T, A](keyObserver)
 
     private final class SetSer[T <: Txn[T], A](keyObserver: SkipList.KeyObserver[T, A])
                                                (implicit ord: scala.Ordering[/*T,*/ A],
-                                                keySerializer: ImmutableSerializer[A])
+                                                keySerializer: NewImmutSerializer[A])
       extends TxSerializer[T, Set[T, A]] {
 
       override def read(in: DataInput, tx: T)(implicit acc: tx.Acc): Set[T, A] = 
@@ -81,32 +81,32 @@ object SkipList {
 
   object Map {
     def empty[T <: Txn[T], A, B](implicit tx: T, ord: scala.Ordering[/*T,*/ A],
-                                  keySerializer: ImmutableSerializer[/*T, S#Acc,*/ A],
+                                  keySerializer: NewImmutSerializer[/*T, S#Acc,*/ A],
                                   valueSerializer: TxSerializer[T, /* S#Acc,*/ B]): SkipList.Map[T, A, B] =
-      ??? // HASkipList.Map.empty[S, A, B]
+      HASkipList.Map.empty[T, A, B]
 
     def empty[T <: Txn[T], A, B](keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
                                  (implicit tx: T, ord: scala.Ordering[/*T,*/ A],
-                                  keySerializer: ImmutableSerializer[/*T, S#Acc,*/ A],
+                                  keySerializer: NewImmutSerializer[/*T, S#Acc,*/ A],
                                   valueSerializer: TxSerializer[T, /*S#Acc,*/ B]): SkipList.Map[T, A, B] =
-      ??? // HASkipList.Map.empty[S, A, B](keyObserver = keyObserver)
+      HASkipList.Map.empty[T, A, B](keyObserver = keyObserver)
 
     def read[T <: Txn[T], A, B](in: DataInput, tx: T,
                                  keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
                                (implicit acc: tx.Acc, ord: scala.Ordering[/*T,*/ A],
-                                 keySerializer: ImmutableSerializer[/*T, S#Acc,*/ A],
+                                 keySerializer: NewImmutSerializer[/*T, S#Acc,*/ A],
                                  valueSerializer: TxSerializer[T, /*S#Acc,*/ B]): SkipList.Map[T, A, B] =
-      ??? // HASkipList.Map.read[S, A, B](in, access, keyObserver)
+      HASkipList.Map.read[T, A, B](in, tx, keyObserver)
 
     def serializer[T <: Txn[T], A, B](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
                                       (implicit ord: scala.Ordering[/*T,*/ A],
-                                       keySerializer: ImmutableSerializer[/*T, S#Acc,*/ A],
+                                       keySerializer: NewImmutSerializer[/*T, S#Acc,*/ A],
                                        valueSerializer: TxSerializer[T, /*S#Acc,*/ B]): TxSerializer[T, /*S#Acc,*/ Map[T, A, B]] =
       new MapSer[T, A, B](keyObserver)
 
     private final class MapSer[T <: Txn[T], A, B](keyObserver: SkipList.KeyObserver[T, A])
                                                   (implicit ord: scala.Ordering[/*T,*/ A],
-                                                   keySerializer: ImmutableSerializer[/*T, S#Acc,*/ A],
+                                                   keySerializer: NewImmutSerializer[/*T, S#Acc,*/ A],
                                                    valueSerializer: TxSerializer[T, /*S#Acc,*/ B])
       extends TxSerializer[T, /*S#Acc,*/ Map[T, A, B]] {
       

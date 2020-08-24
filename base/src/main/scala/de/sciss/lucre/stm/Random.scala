@@ -20,7 +20,7 @@ import de.sciss.lucre.stm.impl.{RandomImpl => Impl}
 object Random {
   def apply[T <: Txn[T]](tx: T)(id: tx.Id): Random[T] = Impl[T](tx)(id)
 
-  def apply[T <: Txn[T]](tx: T)(id: tx.Id, seed: Long): Random[T] = Impl[T](tx)(id, seed)
+  def apply[T <: Txn[T]](tx: T)(id: tx.Id, seed: Long): Random[T] = Impl.withSeed[T](tx)(id, seed)
 
   def wrap[Tx](peer: stm.Var[Tx, Long]): Random[Tx] = Impl.wrap(peer)
 }
