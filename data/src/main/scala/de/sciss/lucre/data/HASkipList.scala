@@ -110,16 +110,18 @@ object HASkipList {
       case _ => sys.error(s"Not a HA Skip List: $list")
     }
 
-  private final class SetImpl[T <: Exec[T], A](val id: Ident[T], val minGap: Int,
+  private final class SetImpl[T <: Exec[T], A]/*(tx0: T)*/(override val opaqueId: Ident[T] /*tx0.Id*/, val minGap: Int,
                                                protected val keyObserver: SkipList.KeyObserver[T, A],
                                                _downNode: SetImpl[T, A] => Var[T, Node[T, A, A]])
                                               (implicit val ordering: scala.Ordering[A],
                                                val keySerializer: NewImmutSerializer[A])
     extends Impl[T, A, A] with HASkipList.Set[T, A] {
 
+    def id(implicit tx: T): tx.Id = ??? // opaqueId
+
     protected val downNode: Var[T, Node[T, A, A]] = _downNode(this)
 
-    override def toString = s"SkipList.Set$id"
+    override def toString = s"SkipList.Set$opaqueId"
 
     def add   (key: A)(implicit tx: T): Boolean = addEntry(key, key).isEmpty
     def remove(key: A)(implicit tx: T): Boolean = removeEntry(key).isDefined
@@ -150,7 +152,7 @@ object HASkipList {
     }
   }
 
-  private final class MapImpl[T <: Exec[T], A, B](val id: Ident[T], val minGap: Int,
+  private final class MapImpl[T <: Exec[T], A, B](val opaqueId: Ident[T], val minGap: Int,
                                                   protected val keyObserver: SkipList.KeyObserver[T, A],
                                                   _downNode: MapImpl[T, A, B] => Var[T, Map.Node[T, A, B]])
                                                  (implicit val ordering : scala.Ordering[A],
@@ -158,9 +160,11 @@ object HASkipList {
                                                   val valueSerializer   : TxSerializer[T, B])
     extends Impl[T, A, (A, B)] with HASkipList.Map[T, A, B] {
 
+    def id(implicit tx: T): tx.Id = ???
+
     protected val downNode: Var[T, Map.Node[T, A, B]] = _downNode(this)
 
-    override def toString = s"SkipList.Map$id"
+    override def toString = s"SkipList.Map$opaqueId"
 
     def put(key: A, value: B)(implicit tx: T): Option[B] = addEntry(key, (key, value)).map(_._2)
 
@@ -1243,7 +1247,7 @@ object HASkipList {
       val keys  = Vector.tabulate(sz) { i =>
         if (i < szi) keySerializer.read(in) else null.asInstanceOf[A]
       }
-      val downs = Vector.fill(sz)(tx.readVar[Node[T, A, B]](list.id, in))
+      val downs = Vector.fill(sz)(tx.readVar[Node[T, A, B]](list.id(tx), in))
       new Branch[T, A, B](keys, downs)
     }
   }
@@ -1418,7 +1422,7 @@ object HASkipList {
       if (minGap < 1 || minGap > 126) sys.error(s"Minimum gap ($minGap) cannot be less than 1 or greater than 126")
 
       val implId = tx.newId()
-      new SetImpl[T, A](implId, minGap, keyObserver, list => {
+      new SetImpl[T, A]/*(tx)*/(implId, minGap, keyObserver, list => {
         tx.newVar[Node[T, A]](implId, null)(list)
       })
     }
@@ -1434,7 +1438,7 @@ object HASkipList {
         sys.error(s"Incompatible serialized version (found $version, required $SER_VERSION).")
 
       val minGap = in.readByte().toInt
-      new SetImpl[T, A](id, minGap, keyObserver, list => tx.readVar[Node[T, A]](id, in)(list))
+      new SetImpl[T, A]/*(tx)*/(id, minGap, keyObserver, list => tx.readVar[Node[T, A]](id, in)(list))
     }
 
     def serializer[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)

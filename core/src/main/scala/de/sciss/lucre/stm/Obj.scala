@@ -84,7 +84,7 @@ object Obj {
 /** An `Obj` is a type of element that has an `S#Id` identifier and
   * an attribute map. It can be the origin of event dispatch.
   */
-trait Obj[T <: Txn[T]] extends Elem[T] with stm.Mutable[Ident[T], T] {
+trait Obj[T <: Txn[T]] extends Elem[T] with stm.Mutable[/*Ident[T],*/ T] {
   override def toString = s"Obj$id"
 
   override def tpe: Obj.Type

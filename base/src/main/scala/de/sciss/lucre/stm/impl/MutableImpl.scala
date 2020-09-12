@@ -16,19 +16,19 @@ package impl
 
 import de.sciss.serial.DataOutput
 
-trait MutableImpl[T <: Exec[T]] extends Mutable[Ident[T], T] {
+trait MutableImpl[T <: Exec[T]] extends Mutable[T] {
   final override def dispose()(implicit tx: T): Unit = {
-    id.dispose()
+    opaqueId.dispose()
     disposeData()
   }
 
   final override def write(out: DataOutput): Unit = {
-    id.write(out)
+    opaqueId.write(out)
     writeData(out)
   }
 
   protected def disposeData()(implicit tx: T): Unit
   protected def writeData(out: DataOutput): Unit
 
-  override def toString = s"${super.toString}$id"
+  override def toString = s"${super.toString}$opaqueId"
 }

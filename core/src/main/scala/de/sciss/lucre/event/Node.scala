@@ -121,7 +121,7 @@ object Targets {
   * object, sharing the same `id` as its targets. As a `Reactor`, it has a method to
   * `propagate` a fired event.
   */
-sealed trait Targets[T <: Txn[T]] extends stm.Mutable[Ident[T], T] /* extends Reactor[T] */ {
+sealed trait Targets[T <: Txn[T]] extends stm.Mutable[/*Ident[T],*/ T] /* extends Reactor[T] */ {
   private[event] def children(implicit tx: T): Children[T]
 
   /** Adds a dependant to this node target.
@@ -159,7 +159,7 @@ sealed trait Targets[T <: Txn[T]] extends stm.Mutable[Ident[T], T] /* extends Re
   * This trait also implements `equals` and `hashCode` in terms of the `id` inherited from the
   * targets.
   */
-trait Node[T <: Txn[T]] extends Elem[T] with Mutable[Ident[T], T] /* Obj[T] */ {
+trait Node[T <: Txn[T]] extends Elem[T] with Mutable[/*Ident[T],*/ T] /* Obj[T] */ {
   override def toString = s"Node$id"
 
   protected def targets: Targets[T]

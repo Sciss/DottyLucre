@@ -19,7 +19,7 @@ import de.sciss.lucre.stm
 trait Exec[T <: Exec[T]] {
 //  type S <: Base[T]
   
-  type Id = Ident[T]
+  type Id <: Ident[T]
   type Acc
   
   type Var[A] <: stm.Var[T, A]

@@ -13,14 +13,18 @@
 
 package de.sciss.lucre.stm
 
-trait Identifiable[+Id] {
-  def id: Id
+trait Identifiable[T <: Exec[T] /*+Id*/] {
+//  def id: Id
+  
+  def id(implicit tx: T): tx.Id
+  
+  private[stm] def opaqueId: Ident[T]
 
   override def equals(that: Any): Boolean = that match {
     case m: Identifiable[_] =>
-      id == m.id
+      opaqueId == m.opaqueId
     case _ => super.equals(that)
   }
 
-  override def hashCode: Int = id.hashCode()
+  override def hashCode: Int = opaqueId.hashCode()
 }
