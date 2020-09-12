@@ -1,7 +1,7 @@
 import de.sciss.lucre.data.SkipList
-import de.sciss.lucre.stm.{TxSerializer, Txn}
+import de.sciss.lucre.stm.{TxSerializer, Exec}
 
-abstract class SkipListTest[T <: Txn[T]](tx0: T) {
+abstract class SkipListTest[T <: Exec[T]](tx0: T) {
   private val setH = {
     implicit val tx: T = tx0
     val s = SkipList.Set.empty[T, Int]

@@ -1,9 +1,9 @@
 package de.sciss.lucre.stm
 
 object Test {
-  def apply[Tx <: Txn[Tx]]()(implicit tx: Tx): Test[Tx] = new Impl(tx)
+  def apply[Tx <: Exec[Tx]]()(implicit tx: Tx): Test[Tx] = new Impl(tx)
   
-  private class Impl[Tx <: Txn[Tx]](tx0: Tx) extends Test[Tx] {
+  private class Impl[Tx <: Exec[Tx]](tx0: Tx) extends Test[Tx] {
     private val _id = tx0.newId()
     private val vr  = tx0.newIntVar(_id, 0)
     
@@ -17,7 +17,7 @@ object Test {
       vr() = value
   }
 }
-trait Test[Tx <: Txn[Tx]] {
+trait Test[Tx <: Exec[Tx]] {
 //  def id: Tx#Id
   def id: Ident[Tx]
   

@@ -1,5 +1,5 @@
 /*
- *  Executor.scala
+ *  Exec.scala
  *  (Lucre)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
@@ -16,7 +16,7 @@ package de.sciss.lucre.stm
 import de.sciss.serial.{DataInput, Serializer}
 import de.sciss.lucre.stm
 
-trait Txn[T <: Txn[T]] {
+trait Exec[T <: Exec[T]] {
 //  type S <: Base[T]
   
   type Id = Ident[T]
@@ -75,4 +75,4 @@ trait Txn[T <: Txn[T]] {
   def newHandle[A](value: A)(implicit serializer: TxSerializer[T, /*Acc,*/ A]): Source[T, A]
 }
 
-trait AnyTxn extends Txn[AnyTxn]
+trait AnyExec extends Exec[AnyExec]

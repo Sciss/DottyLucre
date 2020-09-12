@@ -16,7 +16,7 @@ package impl
 
 import de.sciss.serial.DataOutput
 
-trait MutableImpl[T <: Txn[T]] extends Mutable[Ident[T], T] {
+trait MutableImpl[T <: Exec[T]] extends Mutable[Ident[T], T] {
   final override def dispose()(implicit tx: T): Unit = {
     id.dispose()
     disposeData()

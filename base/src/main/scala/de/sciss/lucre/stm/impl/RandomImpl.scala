@@ -40,10 +40,10 @@ object RandomImpl {
 
   private val seedUniquifier = new AtomicLong(8682522807148012L)
 
-  def apply[Tx <: Txn[Tx]](tx: Tx)(id: tx.Id): Random[Tx] =
+  def apply[Tx <: Exec[Tx]](tx: Tx)(id: tx.Id): Random[Tx] =
     withSeed(tx)(id, calcSeedUniquifier() ^ System.nanoTime())
 
-  def withSeed[Tx <: Txn[Tx]](tx: Tx)(id: tx.Id, seed: Long): Random[Tx] =
+  def withSeed[Tx <: Exec[Tx]](tx: Tx)(id: tx.Id, seed: Long): Random[Tx] =
     new SysImpl[Tx](tx.newLongVar(id, initialScramble(seed)))
 
   def wrap[Tx](peer: stm.Var[Tx, Long]): Random[Tx] = new SysImpl[Tx](peer)

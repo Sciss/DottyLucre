@@ -14,7 +14,7 @@
 package de.sciss.lucre
 package stm
 
-trait Cursor[Tx <: Txn[Tx]] {
+trait Cursor[Tx <: Exec[Tx]] {
   /** Issues a new transaction (executor), runs the function argument on it,
    * and returns the result.
    */

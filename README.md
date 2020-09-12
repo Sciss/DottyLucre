@@ -14,3 +14,14 @@ absolutely no warranties. To contact the author, send an e-mail to `contact at s
 ## requirements / installation
 
 The project builds with sbt against Scala 2.13, Dotty 0.26.0-RC1.
+
+## translation
+
+We now come to settle on the following rewrites:
+
+- `S <: Sys[S]` -> `T <: Txn[T]` and `[S]` -> `[T]`
+- `S#Tx` -> `T`
+- `read(in: DataInput, access: S#Acc)(implicit tx: S#Tx)` ->
+  `read(in: DataInput, tx: T)(implicit acc: tx.Acc)`
+- `Serializer[S#Tx, S#Acc, Form[S]]` -> `TxSerializer[T, Form[T]]`
+- `S#Id` -> `Ident[T]`

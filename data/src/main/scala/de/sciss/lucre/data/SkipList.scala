@@ -13,7 +13,7 @@
 
 package de.sciss.lucre.data
 
-import de.sciss.lucre.stm.{Base, Ident, Mutable, NewImmutSerializer, TxSerializer, Txn}
+import de.sciss.lucre.stm.{Base, Ident, Mutable, NewImmutSerializer, TxSerializer, Exec}
 import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer, Serializer}
 
 import scala.collection.immutable.{IndexedSeq => Vec}
@@ -44,27 +44,27 @@ object SkipList {
   }
 
   object Set {
-    def empty[T <: Txn[T], A](implicit tx: T, ord: scala.Ordering[A],
+    def empty[T <: Exec[T], A](implicit tx: T, ord: scala.Ordering[A],
                                keySerializer: NewImmutSerializer[A]): SkipList.Set[T, A] =
       HASkipList.Set.empty[T, A]
 
-    def empty[T <: Txn[T], A](keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
+    def empty[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
                               (implicit tx: T, ord: scala.Ordering[/*T,*/ A],
                                keySerializer: NewImmutSerializer[A]): SkipList.Set[T, A] =
       HASkipList.Set.empty[T, A](keyObserver = keyObserver)
 
-    def read[T <: Txn[T], A](in: DataInput, tx: T,
+    def read[T <: Exec[T], A](in: DataInput, tx: T,
                               keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
-                            (implicit acc: tx.Acc, ord: scala.Ordering[/*T,*/ A],
+                             (implicit acc: tx.Acc, ord: scala.Ordering[/*T,*/ A],
                               keySerializer: NewImmutSerializer[A]): SkipList.Set[T, A] =
       HASkipList.Set.read[T, A](in, tx, keyObserver)
 
-    implicit def serializer[T <: Txn[T], A](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
+    implicit def serializer[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
                                             (implicit ord: scala.Ordering[/*T,*/ A],
                                              keySerializer: NewImmutSerializer[A]): TxSerializer[T, Set[T, A]] =
       new SetSer[T, A](keyObserver)
 
-    private final class SetSer[T <: Txn[T], A](keyObserver: SkipList.KeyObserver[T, A])
+    private final class SetSer[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A])
                                                (implicit ord: scala.Ordering[/*T,*/ A],
                                                 keySerializer: NewImmutSerializer[A])
       extends TxSerializer[T, Set[T, A]] {
@@ -80,31 +80,31 @@ object SkipList {
   }
 
   object Map {
-    def empty[T <: Txn[T], A, B](implicit tx: T, ord: scala.Ordering[/*T,*/ A],
+    def empty[T <: Exec[T], A, B](implicit tx: T, ord: scala.Ordering[/*T,*/ A],
                                   keySerializer: NewImmutSerializer[/*T, S#Acc,*/ A],
                                   valueSerializer: TxSerializer[T, /* S#Acc,*/ B]): SkipList.Map[T, A, B] =
       HASkipList.Map.empty[T, A, B]
 
-    def empty[T <: Txn[T], A, B](keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
+    def empty[T <: Exec[T], A, B](keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
                                  (implicit tx: T, ord: scala.Ordering[/*T,*/ A],
                                   keySerializer: NewImmutSerializer[/*T, S#Acc,*/ A],
                                   valueSerializer: TxSerializer[T, /*S#Acc,*/ B]): SkipList.Map[T, A, B] =
       HASkipList.Map.empty[T, A, B](keyObserver = keyObserver)
 
-    def read[T <: Txn[T], A, B](in: DataInput, tx: T,
+    def read[T <: Exec[T], A, B](in: DataInput, tx: T,
                                  keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
-                               (implicit acc: tx.Acc, ord: scala.Ordering[/*T,*/ A],
+                                (implicit acc: tx.Acc, ord: scala.Ordering[/*T,*/ A],
                                  keySerializer: NewImmutSerializer[/*T, S#Acc,*/ A],
                                  valueSerializer: TxSerializer[T, /*S#Acc,*/ B]): SkipList.Map[T, A, B] =
       HASkipList.Map.read[T, A, B](in, tx, keyObserver)
 
-    def serializer[T <: Txn[T], A, B](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
+    def serializer[T <: Exec[T], A, B](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
                                       (implicit ord: scala.Ordering[/*T,*/ A],
                                        keySerializer: NewImmutSerializer[/*T, S#Acc,*/ A],
                                        valueSerializer: TxSerializer[T, /*S#Acc,*/ B]): TxSerializer[T, /*S#Acc,*/ Map[T, A, B]] =
       new MapSer[T, A, B](keyObserver)
 
-    private final class MapSer[T <: Txn[T], A, B](keyObserver: SkipList.KeyObserver[T, A])
+    private final class MapSer[T <: Exec[T], A, B](keyObserver: SkipList.KeyObserver[T, A])
                                                   (implicit ord: scala.Ordering[/*T,*/ A],
                                                    keySerializer: NewImmutSerializer[/*T, S#Acc,*/ A],
                                                    valueSerializer: TxSerializer[T, /*S#Acc,*/ B])
@@ -119,7 +119,7 @@ object SkipList {
     }
   }
 
-  trait Set[T <: Txn[T], /* @spec(KeySpec) */ A] extends SkipList[T, A, A] {
+  trait Set[T <: Exec[T], /* @spec(KeySpec) */ A] extends SkipList[T, A, A] {
     /** Inserts a new key into the set.
      *
      * @param   key  the key to insert
@@ -136,7 +136,7 @@ object SkipList {
     def remove(key: A)(implicit tx: T): Boolean
   }
 
-  trait Map[T <: Txn[T], /* @spec(KeySpec) */ A, /* @spec(ValueSpec) */ B] extends SkipList[T, A, (A, B)] {
+  trait Map[T <: Exec[T], /* @spec(KeySpec) */ A, /* @spec(ValueSpec) */ B] extends SkipList[T, A, (A, B)] {
 
     def keysIterator  (implicit tx: T): Iterator[A]
     def valuesIterator(implicit tx: T): Iterator[B]
@@ -169,7 +169,7 @@ object SkipList {
   }
 }
 
-/*sealed*/ trait SkipList[T <: Txn[T], /* @spec(KeySpec) */ A, /* @spec(ValueSpec) */ E] extends Mutable[Ident[T] /*S#Id*/, T] {
+/*sealed*/ trait SkipList[T <: Exec[T], /* @spec(KeySpec) */ A, /* @spec(ValueSpec) */ E] extends Mutable[Ident[T] /*S#Id*/, T] {
   /** Searches for the Branch of a given key.
    *
    * @param   key   the key to search for
