@@ -22,7 +22,7 @@ trait Exec[T <: Exec[T]] {
   type Id = Ident[T]
   type Acc
   
-  type Var[A] = stm.Var[T, A]
+  type Var[A] <: stm.Var[T, A]
   
 //  /** Back link to the underlying system. */
 //  val s: S

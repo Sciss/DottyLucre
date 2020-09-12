@@ -1,6 +1,6 @@
 package de.sciss.lucre.stm
 
-import de.sciss.serial.impl.ListSerializer
+import de.sciss.lucre.stm.impl.ListSerializer
 import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer, Serializer}
 
 object TxSerializer {
@@ -8,7 +8,7 @@ object TxSerializer {
     peer.asInstanceOf[TxSerializer[T, A]]
 
   implicit def list[T <: Exec[T], A](implicit peer: TxSerializer[T, A]): TxSerializer[T, List[A]] =
-    ??? // new ListSerializer[T, A](peer)
+    new ListSerializer[T, A](peer)
 }
 trait TxSerializer[T <: Exec[T], A] {
   def read(in: DataInput, tx: T)(implicit acc: tx.Acc): A

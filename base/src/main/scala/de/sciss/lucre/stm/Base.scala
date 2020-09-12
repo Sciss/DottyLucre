@@ -23,7 +23,7 @@ import de.sciss.lucre.stm
  *
  * @tparam S   the representation type of the system
  */
-trait Base[Tx <: Exec[Tx]] extends Closeable {
+trait Base /*[Tx <: Exec[Tx]]*/ extends Closeable {
 //  type I <: Base[I]
 
 //  /** The transaction type of the system. */

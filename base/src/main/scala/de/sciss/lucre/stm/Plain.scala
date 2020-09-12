@@ -20,7 +20,7 @@ object Plain {
 
   type Id = stm.Ident[Plain]
 }
-trait Plain extends Base[Plain] with Cursor[Plain] with Exec[Plain] {
+trait Plain extends Base /*[Plain]*/ with Cursor[Plain] with Exec[Plain] {
   type Tx     = Plain
   type Acc    = Unit
   
