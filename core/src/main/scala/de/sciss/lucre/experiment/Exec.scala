@@ -50,7 +50,7 @@ trait Exec[T <: Exec[T]] {
    *
    * @tparam A         the value type in the map
    */
-  def newIdentMap[A]: IdentMap[Id, T, A]
+  def newIdentMap[A]: IdentMap[Ident[T] /*Id*/, T, A]
 
   //  def newInMemorySet[A]    : RefSet[S, A]
   //  def newInMemoryMap[A, B] : RefMap[S, A, B]

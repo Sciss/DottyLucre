@@ -40,5 +40,6 @@ trait Ident[T <: Exec[T]]
   def readIntVar    (in: DataInput): Var[Int]
   def readLongVar   (in: DataInput): Var[Long]
 
-  def ! (implicit tx: T): tx.Id = ???
+  /** Ensures that the identifier is actually valid in the current transaction. */
+  def ! (implicit tx: T): tx.Id
 }

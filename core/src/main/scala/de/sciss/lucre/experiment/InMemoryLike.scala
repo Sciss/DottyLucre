@@ -29,6 +29,7 @@ object InMemoryLike {
 
     final type Var[A] = InMemoryLike.Var[/*T,*/ A]
     final type Acc    = Unit
+    final type Id     = InMemoryLike.Id[T]
 
     private[experiment] def getVar[A](vr: InMemoryLike.Var[/*T,*/ A]): A
     private[experiment] def putVar[A](vr: InMemoryLike.Var[/*T,*/ A], value: A): Unit
