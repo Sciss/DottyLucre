@@ -11,13 +11,17 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre.stm
+package de.sciss.lucre.experiment
 
-trait Identifiable[T <: Exec[T]] {
+trait Identified[T <: Exec[T]] {
+//  val tx: T
+//
+//  def id: tx.Id
+  
   def id: Ident[T]
 
   override def equals(that: Any): Boolean = that match {
-    case m: Identifiable[_] =>
+    case m: Identified[_] =>
       id == m.id
     case _ => super.equals(that)
   }

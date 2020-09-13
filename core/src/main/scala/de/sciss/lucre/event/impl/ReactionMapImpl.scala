@@ -20,7 +20,7 @@ import de.sciss.lucre.stm.{IdentMap, Txn, Ident}
 import scala.collection.immutable.{Map => IMap}
 
 object ReactionMapImpl {
-  def apply[T <: Txn[T]]()(implicit tx: T): ReactionMap[T] = new Impl[T](tx.newInMemoryIdMap)
+  def apply[T <: Txn[T]]()(implicit tx: T): ReactionMap[T] = new Impl[T](???) // tx.newInMemoryIdMap)
 
   private final class Impl[T <: Txn[T]](protected val eventMap: IdentMap[Ident[T], T, IMap[Int, List[Observer[T, _]]]])
     extends Mixin[T] {

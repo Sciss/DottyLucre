@@ -118,6 +118,8 @@ object PlainImpl {
 
     val system: S = this
 
+//    type Id = Ident[Plain]
+    
     def newId(): Id = new IdImpl
 
     def readId(in: DataInput)(implicit acc: Acc): Id = opNotSupported("readId")

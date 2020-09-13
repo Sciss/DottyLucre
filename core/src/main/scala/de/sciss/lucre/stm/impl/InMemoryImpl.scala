@@ -88,6 +88,9 @@ object InMemoryImpl {
     extends TxnMixin[InMemory.Txn] with InMemory.Txn {
 
 //    implicit def inMemory: InMemory#I#Tx = this
+//
+//    type T  = InMemory.Txn
+//    type Id = Ident[T]
 
     override def toString = s"InMemory.Txn@${hashCode.toHexString}"
   }
@@ -95,7 +98,7 @@ object InMemoryImpl {
   trait TxnMixin[T <: InMemoryLike.Txn[T]] extends BasicTxnImpl[T] with InMemoryLike.Txn[T] {
     self: T =>
 
-    final def newId(): Id = new IdImpl[T](system.newIdValue()(this))
+    final def newId(): Id = ??? // new IdImpl[T](system.newIdValue()(this))
 
     final def newHandle[A](value: A)(implicit serializer: TxSerializer[T, A]): Source[T, A] =
       new EphemeralHandle(value)
@@ -108,22 +111,22 @@ object InMemoryImpl {
       vr.peer.set(value)(peer)
     }
 
-    final def newVar[A](id: Ident[T], init: A)(implicit ser: TxSerializer[T, A]): Var[A] = {
+    final def newVar[A](id: Id, init: A)(implicit ser: TxSerializer[T, A]): Var[A] = {
       val peer = ScalaRef(init)
       new SysInMemoryRef[T, A](peer)
     }
 
-    final def newIntVar(id: Ident[T], init: Int): Var[Int] = {
+    final def newIntVar(id: Id, init: Int): Var[Int] = {
       val peer = ScalaRef(init)
       new SysInMemoryRef[T, Int](peer)
     }
 
-    final def newBooleanVar(id: Ident[T], init: Boolean): Var[Boolean] = {
+    final def newBooleanVar(id: Id, init: Boolean): Var[Boolean] = {
       val peer = ScalaRef(init)
       new SysInMemoryRef[T, Boolean](peer)
     }
 
-    final def newLongVar(id: Ident[T], init: Long): Var[Long] = {
+    final def newLongVar(id: Id, init: Long): Var[Long] = {
       val peer = ScalaRef(init)
       new SysInMemoryRef[T, Long](peer)
     }
