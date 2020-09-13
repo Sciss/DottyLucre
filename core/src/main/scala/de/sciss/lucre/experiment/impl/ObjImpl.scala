@@ -11,8 +11,9 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre.experiment
+package de.sciss.lucre.experiment.impl
 
+import de.sciss.lucre.experiment.{AnyTxn, Obj, TMap, TSerializer, Txn}
 import de.sciss.lucre.{event => evt}
 import de.sciss.serial.{DataInput, DataOutput, Serializer}
 

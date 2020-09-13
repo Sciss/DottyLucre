@@ -14,6 +14,7 @@
 package de.sciss.lucre.experiment
 
 import de.sciss.equal.Implicits._
+import de.sciss.lucre.experiment.impl.ObjImpl
 import de.sciss.lucre.{event => evt}
 import de.sciss.serial.{DataInput, Serializer}
 

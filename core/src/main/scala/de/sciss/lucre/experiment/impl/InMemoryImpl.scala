@@ -104,7 +104,7 @@ object InMemoryImpl {
 
     def readVar[A](in: DataInput)(implicit serializer: TSerializer[T, A]): Var[A] =
       opNotSupported("readVar")
-    
+
     def readBooleanVar(in: DataInput): Var[Boolean] =
       opNotSupported("readBooleanVar")
 
