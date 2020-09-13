@@ -32,7 +32,7 @@ object DurableImpl {
   def apply(mainStore: DataStore): Durable = new System(store = mainStore)
 
   trait Mixin[T <: D[T], I <: Txn[I]] extends DurableLike[T] with ReactionMapImpl.Mixin[T] {
-    self =>
+//    self =>
 
     def store: DataStore
 
@@ -142,7 +142,7 @@ object DurableImpl {
   trait TxnMixin[T <: D[T]] extends DurableLike.Txn[T] with BasicTxnImpl[T] {
     self: T =>
 
-    private[experiment] final def reactionMap: ReactionMap[T] = ??? // system.reactionMap
+    private[experiment] final def reactionMap: ReactionMap[T] = system.reactionMap
 
     final def newId(): Id = new IdImpl[T](this)(system.newIdValue()(this))
     
@@ -166,7 +166,7 @@ object DurableImpl {
 
     final def newVarArray[A](size: Int): Array[Var[A]] = new Array[Var[A]](size)
 
-    final def newInMemoryIdMap[A]: IdentMap[Ident[T], T, A] =
+    final def newIdentMap[A]: IdentMap[Ident[T], T, A] =
       IdentMapImpl[Ident[T], T, A] { implicit tx => id => id.!.id }
 
 //    final def readVar[A](pid: T#Id, in: DataInput)(implicit ser: TSerializer[T, A]): Var[A] = {
@@ -210,7 +210,7 @@ object DurableImpl {
 //      res
 //    }
 
-    final def readId(in: DataInput, acc: Acc): Id = {
+    final def readId(in: DataInput)(implicit acc: Acc): Id = {
       val base = in./* PACKED */ readInt()
       new IdImpl[T](this)(base)
     }
@@ -221,9 +221,9 @@ object DurableImpl {
     // ---- attributes ----
 
     def attrMap(obj: Obj[T]): Obj.AttrMap[T] = {
-      val mId = obj.id.!.id.toLong << 32
-      implicit val tx: T = this
+      implicit val tx : T   = this
       implicit val acc: Acc = ()
+      val mId = obj.id.!.id.toLong << 32
       val mapOpt: Option[Obj.AttrMap[T]] = system.tryRead(mId)(TMap.Modifiable.read[T, String, Obj](_, tx))
       mapOpt.getOrElse {
         val map = TMap.Modifiable[T, String, Obj]()
@@ -233,14 +233,20 @@ object DurableImpl {
     }
 
     override def attrMapOption(obj: Obj[T]): Option[Obj.AttrMap[T]] = {
-      val mId = obj.id.!.id.toLong << 32
-      implicit val tx: T = this
+      implicit val tx : T   = this
       implicit val acc: Acc = ()
+      val mId = obj.id.!.id.toLong << 32
       system.tryRead(mId)(TMap.Modifiable.read[T, String, Obj](_, tx))
     }
   }
 
+  // XXX DRY with InMemoryImpl.IdImpl
   private final class IdImpl[T <: D[T]](tx: T)(val id: Int) extends DurableLike.Id[T] {
+    def !(implicit tx: T): DurableLike.Id[T] = {
+      // require (tx eq this.tx)
+      this
+    }
+
     def write(out: DataOutput): Unit = out./* PACKED */ writeInt(id)
 
     override def hashCode: Int = id
@@ -258,22 +264,42 @@ object DurableImpl {
       res
     }
 
-    final def newBooleanVar(init: Boolean): Var[Boolean] = {
+    def newBooleanVar(init: Boolean): Var[Boolean] = {
       val res = new BooleanVar[T](tx)(tx.system.newIdValue()(tx))
       res.setInit(init) // (this)
       res
     }
 
-    final def newIntVar(init: Int): Var[Int] = {
+    def newIntVar(init: Int): Var[Int] = {
       val res = new IntVar[T](tx)(tx.system.newIdValue()(tx))
       res.setInit(init) // (this)
       res
     }
 
-    final def newLongVar(init: Long): Var[Long] = {
+    def newLongVar(init: Long): Var[Long] = {
       val res = new LongVar[T](tx)(tx.system.newIdValue()(tx))
       res.setInit(init) // (this)
       res
+    }
+
+    def readVar[A](in: DataInput)(implicit ser: TSerializer[T, A]): Var[A] = {
+      val id = in./* PACKED */ readInt()
+      new VarImpl[T, A](tx)(id, ser)
+    }
+
+    def readBooleanVar(in: DataInput): Var[Boolean] = {
+      val id = in./* PACKED */ readInt()
+      new BooleanVar[T](tx)(id)
+    }
+
+    def readIntVar(in: DataInput): Var[Int] = {
+      val id = in./* PACKED */ readInt()
+      new IntVar[T](tx)(id)
+    }
+
+    def readLongVar(in: DataInput): Var[Long] = {
+      val id = in./* PACKED */ readInt()
+      new LongVar[T](tx)(id)
     }
 
     override def toString = s"<$id>"
@@ -488,6 +514,6 @@ object DurableImpl {
 
     override def toString = s"Durable@${hashCode.toHexString}"
 
-    def wrap(peer: InTxn, systemTimeNanos: Long): T = ??? // new TxnImpl(this, peer)
+    def wrap(peer: InTxn, systemTimeNanos: Long): T = new TxnImpl(this, peer)
   }
 }

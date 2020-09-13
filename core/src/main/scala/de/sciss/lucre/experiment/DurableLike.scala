@@ -39,7 +39,7 @@ object DurableLike {
     
   }
 }
-trait DurableLike[T <: DurableLike.Txn[T]] extends Sys /*[S]*/ with Cursor[T] {
+trait DurableLike[Tx <: DurableLike.Txn[Tx]] extends Sys /*[S]*/ with Cursor[Tx] {
 //  final type Var[A]      = experiment.Var[A]
   
   final type Id          = DurableLike.Id[T]
@@ -47,7 +47,7 @@ trait DurableLike[T <: DurableLike.Txn[T]] extends Sys /*[S]*/ with Cursor[T] {
   //  final type Acc         = Unit
   // final type Entry[A]    = _Var[S#Tx, A]
 //  type Tx               <: DurableLike.Txn[S]
-//  type Tx = T
+  type T = Tx
   // type I                <: InMemoryLike[I]
 
   /** Reports the current number of records stored in the database. */
