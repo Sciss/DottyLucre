@@ -39,7 +39,7 @@ object Obj {
     res
   }
 
-  implicit def serializer[T <: Txn[T]]: TxSerializer[T, Obj[T]] = ObjImpl.serializer
+  implicit def serializer[T <: Txn[T]]: TSerializer[T, Obj[T]] = ObjImpl.serializer
 
   trait Type extends Elem.Type {
     private[this] lazy val _init: Unit = Obj.addType(this)
@@ -64,7 +64,7 @@ object Obj {
 
   // ---- attributes ----
 
-  type AttrMap    [T <: Txn[T]]             = mutable.Map[String, Obj[T]] // evt.Map.Modifiable[T, String, Obj]
+  type AttrMap    [T <: Txn[T]]             = TMap.Modifiable[T, String, Obj]
 
 //  type AttrUpdate [T <: Txn[T]]             = evt.Map.Update [T, String, Obj]
 //  val  AttrAdded    : evt.Map.Added.type    = evt.Map.Added

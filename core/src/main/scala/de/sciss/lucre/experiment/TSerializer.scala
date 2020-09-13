@@ -1,16 +1,16 @@
 package de.sciss.lucre.experiment
 
-import de.sciss.lucre.stm.impl.ListSerializer
+import de.sciss.lucre.experiment.impl.ListSerializer
 import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer, Serializer}
 
-object TxSerializer {
-  implicit def immutable[T <: Exec[T], A](implicit peer: NewImmutSerializer[A]): TxSerializer[T, A] =
-    peer.asInstanceOf[TxSerializer[T, A]]
+object TSerializer {
+  implicit def immutable[T <: Exec[T], A](implicit peer: NewImmutSerializer[A]): TSerializer[T, A] =
+    peer.asInstanceOf[TSerializer[T, A]]
 
-//  implicit def list[T <: Exec[T], A](implicit peer: TxSerializer[T, A]): TxSerializer[T, List[A]] =
-//    new ListSerializer[T, A](peer)
+  implicit def list[T <: Exec[T], A](implicit peer: TSerializer[T, A]): TSerializer[T, List[A]] =
+    new ListSerializer[T, A](peer)
 }
-trait TxSerializer[T <: Exec[T], A] {
+trait TSerializer[T <: Exec[T], A] {
   def read(in: DataInput, tx: T)(implicit acc: tx.Acc): A
 
   def write(v: A, out: DataOutput): Unit
@@ -35,7 +35,7 @@ object NewImmutSerializer {
     def write(v: java.lang.String, out: DataOutput): Unit = out.writeUTF(v)
   }
 }
-trait NewImmutSerializer[A] extends TxSerializer[AnyExec, A] {
+trait NewImmutSerializer[A] extends TSerializer[AnyExec, A] {
   override def read(in: DataInput, tx: AnyExec)(implicit acc: tx.Acc): A = read(in)
 
   def read(in: DataInput): A

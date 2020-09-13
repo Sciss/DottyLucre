@@ -1,5 +1,5 @@
 /*
- *  Mutable.scala
+ *  Generator.scala
  *  (Lucre)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
@@ -12,7 +12,13 @@
  */
 
 package de.sciss.lucre.experiment
+package impl
 
-import de.sciss.serial.Writable
+import de.sciss.lucre.experiment.Log.logEvent
 
-trait Mutable[T <: Exec[T]] extends Identified[T] with Writable with Disposable
+trait GeneratorEvent[T <: Txn[T], A] extends Event[T, A] {
+  final def fire(update: A)(implicit tx: T): Unit = {
+    logEvent(s"$this fire $update")
+    Push(this, update)
+  }
+}

@@ -11,9 +11,11 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre.experiment
+package de.sciss.lucre.experiment.impl
 
-import scala.concurrent.stm.{Txn => ScalaTxn, Ref => ScalaRef}
+import de.sciss.lucre.experiment.Txn
+
+import scala.concurrent.stm.{Ref => ScalaRef, Txn => ScalaTxn}
 
 trait BasicTxnImpl[T <: Txn[T]] extends Txn[T] {
   self: T =>

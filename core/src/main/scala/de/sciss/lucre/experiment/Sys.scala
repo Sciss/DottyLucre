@@ -13,7 +13,6 @@
 
 package de.sciss.lucre.experiment
 
-import de.sciss.lucre.event.ReactionMap
 import de.sciss.serial.Serializer
 
 /** A system in LucreSTM describes a particular mode of representing values in time and of
@@ -33,14 +32,14 @@ trait Sys /*[S <: Sys[S]]*/ extends Base /*[S]*/ {
    * or provides a newly initialized one via the `init` argument,
    * if no root has been stored yet.
    */
-  def root[A](init: T => A)(implicit serializer: TxSerializer[T, A]): Handle[T, A]
+  def root[A](init: T => A)(implicit serializer: TSerializer[T, A]): Handle[T, A]
 
   private[lucre] def rootJoin[A](init: T => A)
-                                (implicit tx: TxnLike, serializer: TxSerializer[T, A]): Handle[T, A]
+                                (implicit tx: TxnLike, serializer: TSerializer[T, A]): Handle[T, A]
 
   // ---- event ----
 
-//  private[lucre] def reactionMap: ReactionMap[T]
+  private[experiment] def reactionMap: ReactionMap[T]
 }
 
 //trait NoSys extends Sys[NoSys]

@@ -28,13 +28,13 @@ trait Ident[T <: Exec[T]]
   
   def dispose(): Unit
 
-  def newVar[A](init: A)(implicit serializer: TxSerializer[T,/* Acc,*/ A]): Var[A]
+  def newVar[A](init: A)(implicit serializer: TSerializer[T,/* Acc,*/ A]): Var[A]
 
   def newBooleanVar(init: Boolean): Var[Boolean]
   def newIntVar    (init: Int    ): Var[Int]
   def newLongVar   (init: Long   ): Var[Long]
 
-  def readVar[A](in: DataInput)(implicit serializer: TxSerializer[T, /*Acc,*/ A]): Var[A]
+  def readVar[A](in: DataInput)(implicit serializer: TSerializer[T, /*Acc,*/ A]): Var[A]
 
   def readBooleanVar(in: DataInput): Var[Boolean]
   def readIntVar    (in: DataInput): Var[Int]

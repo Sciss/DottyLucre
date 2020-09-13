@@ -11,12 +11,14 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre.experiment
+package de.sciss.lucre.experiment.impl
+
+import de.sciss.lucre.experiment.{IdentMap, TxnLike}
 
 import scala.concurrent.stm.TMap
 
 object IdentMapImpl {
-  def newInMemoryIntMap[Id, Tx <: TxnLike, A](implicit intView: Tx => Id => Int): IdentMap[Id, Tx, A] =
+  def apply[Id, Tx <: TxnLike, A](intView: Tx => Id => Int): IdentMap[Id, Tx, A] =
     new InMemoryInt[Id, Tx, A](intView)
 
   private final class InMemoryInt[Id, Tx <: TxnLike, A](intView: Tx => Id => Int)

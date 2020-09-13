@@ -6,8 +6,6 @@ trait Sink[-A] {
   def update(value: A): Unit
 }
 
-trait Var[A] extends Sink[A] with Writable {
+trait Var[A] extends Sink[A] with Writable with Disposable {
   def apply(): A
-  
-  def dispose(): Unit
 }

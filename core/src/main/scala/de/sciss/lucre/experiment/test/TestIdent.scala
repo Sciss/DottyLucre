@@ -1,4 +1,6 @@
-package de.sciss.lucre.experiment
+package de.sciss.lucre.experiment.test
+
+import de.sciss.lucre.experiment.{Handle, Ident, IdentMap, Obj, Txn}
 
 trait TestIdent[T <: Txn[T]] {
   val tx0: T

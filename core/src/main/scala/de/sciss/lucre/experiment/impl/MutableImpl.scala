@@ -11,8 +11,9 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre.experiment
+package de.sciss.lucre.experiment.impl
 
+import de.sciss.lucre.experiment.{Exec, Mutable}
 import de.sciss.serial.DataOutput
 
 trait MutableImpl[T <: Exec[T]] extends Mutable[T] {

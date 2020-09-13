@@ -14,13 +14,14 @@
 package de.sciss.lucre.experiment
 
 import de.sciss.equal.Implicits._
+import de.sciss.lucre.experiment.impl.ElemImpl
 import de.sciss.serial
 import de.sciss.serial.{DataInput, Writable}
 
 object Elem {
   def read[T <: Txn[T]](in: DataInput, tx: T)(implicit acc: tx.Acc): Elem[T] = ElemImpl.read(in, tx)
 
-  implicit def serializer[T <: Txn[T]]: TxSerializer[T, Elem[T]] = ElemImpl.serializer
+  implicit def serializer[T <: Txn[T]]: TSerializer[T, Elem[T]] = ElemImpl.serializer
 
   trait Type {
     def typeId: Int
@@ -48,11 +49,11 @@ object Elem {
 trait Elem[T <: Txn[T]] extends Form[T] with Writable with Disposable /*with Publisher[T, Any]*/ {
   def tpe: Elem.Type
 
-//  /** Selects an event during dispatch. Elements that do not provide events
-//   * should simply throw an exception. They will in any case not be encountered during dispatch.
-//   */
-//  private[lucre] def event(slot: Int): Event[T, Any]
+  /** Selects an event during dispatch. Elements that do not provide events
+   * should simply throw an exception. They will in any case not be encountered during dispatch.
+   */
+  private[experiment] def event(slot: Int): Event[T, Any]
 
   /** Makes a deep copy of an element, possibly translating it to a different system `Out`. */
-  private[lucre] def copy[Out <: Txn[Out]]()(implicit txOut: Out, context: Copy[T, Out]): Elem[Out]
+  private[experiment] def copy[Out <: Txn[Out]]()(implicit txOut: Out, context: Copy[T, Out]): Elem[Out]
 }

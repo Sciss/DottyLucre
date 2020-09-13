@@ -12,9 +12,10 @@
  */
 
 package de.sciss.lucre.experiment
+package impl
 
 import de.sciss.lucre.{event => evt}
-import de.sciss.serial.{DataOutput, DataInput, Serializer}
+import de.sciss.serial.{DataInput, DataOutput, Serializer}
 
 import scala.annotation.meta.field
 
@@ -25,13 +26,13 @@ object ElemImpl {
     tpe.readIdentifiedObj(in, tx)
   }
 
-  implicit def serializer[T <: Txn[T]]: TxSerializer[T, Elem[T]] = anySer.asInstanceOf[Ser[T]]
+  implicit def serializer[T <: Txn[T]]: TSerializer[T, Elem[T]] = anySer.asInstanceOf[Ser[T]]
 
   @field private[this] final val sync   = new AnyRef
   @field private[this] final val anySer = new Ser[AnyTxn]
 
   // @volatile private var map = Map.empty[Int, Elem.Type]
-  @volatile private var map = Map[Int, Elem.Type](???) // evt.Map.typeId -> evt.Map)
+  @volatile private var map = Map[Int, Elem.Type](TMap.typeId -> TMap)
 
   def addType(tpe: Elem.Type): Unit = sync.synchronized {
     val typeId = tpe.typeId
@@ -45,7 +46,7 @@ object ElemImpl {
   @inline
   def getType(id: Int): Elem.Type = map.getOrElse(id, sys.error(s"Unknown element type $id (0x${id.toHexString})"))
 
-  private final class Ser[T <: Txn[T]] extends TxSerializer[T, Elem[T]] {
+  private final class Ser[T <: Txn[T]] extends TSerializer[T, Elem[T]] {
     def read(in: DataInput, tx: T)(implicit acc: tx.Acc): Elem[T] = ElemImpl.read(in, tx)
 
     def write(obj: Elem[T], out: DataOutput): Unit = obj.write(out)

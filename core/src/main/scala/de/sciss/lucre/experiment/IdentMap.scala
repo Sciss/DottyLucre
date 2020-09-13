@@ -22,16 +22,16 @@ package de.sciss.lucre.experiment
  * system, it looks up the most recent entry for the key. It is therefore a useful
  * tool to map system entities to ephemeral live views.
  *
- * @tparam Tx  the underlying system's transaction type
- * @tparam Id  the underlying system's identifier type
- * @tparam A   the values stored at the keys. `Unit` can be used if only set
- *             functionality is needed.
+ * @tparam T    the underlying system's transaction type
+ * @tparam Id   the underlying system's identifier type
+ * @tparam A    the values stored at the keys. `Unit` can be used if only set
+ *              functionality is needed.
  */
-trait IdentMap[-Id, -Tx, A] extends TxDisposable[Tx] { 
-  def put      (id: Id, value: A)     (implicit tx: Tx): Unit
-  def get      (id: Id)               (implicit tx: Tx): Option[A]
-  def getOrElse(id: Id, default: => A)(implicit tx: Tx): A
+trait IdentMap[-Id, -T, A] extends TDisposable[T] { // XXX TODO remove `Id` type
+  def put      (id: Id, value: A)     (implicit tx: T): Unit
+  def get      (id: Id)               (implicit tx: T): Option[A]
+  def getOrElse(id: Id, default: => A)(implicit tx: T): A
 
-  def contains (id: Id)(implicit tx: Tx): Boolean
-  def remove   (id: Id)(implicit tx: Tx): Unit
+  def contains (id: Id)(implicit tx: T): Boolean
+  def remove   (id: Id)(implicit tx: T): Unit
 }

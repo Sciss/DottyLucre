@@ -1,5 +1,5 @@
 /*
- *  Ordered.scala
+ *  Publisher.scala
  *  (Lucre)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
@@ -13,6 +13,6 @@
 
 package de.sciss.lucre.experiment
 
-trait Ordered[-Tx, -A] {
-  def compare(that: A)(implicit tx: Tx): Int
+trait Publisher[T <: Txn[T], +A] {
+  def changed: EventLike[T, A]
 }

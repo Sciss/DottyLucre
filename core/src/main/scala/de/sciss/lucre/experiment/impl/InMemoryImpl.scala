@@ -12,6 +12,7 @@
  */
 
 package de.sciss.lucre.experiment
+package impl
 
 import de.sciss.equal.Implicits._
 import de.sciss.serial.{DataInput, DataOutput, Serializer}
@@ -21,16 +22,16 @@ import scala.concurrent.stm.{InTxn, TxnExecutor, Ref => ScalaRef}
 object InMemoryImpl {
   def apply(): InMemory = new System
 
-  trait Mixin[T <: InMemoryLike.Txn[T]] extends InMemoryLike[T] /*with ReactionMapImpl.Mixin[T]*/ {
+  trait Mixin[T <: InMemoryLike.Txn[T]] extends InMemoryLike[T] with ReactionMapImpl.Mixin[T] {
     private[this] final val idCnt = ScalaRef(0)
 
     //    protected val idIntView: T => Ident[]
 
-//    protected final val eventMap: IdentMap[Ident[T], T, Map[Int, scala.List[Observer[T, _]]]] =
-//      IdentMapImpl.newInMemoryIntMap[Ident[T], T, Map[Int, scala.List[Observer[T, _]]]](tx => id => tx.intId(id))
+    protected final val eventMap: IdentMap[Ident[T], T, Map[Int, scala.List[Observer[T, _]]]] =
+      IdentMapImpl[Ident[T], T, Map[Int, scala.List[Observer[T, _]]]] { implicit tx => id => id.!.id }
 
     private[lucre] final val attrMap: IdentMap[Ident[T], T, Obj.AttrMap[T]] =
-      ??? // IdentMapImpl.newInMemoryIntMap[Ident[T], T, Obj.AttrMap[T]](tx => id => tx.intId(id))
+      IdentMapImpl[Ident[T], T, Obj.AttrMap[T]] { implicit tx => id => id.!.id }
 
     private[lucre] final def newIdValue()(implicit tx: T): Int = {
       val peer  = tx.peer
@@ -39,7 +40,7 @@ object InMemoryImpl {
       res
     }
 
-    final def root[A](init: T => A)(implicit serializer: TxSerializer[T, A]): Handle[T, A] =
+    final def root[A](init: T => A)(implicit serializer: TSerializer[T, A]): Handle[T, A] =
       step { implicit tx =>
 //        val id  = tx.newId()
         val v   = init(tx)
@@ -48,7 +49,7 @@ object InMemoryImpl {
       }
 
     // may nest
-    def rootJoin[A](init: T => A)(implicit tx: TxnLike, serializer: TxSerializer[T, A]): Handle[T, A] =
+    def rootJoin[A](init: T => A)(implicit tx: TxnLike, serializer: TSerializer[T, A]): Handle[T, A] =
       root(init)
 
     final def close(): Unit = ()
@@ -76,25 +77,42 @@ object InMemoryImpl {
 
     def dispose(): Unit = ()
 
-    def newVar[A](init: A)(implicit serializer: TxSerializer[T, A]): Var[A] = {
-      val peer = ScalaRef(init)
-      new SysInMemoryRef[T, A](tx)(peer)
+    def !(implicit tx: T): InMemoryLike.Id[T] = {
+      // require (tx eq this.tx)
+      this
     }
 
-    def newBooleanVar(init: Boolean): Var[Boolean] = ???
+    def newVar[A](init: A)(implicit serializer: TSerializer[T, A]): Var[A] = {
+      val peer = ScalaRef(init)
+      new SysInMemoryRef[A](peer, tx.peer)
+    }
 
-    def newIntVar(init: Int): Var[Int] = ???
+    def newBooleanVar(init: Boolean): Var[Boolean] = {
+      val peer = ScalaRef(init)
+      new SysInMemoryRef[Boolean](peer, tx.peer)
+    }
 
-    def newLongVar(init: Long): Var[Long] = ???
+    def newIntVar(init: Int): Var[Int] = {
+      val peer = ScalaRef(init)
+      new SysInMemoryRef[Int](peer, tx.peer)
+    }
 
-    def readVar[A](in: DataInput)(implicit serializer: TxSerializer[T, A]): Var[A] =
+    def newLongVar(init: Long): Var[Long] = {
+      val peer = ScalaRef(init)
+      new SysInMemoryRef[Long](peer, tx.peer)
+    }
+
+    def readVar[A](in: DataInput)(implicit serializer: TSerializer[T, A]): Var[A] =
       opNotSupported("readVar")
     
-    def readBooleanVar(in: DataInput): Var[Boolean] = ???
+    def readBooleanVar(in: DataInput): Var[Boolean] =
+      opNotSupported("readBooleanVar")
 
-    def readIntVar(in: DataInput): Var[Int] = ???
+    def readIntVar(in: DataInput): Var[Int] =
+      opNotSupported("readIntVar")
 
-    def readLongVar(in: DataInput): Var[Long] = ???
+    def readLongVar(in: DataInput): Var[Long] =
+      opNotSupported("readLongVar")
 
     override def equals(that: Any): Boolean = that match {
       case thatId: InMemoryLike.Id[_] => thatId.id === id
@@ -118,7 +136,7 @@ object InMemoryImpl {
 
     final def newId(): Id = new IdImpl[T](this)(system.newIdValue()(this))
 
-    final def newHandle[A](value: A)(implicit serializer: TxSerializer[T, A]): Handle[T, A] =
+    final def newHandle[A](value: A)(implicit serializer: TSerializer[T, A]): Handle[T, A] =
       new EphemeralHandle(value)
 
     private[experiment] def getVar[A](vr: Var[A]): A = {
@@ -152,9 +170,7 @@ object InMemoryImpl {
     final def newVarArray[A](size: Int) = new Array[Var[A]](size)
 
     final def newIdentMap[A]: IdentMap[Ident[T] /*Id*/, T, A] =
-      IdentMapImpl.newInMemoryIntMap[Ident[T], T, A]({ implicit tx => id0 =>
-        id0.!.id
-      })
+      IdentMapImpl[Ident[T], T, A] { implicit tx => id => id.!.id }
 
 //    def readVar[A](id: Id, in: DataInput)(implicit ser: TxSerializer[T, A]): Var[A] =
 //      opNotSupported("readVar")
@@ -165,7 +181,7 @@ object InMemoryImpl {
 
     def readId(in: DataInput)(implicit acc: Acc): Id = opNotSupported("readId")
 
-//    private[lucre] final def reactionMap: ReactionMap[T] = system.reactionMap
+    private[experiment] final def reactionMap: ReactionMap[T] = system.reactionMap
 
     // ---- context ----
 
@@ -174,23 +190,21 @@ object InMemoryImpl {
     // ---- attributes ----
 
     def attrMap(obj: Obj[T]): Obj.AttrMap[T] = {
-      ???
-//      implicit val tx: T = this
-//      val am  = system.attrMap
-//      val id  = obj.id
-//      am.getOrElse(id, {
-//        val m = evt.Map.Modifiable[T, String, Obj]
-//        am.put(id, m)
-//        m
-//      })
+      implicit val tx: T = this
+      val am  = system.attrMap
+      val id  = obj.id.!
+      am.getOrElse(id, {
+        val m = TMap.Modifiable[T, String, Obj]()
+        am.put(id, m)
+        m
+      })
     }
 
     override def attrMapOption(obj: Obj[T]): Option[Obj.AttrMap[T]] = {
-      ???
-//      implicit val tx: T = this
-//      val am  = system.attrMap
-//      val id  = obj.id
-//      am.get(id)
+      implicit val tx: T = this
+      val am  = system.attrMap
+      val id  = obj.id.!
+      am.get(id)
     }
   }
 

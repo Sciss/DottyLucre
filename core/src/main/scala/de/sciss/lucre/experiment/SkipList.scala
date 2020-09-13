@@ -60,13 +60,13 @@ object SkipList {
 
     implicit def serializer[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
                                             (implicit ord: scala.Ordering[/*T,*/ A],
-                                             keySerializer: NewImmutSerializer[A]): TxSerializer[T, Set[T, A]] =
+                                             keySerializer: NewImmutSerializer[A]): TSerializer[T, Set[T, A]] =
       new SetSer[T, A](keyObserver)
 
     private final class SetSer[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A])
                                                (implicit ord: scala.Ordering[/*T,*/ A],
                                                 keySerializer: NewImmutSerializer[A])
-      extends TxSerializer[T, Set[T, A]] {
+      extends TSerializer[T, Set[T, A]] {
 
       override def read(in: DataInput, tx: T)(implicit acc: tx.Acc): Set[T, A] =
         Set.read[T, A](in, tx, keyObserver)
@@ -81,33 +81,33 @@ object SkipList {
   object Map {
     def empty[T <: Exec[T], A, B](implicit tx: T, ord: scala.Ordering[/*T,*/ A],
                                   keySerializer: NewImmutSerializer[/*T, S#Acc,*/ A],
-                                  valueSerializer: TxSerializer[T, /* S#Acc,*/ B]): SkipList.Map[T, A, B] =
+                                  valueSerializer: TSerializer[T, /* S#Acc,*/ B]): SkipList.Map[T, A, B] =
       HASkipList.Map.empty[T, A, B]
 
     def empty[T <: Exec[T], A, B](keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
                                  (implicit tx: T, ord: scala.Ordering[/*T,*/ A],
                                   keySerializer: NewImmutSerializer[/*T, S#Acc,*/ A],
-                                  valueSerializer: TxSerializer[T, /*S#Acc,*/ B]): SkipList.Map[T, A, B] =
+                                  valueSerializer: TSerializer[T, /*S#Acc,*/ B]): SkipList.Map[T, A, B] =
       HASkipList.Map.empty[T, A, B](keyObserver = keyObserver)
 
     def read[T <: Exec[T], A, B](in: DataInput, tx: T,
                                  keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
                                 (implicit acc: tx.Acc, ord: scala.Ordering[/*T,*/ A],
                                  keySerializer: NewImmutSerializer[/*T, S#Acc,*/ A],
-                                 valueSerializer: TxSerializer[T, /*S#Acc,*/ B]): SkipList.Map[T, A, B] =
+                                 valueSerializer: TSerializer[T, /*S#Acc,*/ B]): SkipList.Map[T, A, B] =
       HASkipList.Map.read[T, A, B](in, tx, keyObserver)
 
     def serializer[T <: Exec[T], A, B](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
                                       (implicit ord: scala.Ordering[/*T,*/ A],
                                        keySerializer: NewImmutSerializer[/*T, S#Acc,*/ A],
-                                       valueSerializer: TxSerializer[T, /*S#Acc,*/ B]): TxSerializer[T, /*S#Acc,*/ Map[T, A, B]] =
+                                       valueSerializer: TSerializer[T, /*S#Acc,*/ B]): TSerializer[T, /*S#Acc,*/ Map[T, A, B]] =
       new MapSer[T, A, B](keyObserver)
 
     private final class MapSer[T <: Exec[T], A, B](keyObserver: SkipList.KeyObserver[T, A])
                                                   (implicit ord: scala.Ordering[/*T,*/ A],
                                                    keySerializer: NewImmutSerializer[/*T, S#Acc,*/ A],
-                                                   valueSerializer: TxSerializer[T, /*S#Acc,*/ B])
-      extends TxSerializer[T, /*S#Acc,*/ Map[T, A, B]] {
+                                                   valueSerializer: TSerializer[T, /*S#Acc,*/ B])
+      extends TSerializer[T, /*S#Acc,*/ Map[T, A, B]] {
 
       override def read(in: DataInput, tx: T)(implicit acc: tx.Acc): Map[T, A, B] =
         Map.read[T, A, B](in, tx, keyObserver)
@@ -220,7 +220,7 @@ trait SkipList[T <: Exec[T], A, E] extends Mutable[T] {
    * a comparison function which guides the
    * binary search.
    *
-   * @param   ord   a function that guides the search.
+   * @param   compare   a function that guides the search.
    *                should return -1 if the argument is smaller
    *                than the search key, 0 if both are equivalent,
    *                or 1 if the argument is greater than the search key.
@@ -229,7 +229,7 @@ trait SkipList[T <: Exec[T], A, E] extends Mutable[T] {
    *
    * @return  the nearest item, or the maximum item
    */
-  def isomorphicQuery(ord: Ordered[T, A]): (E, Int)
+  def isomorphicQuery(compare: A => Int): (E, Int)
 
   // ---- stuff lost from collection.mutable.Set ----
 

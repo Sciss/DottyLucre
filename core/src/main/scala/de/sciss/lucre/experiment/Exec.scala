@@ -72,7 +72,7 @@ trait Exec[T <: Exec[T]] {
    * @param serializer    used to write and freshly read the object
    * @return              the handle
    */
-  def newHandle[A](value: A)(implicit serializer: TxSerializer[T, /*Acc,*/ A]): Handle[T, A]
+  def newHandle[A](value: A)(implicit serializer: TSerializer[T, /*Acc,*/ A]): Handle[T, A]
 }
 
 trait AnyExec extends Exec[AnyExec]

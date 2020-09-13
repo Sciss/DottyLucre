@@ -11,9 +11,10 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre.experiment
+package de.sciss.lucre.experiment.impl
 
 import de.sciss.lucre.experiment.Plain.Id
+import de.sciss.lucre.experiment.{IdentMap, Plain}
 
 import scala.collection.mutable
 

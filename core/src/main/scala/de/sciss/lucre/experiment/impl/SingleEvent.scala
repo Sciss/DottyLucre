@@ -1,5 +1,5 @@
 /*
- *  Mutable.scala
+ *  SingleEvent.scala
  *  (Lucre)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
@@ -12,7 +12,8 @@
  */
 
 package de.sciss.lucre.experiment
+package impl
 
-import de.sciss.serial.Writable
-
-trait Mutable[T <: Exec[T]] extends Identified[T] with Writable with Disposable
+trait SingleEvent[T <: Txn[T], +A] extends Event[T, A] {
+  private[experiment] final def slot = 0
+}

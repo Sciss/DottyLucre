@@ -25,12 +25,12 @@ object ObjImpl {
     tpe.readIdentifiedObj(in, tx)
   }
 
-  implicit def serializer[T <: Txn[T]]: TxSerializer[T, Obj[T]] = anySer.asInstanceOf[Ser[T]]
+  implicit def serializer[T <: Txn[T]]: TSerializer[T, Obj[T]] = anySer.asInstanceOf[Ser[T]]
 
   @field private[this] final val sync   = new AnyRef
   @field private[this] final val anySer = new Ser[AnyTxn]
 
-  @volatile private var map = Map[Int, Obj.Type](???) // evt.Map.typeId -> evt.Map)
+  @volatile private var map = Map[Int, Obj.Type](TMap.typeId -> TMap)
 
   def addType(tpe: Obj.Type): Unit = sync.synchronized {
     val typeId = tpe.typeId
@@ -44,7 +44,7 @@ object ObjImpl {
   @inline
   def getType(id: Int): Obj.Type = map.getOrElse(id, sys.error(s"Unknown object type $id (0x${id.toHexString})"))
 
-  private final class Ser[T <: Txn[T]] extends TxSerializer[T, Obj[T]] {
+  private final class Ser[T <: Txn[T]] extends TSerializer[T, Obj[T]] {
     def read(in: DataInput, tx: T)(implicit acc: tx.Acc): Obj[T] = ObjImpl.read(in, tx)
 
     def write(obj: Obj[T], out: DataOutput): Unit = obj.write(out)

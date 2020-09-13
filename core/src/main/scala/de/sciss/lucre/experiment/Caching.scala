@@ -1,5 +1,5 @@
 /*
- *  EphemeralHandle.scala
+ *  Caching.scala
  *  (Lucre)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
@@ -13,8 +13,8 @@
 
 package de.sciss.lucre.experiment
 
-final class EphemeralHandle[Tx, A](value: A) extends Handle[Tx, A] {
-  override def toString = s"handle: $value"
-
-  def apply()(implicit tx: Tx): A = value
-}
+/** A marker trait for events that maintain a cache. Events mixing in this trait are
+ * guaranteed to participate in the `pullUpdate` phase, even if no live observer is
+ * attached to them.
+ */
+trait Caching

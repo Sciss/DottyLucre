@@ -1,5 +1,5 @@
 /*
- *  Mutable.scala
+ *  EphemeralHandle.scala
  *  (Lucre)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
@@ -11,8 +11,12 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre.experiment
+package de.sciss.lucre.experiment.impl
 
-import de.sciss.serial.Writable
+import de.sciss.lucre.experiment.Handle
 
-trait Mutable[T <: Exec[T]] extends Identified[T] with Writable with Disposable
+final class EphemeralHandle[Tx, A](value: A) extends Handle[Tx, A] {
+  override def toString = s"handle: $value"
+
+  def apply()(implicit tx: Tx): A = value
+}

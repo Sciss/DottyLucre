@@ -11,23 +11,19 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre.experiment
+package de.sciss.lucre.experiment.impl
+
+import de.sciss.lucre.experiment.{Copy, Elem, Obj, Txn}
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
 
-object CopyImpl {
-  private sealed trait State[+T]
-  private final case class Done[T <: Txn[T]](elem: Elem[T]) extends State[T]
-  private case object Busy extends State[Nothing]
-
-}
 final class CopyImpl[In <: Txn[In], Out <: Txn[Out]](implicit txIn: In, txOut: Out)
   extends Copy[In, Out] {
+  
+  import scala.{Option => State, None => Busy, Some => Done}
 
-  import CopyImpl._
-
-  private[this] val stateMap = mutable.Map.empty[Elem[In], State[Out]]
+  private[this] val stateMap = mutable.Map.empty[Elem[In], State[Elem[Out]]]
   private[this] val hintMap  = mutable.Map.empty[Elem[In], mutable.Map[String, Any]]
   private[this] var deferred: mutable.Buffer[() => Unit] = _
 
@@ -39,7 +35,7 @@ final class CopyImpl[In <: Txn[In], Out <: Txn[Out]](implicit txIn: In, txOut: O
   def defer[Repr[~ <: Txn[~]] <: Obj[~]](in: Repr[In], out: Repr[Out])(code: => Unit): Unit = {
     if (!stateMap.get(in).contains(Busy))
       throw new IllegalStateException(s"Copy.defer must be called during copy process: $in")
-    stateMap.put(in, Done[Out](out))
+    stateMap.put(in, Done[Elem[Out]](out))
     deferred += (() => code)
   }
 
@@ -53,35 +49,42 @@ final class CopyImpl[In <: Txn[In], Out <: Txn[Out]](implicit txIn: In, txOut: O
   private def copyImpl[Repr[~ <: Txn[~]] <: Elem[~]](in: Repr[In]): Repr[Out] = {
     stateMap.put(in, Busy)
     val out = in.copy()(/*txIn,*/ txOut, this)
-    stateMap.put(in, Done[Out](out))
+    stateMap.put(in, Done(out))
     out.asInstanceOf[Repr[Out]]
   }
 
   def apply[Repr[~ <: Txn[~]] <: Elem[~]](in: Repr[In]): Repr[Out] = {
-    val opt: Option[State[Out]] = stateMap.get(in)
+    val opt: Option[State[Elem[Out]]] = stateMap.get(in)
     opt match {
-      // XXX TODO: Dotty does not compile: case Some(Done(out)) => out.asInstanceOf[Repr[Out]]
+      case Some(d: Done[Elem[Out]]) => d.value.asInstanceOf[Repr[Out]]
       case Some(Busy) => throw new IllegalStateException(s"Cyclic object graph involving $in")
       case None =>
         val out = copyImpl[Repr](in)
-        (in, out) match {
-          // XXX TODO Dotty does not compile:
-          //          case (inObj: Obj[In], outObj: Obj[Out]) =>      // copy the attributes
-          //            // NOTE: do not use `defer` which should be reserved for the
-          //            // object itself only. Because if that object has called `defer`,
-          //            // it will be found already as `Done`, causing a second `defer`
-          //            // to throw an exception. Simply add to `deferred!
-          //            //     defer(inObj, outObj)(copyAttr(inObj, outObj)) // ...later
-          //            deferred += (() => copyAttr(inObj, outObj))
-          case _ =>
+        // XXX TODO: currently Dotty crashes here: https://github.com/lampepfl/dotty/issues/9782
+//        (in, out) match {
+//          case (inObj: Obj[In], outObj: Obj[Out]) =>      // copy the attributes
+//            // NOTE: do not use `defer` which should be reserved for the
+//            // object itself only. Because if that object has called `defer`,
+//            // it will be found already as `Done`, causing a second `defer`
+//            // to throw an exception. Simply add to `deferred!
+//            //     defer(inObj, outObj)(copyAttr(inObj, outObj)) // ...later
+//            deferred += (() => copyAttr(inObj, outObj))
+//          case _ =>
+//        }
+
+        if (in.isInstanceOf[Obj[_]] && out.isInstanceOf[Obj[_]]) {
+          val inObj   = in.asInstanceOf[Obj[In  ]]
+          val outObj  = in.asInstanceOf[Obj[Out ]]
+          deferred += (() => copyAttr(inObj, outObj))
         }
+
         out
     }
   }
 
   def copyPlain[Repr[~ <: Txn[~]] <: Elem[~]](in: Repr[In]): Repr[Out] =
     stateMap.get(in) match {
-      // XXX TODO: Dotty does not compile: case Some(Done(out)) => out.asInstanceOf[Repr[Out]]
+      case Some(Done(out)) => out.asInstanceOf[Repr[Out]]
       case Some(Busy) => throw new IllegalStateException(s"Cyclic object graph involving $in")
       case None =>
         copyImpl(in)

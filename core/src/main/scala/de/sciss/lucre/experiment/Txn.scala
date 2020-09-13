@@ -40,7 +40,7 @@ trait Txn[T <: Txn[T]] extends Exec[T] with TxnLike {
 
   // ---- events ----
 
-//  private[lucre] def reactionMap: ReactionMap[T]
+  private[experiment] def reactionMap: ReactionMap[T]
 
   // ---- attributes ----
 

@@ -13,6 +13,8 @@
 
 package de.sciss.lucre.experiment
 
+import de.sciss.lucre.experiment.impl.InMemoryImpl
+
 object InMemory {
   trait Txn extends InMemoryLike.Txn[Txn]
 

@@ -13,6 +13,8 @@
 
 package de.sciss.lucre.experiment
 
+import de.sciss.lucre.experiment.impl.CopyImpl
+
 import scala.reflect.ClassTag
 
 object Copy {
