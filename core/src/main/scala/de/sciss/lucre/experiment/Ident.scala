@@ -40,4 +40,5 @@ trait Ident[T <: Exec[T]]
   def readIntVar    (in: DataInput): Var[Int]
   def readLongVar   (in: DataInput): Var[Long]
 
+  def ! (implicit tx: T): tx.Id = ???
 }

@@ -38,14 +38,14 @@ object InMemoryLike {
     private[experiment] def peer: STMRef[A]
   }
 }
-trait InMemoryLike[Tx <: Txn[Tx]] extends Sys /*[S]*/ with Cursor[Tx] {
+trait InMemoryLike[Tx <: InMemoryLike.Txn[Tx]] extends Sys /*[S]*/ with Cursor[Tx] {
   //  final type Var[A]   = InMemoryLike.Var[S, A]
-  //  final type Id       = InMemoryLike.Id[S]
+  final type Id       = InMemoryLike.Id[T]
   //  final type Acc      = Unit
 
   type T = Tx // InMemoryLike.Txn[T]
 
-  private[lucre] def attrMap: IdentMap[Ident[T], T, Obj.AttrMap[T]]
+  private[lucre] def attrMap: IdentMap[Id, T, Obj.AttrMap[T]]
 
   private[lucre] def newIdValue()(implicit tx: T): Int
 

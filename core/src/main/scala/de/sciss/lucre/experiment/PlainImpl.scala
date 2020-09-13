@@ -147,7 +147,7 @@ object PlainImpl {
 //
 //    def newVarArray[A](size: Int): Array[Var[A]] = new Array[S#Var[A]](size)
 
-//    def newInMemoryIdMap[A]: IdentMap[Id, Tx, A] = new PlainIdentMap[A]
+    def newIdentMap[A]: IdentMap[Id, Tx, A] = new PlainIdentMap[A]
 
     //    def newInMemoryMap[K, V]: RefMap[S, K, V] = new PlainInMemoryMap[K, V]
     //    def newInMemorySet[A]   : RefSet[S, A]    = new PlainInMemorySet[A]
@@ -159,7 +159,7 @@ object PlainImpl {
     def readIntVar    (id: Id, in: DataInput): Var[Int]      = opNotSupported("readIntVar")
     def readLongVar   (id: Id, in: DataInput): Var[Long]     = opNotSupported("readLongVar")
 
-//    def newHandle[A](value: A)(implicit serializer: TxSerializer[Tx,/* Acc,*/ A]): Source[Tx, A] =
-//      new EphemeralHandle(value)
+    def newHandle[A](value: A)(implicit serializer: TxSerializer[Tx,/* Acc,*/ A]): Handle[Tx, A] =
+      new EphemeralHandle(value)
   }
 }
