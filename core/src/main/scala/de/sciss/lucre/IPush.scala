@@ -17,7 +17,6 @@ import de.sciss.equal.Implicits._
 import de.sciss.lucre.IEvent
 import de.sciss.lucre.IPull.Phase
 import de.sciss.lucre.Log.logEvent
-import de.sciss.lucre.expr.IExpr
 import de.sciss.model.Change
 
 import scala.annotation.elidable

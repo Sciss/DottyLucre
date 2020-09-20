@@ -24,11 +24,8 @@ object Ident {
   //
   //  private val anySer = new IdentifierSerializer[NoBase]
 }
-trait Ident[T <: Exec[T]] 
-  extends /*Disposable[Tx] with*/ serial.Writable {
+trait Ident[T <: Exec[T]] extends Disposable with serial.Writable {
   
-  def dispose(): Unit
-
   def newVar[A](init: A)(implicit serializer: TSerializer[T,/* Acc,*/ A]): Var[A]
 
   def newBooleanVar(init: Boolean): Var[Boolean]

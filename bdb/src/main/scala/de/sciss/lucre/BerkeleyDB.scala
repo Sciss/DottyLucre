@@ -11,7 +11,7 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre.experiment
+package de.sciss.lucre
 
 import java.io.{File, FileNotFoundException}
 import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
@@ -55,7 +55,7 @@ object BerkeleyDB {
       b
     }
   }
-  final class ConfigBuilder private[BerkeleyDB] () extends ConfigLike {
+  final class ConfigBuilder private[BerkeleyDB]() extends ConfigLike {
     var logLevel    : LogLevel = LogOff
 
     var readOnly    : Boolean  = false

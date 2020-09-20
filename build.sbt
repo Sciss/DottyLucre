@@ -7,10 +7,18 @@ lazy val deps = new {
   val base = new {
     val serial        = "1.1.3"
   }
+  val adjunct = new {
+    val numbers       = "0.2.1"
+  }
   val core = new {
     val equal         = "0.1.5"
     val model         = "0.3.5"
     val scalaSTM      = "0.10.0-SNAPSHOT"
+  }
+  val expr = new {
+    def equal: String = core.equal
+    val fileUtil      = "1.1.5"
+    val span          = "1.4.4"
   }
   val bdb = new {
     val sleepy7       = "7.5.11"  // Apache // Java 8+ required
@@ -49,8 +57,8 @@ lazy val agpl = "AGPL v3+" -> url("http://www.gnu.org/licenses/agpl-3.0.txt")
 
 // i.e. root = full sub project. if you depend on root, will draw all sub modules.
 lazy val root = project.withId(baseNameL).in(file("."))
-  .aggregate(base, geom, data, core, bdb) // adjunct, expr, confluent
-  .dependsOn(base, geom, data, core, bdb) // adjunct, expr, confluent
+  .aggregate(base, adjunct, geom, data, core, expr, bdb) // confluent
+  .dependsOn(base, adjunct, geom, data, core, expr, bdb) // confluent
   .settings(commonSettings)
   .settings(
     licenses := Seq(agpl),
@@ -78,6 +86,17 @@ lazy val geom = project.withId(s"$baseNameL-geom").in(file("geom"))
       "de.sciss" %% "serial" % deps.base.serial
     ),
     mimaPreviousArtifacts := Set("de.sciss" %% s"$baseNameL-geom" % mimaVersion)
+  )
+
+lazy val adjunct = project.withId(s"$baseNameL-adjunct").in(file("adjunct"))
+  .dependsOn(base)
+  .settings(commonSettings)
+  .settings(
+    licenses := Seq(agpl),
+    libraryDependencies ++= Seq(
+      "de.sciss" %% "numbers" % deps.adjunct.numbers
+    ),
+    mimaPreviousArtifacts := Set("de.sciss" %% s"$baseNameL-adjunct" % mimaVersion)
   )
 
 lazy val data = project.in(file("data"))
@@ -110,6 +129,19 @@ lazy val core = project.withId(s"$baseNameL-core").in(file("core"))
     ),
     buildInfoPackage := "de.sciss.lucre",
     mimaPreviousArtifacts := Set("de.sciss" %% s"$baseNameL-core" % mimaVersion)
+  )
+
+lazy val expr = project.withId(s"$baseNameL-expr").in(file("expr"))
+  .dependsOn(core, adjunct)
+  .settings(commonSettings)
+  .settings(
+    licenses := Seq(agpl),
+    libraryDependencies ++= Seq(
+      "de.sciss" %% "equal"     % deps.expr.equal % Provided,
+      "de.sciss" %% "fileutil"  % deps.expr.fileUtil,
+      "de.sciss" %% "span"      % deps.expr.span,
+    ),
+    mimaPreviousArtifacts := Set("de.sciss" %% s"$baseNameL-expr" % mimaVersion)
   )
 
 lazy val bdb = project.withId(s"$baseNameL-bdb").in(file("bdb"))

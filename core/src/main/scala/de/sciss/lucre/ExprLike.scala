@@ -11,7 +11,7 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre.expr
+package de.sciss.lucre
 
 import de.sciss.lucre.{Base, Exec, Form, Observable}
 import de.sciss.model.Change
@@ -22,5 +22,5 @@ import de.sciss.model.Change
 trait ExprLike[T <: Exec[T], +A] extends Form[T] {
   def changed: Observable[T, Change[A]]
 
-  def value(implicit tx: T): A
+  def valueT(implicit tx: T): A
 }
