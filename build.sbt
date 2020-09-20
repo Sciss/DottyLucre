@@ -20,6 +20,9 @@ lazy val deps = new {
     val fileUtil      = "1.1.5"
     val span          = "1.4.4"
   }
+  val confluent = new {
+    val finger        = "1.5.5"
+  }
   val bdb = new {
     val sleepy7       = "7.5.11"  // Apache // Java 8+ required
   }
@@ -57,8 +60,8 @@ lazy val agpl = "AGPL v3+" -> url("http://www.gnu.org/licenses/agpl-3.0.txt")
 
 // i.e. root = full sub project. if you depend on root, will draw all sub modules.
 lazy val root = project.withId(baseNameL).in(file("."))
-  .aggregate(base, adjunct, geom, data, core, expr, bdb) // confluent
-  .dependsOn(base, adjunct, geom, data, core, expr, bdb) // confluent
+  .aggregate(base, adjunct, geom, data, core, expr, confluent, bdb)
+  .dependsOn(base, adjunct, geom, data, core, expr, confluent, bdb)
   .settings(commonSettings)
   .settings(
     licenses := Seq(agpl),
@@ -142,6 +145,17 @@ lazy val expr = project.withId(s"$baseNameL-expr").in(file("expr"))
       "de.sciss" %% "span"      % deps.expr.span,
     ),
     mimaPreviousArtifacts := Set("de.sciss" %% s"$baseNameL-expr" % mimaVersion)
+  )
+
+lazy val confluent = project.withId(s"$baseNameL-confluent").in(file("confluent"))
+  .dependsOn(core)
+  .settings(commonSettings)
+  .settings(
+    licenses := Seq(agpl),
+    libraryDependencies ++= Seq(
+      "de.sciss" %% "fingertree" % deps.confluent.finger
+    ),
+    mimaPreviousArtifacts := Set("de.sciss" %% s"$baseNameL-confluent" % mimaVersion)
   )
 
 lazy val bdb = project.withId(s"$baseNameL-bdb").in(file("bdb"))
