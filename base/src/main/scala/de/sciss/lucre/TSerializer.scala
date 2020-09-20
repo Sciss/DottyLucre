@@ -37,7 +37,8 @@ object NewImmutSerializer {
   }
 }
 trait NewImmutSerializer[A] extends TSerializer[AnyExec, A] {
-  override def read(in: DataInput, tx: AnyExec)(implicit acc: tx.Acc): A = read(in)
+  override def read(in: DataInput, tx: AnyExec)(implicit acc: tx.Acc): A =
+    read(in)
 
   def read(in: DataInput): A
 }
