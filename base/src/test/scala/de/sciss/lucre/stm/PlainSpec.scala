@@ -1,4 +1,4 @@
-package de.sciss.lucre.stm
+package de.sciss.lucre
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -9,12 +9,12 @@ class PlainSpec extends AnyFlatSpec with Matchers {
     val tx = Plain.instance
 
     val id = tx.newId()
-    val vrS = tx.newVar(id, "Hello")
+    val vrS = id.newVar("Hello")
     assert(vrS() === "Hello")
     vrS() = "World"
     assert(vrS() === "World")
 
-    val vrI = tx.newIntVar(id, 1)
+    val vrI = id.newIntVar(1)
     assert(vrI() === 1)
     vrI() = vrI() + 2
     assert(vrI() === 3)

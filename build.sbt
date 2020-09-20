@@ -5,12 +5,15 @@ lazy val mimaVersion      = "4.0.0"
 
 lazy val deps = new {
   val base = new {
-    val serial        = "1.1.2"
+    val serial        = "1.1.3"
   }
   val core = new {
     val equal         = "0.1.5"
     val model         = "0.3.5"
     val scalaSTM      = "0.10.0-SNAPSHOT"
+  }
+  val bdb = new {
+    val sleepy7       = "7.5.11"  // Apache // Java 8+ required
   }
   val test = new {
     val scalaTest     = "3.2.2"
@@ -46,8 +49,8 @@ lazy val agpl = "AGPL v3+" -> url("http://www.gnu.org/licenses/agpl-3.0.txt")
 
 // i.e. root = full sub project. if you depend on root, will draw all sub modules.
 lazy val root = project.withId(baseNameL).in(file("."))
-  .aggregate(base, data, core) // geom, adjunct, expr, confluent, bdb
-  .dependsOn(base, data, core) // geom, adjunct, expr, confluent, bdb
+  .aggregate(base, geom, data, core, bdb) // adjunct, expr, confluent
+  .dependsOn(base, geom, data, core, bdb) // adjunct, expr, confluent
   .settings(commonSettings)
   .settings(
     licenses := Seq(agpl),
@@ -62,9 +65,19 @@ lazy val base = project.in(file("base"))
   .settings(
     name := s"$baseName-base",
     libraryDependencies ++= Seq(
-//      "de.sciss" %% "serial" % "1.1.3-SNAPSHOT"
-      "org.scalatest" %% "scalatest" % deps.test.scalaTest % Test
+      "de.sciss"      %% "serial"     % deps.base.serial,
+      "org.scalatest" %% "scalatest"  % deps.test.scalaTest % Test
     ),
+  )
+
+lazy val geom = project.withId(s"$baseNameL-geom").in(file("geom"))
+  .settings(commonSettings)
+  .settings(
+    licenses := Seq(agpl),
+    libraryDependencies ++= Seq(
+      "de.sciss" %% "serial" % deps.base.serial
+    ),
+    mimaPreviousArtifacts := Set("de.sciss" %% s"$baseNameL-geom" % mimaVersion)
   )
 
 lazy val data = project.in(file("data"))
@@ -97,6 +110,15 @@ lazy val core = project.withId(s"$baseNameL-core").in(file("core"))
     ),
     buildInfoPackage := "de.sciss.lucre",
     mimaPreviousArtifacts := Set("de.sciss" %% s"$baseNameL-core" % mimaVersion)
+  )
+
+lazy val bdb = project.withId(s"$baseNameL-bdb").in(file("bdb"))
+  .dependsOn(core)
+  .settings(commonSettings)
+  .settings(
+    licenses := Seq(agpl),
+    libraryDependencies += "de.sciss" % "bdb-je" % deps.bdb.sleepy7,
+    mimaPreviousArtifacts := Set("de.sciss" %% s"$baseNameL-bdb" % mimaVersion)
   )
 
 lazy val loggingEnabled = true  // only effective for snapshot versions

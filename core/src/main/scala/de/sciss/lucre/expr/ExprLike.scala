@@ -13,8 +13,7 @@
 
 package de.sciss.lucre.expr
 
-import de.sciss.lucre.event.Observable
-import de.sciss.lucre.stm.{Base, Exec, Form}
+import de.sciss.lucre.{Base, Exec, Form, Observable}
 import de.sciss.model.Change
 
 /** This is the current compromise for unifying `Ex`/`IExpr` and `Expr`

@@ -13,12 +13,11 @@
 
 package de.sciss.lucre.expr
 
-import de.sciss.lucre.event.IChangePublisher
-import de.sciss.lucre.stm.{Base, Disposable, Exec, Ref}
+import de.sciss.lucre.{Base, Exec, IChangePublisher, TDisposable, TVar}
 
 object IExpr {
-  trait Var[T <: Exec[T], A] extends IExpr[T, A] with Ref[T, IExpr[T, A]]
+  trait Var[T <: Exec[T], A] extends IExpr[T, A] with TVar[T, IExpr[T, A]]
 }
-trait IExpr[T <: Exec[T], +A] extends ExprLike[T, A] with IChangePublisher[T, A] with Disposable[T] {
+trait IExpr[T <: Exec[T], +A] extends ExprLike[T, A] with IChangePublisher[T, A] with TDisposable[T] {
   def value(implicit tx: T): A
 }

@@ -1,11 +1,11 @@
-package de.sciss.lucre.stm
+package de.sciss.lucre
 
 object Test {
   def apply[Tx <: Exec[Tx]]()(implicit tx: Tx): Test[Tx] = new Impl(tx)
   
   private class Impl[Tx <: Exec[Tx]](tx0: Tx) extends Test[Tx] {
     private val _id = tx0.newId()
-    private val vr  = tx0.newIntVar(_id, 0)
+    private val vr  = _id.newIntVar(0)
     
 //    def id: Tx#Id = _id
     
