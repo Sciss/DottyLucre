@@ -14,5 +14,7 @@ object Durable {
 }
 
 trait Durable extends DurableLike[Durable.Txn] {
-  final type I = InMemory
+  final type I = InMemory.Txn
+
+  override def inMemory: InMemory
 }

@@ -1,12 +1,13 @@
-package de.sciss.lucre
+package de.sciss.lucre.data
 
 import de.sciss.lucre.geom.{IntPoint2D => P, IntSquare => Q}
 import org.scalatest.funspec.AnyFunSpec
 
 /*
- To run only this suite
 
-test-only de.sciss.lucre.data.InterestingSquareSuite
+  To run only this suite
+
+  testOnly de.sciss.lucre.data.InterestingSquareSuite
 
   */
 class InterestingSquareSuite extends AnyFunSpec {

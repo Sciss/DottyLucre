@@ -148,7 +148,7 @@ sealed trait DurablePartialMapImpl[T <: Txn[T], K] extends DurablePersistentMap[
         }
         val access  = writeTerm +: suffix
         val in      = DataInput(arr)
-        ser.read(in, tx)(???) // (access)
+        ser.read(in, tx)(access)
     } (tx, ByteArraySerializer)
   }
 

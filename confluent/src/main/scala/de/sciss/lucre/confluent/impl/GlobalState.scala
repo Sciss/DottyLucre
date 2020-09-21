@@ -16,7 +16,6 @@ package confluent
 package impl
 
 import de.sciss.lucre.data.Ancestor
-import de.sciss.lucre.{Var => LVar}
 import de.sciss.serial.{DataInput, DataOutput}
 
 private[impl] object GlobalState {
@@ -43,9 +42,9 @@ private[impl] object GlobalState {
       if (serVer != SER_VERSION)
         throw new IllegalStateException(s"Incompatible serialized version. Found $serVer but require $SER_VERSION")
       val durRootId     = in.readInt() // readInt()
-      val idCnt         = ??? // tx.readCachedIntVar(in)
-      val versionLinear = ??? // tx.readCachedIntVar(in)
-      val versionRandom = ??? // tx.readCachedLongVar(in)
+      val idCnt         = tx.readCachedIntVar(in)
+      val versionLinear = tx.readCachedIntVar(in)
+      val versionRandom = tx.readCachedLongVar(in)
       val partialTree   = Ancestor.readTree[D, Long](in, tx)(acc, implicitly[TSerializer[D, Long]], _.toInt)
       GlobalState[T, D](durRootId = durRootId, idCnt = idCnt, versionLinear = versionLinear,
         versionRandom = versionRandom, partialTree = partialTree)
@@ -54,5 +53,5 @@ private[impl] object GlobalState {
 }
 
 private[impl] final case class GlobalState[T <: Txn[T], D <: DurableLike.Txn[D]](
-    durRootId: Int, idCnt: LVar[Int], versionLinear: LVar[Int], versionRandom: LVar[Long],
+    durRootId: Int, idCnt: TVar[D, Int], versionLinear: TVar[D, Int], versionRandom: TVar[D, Long],
     partialTree:  Ancestor.Tree[D, Long])

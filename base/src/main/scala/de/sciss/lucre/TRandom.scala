@@ -15,11 +15,11 @@ package de.sciss.lucre
 
 /** Like java's random, but within a transactional cell. */
 object TRandom {
-//  def apply[T <: Exec[T]](id: S#Id)(implicit tx: T): TRandom[T] = Impl(id)
+//  def apply[T <: Exec[T]](id: Ident[T])(implicit tx: T): TRandom[T] = impl.TRandomImpl(id)
 //
-//  def apply[T <: Exec[T]](id: S#Id, seed: Long)(implicit tx: T): TRandom[T] = Impl(id, seed)
-//
-//  def wrap[Tx](peer: TVar[Tx, Long]): TRandom[Tx] = Impl.wrap(peer)
+//  def apply[T <: Exec[T]](id: Ident[T], seed: Long)(implicit tx: T): TRandom[T] = impl.TRandomImpl(id, seed)
+
+  def wrap[Tx](peer: TVar[Tx, Long]): TRandom[Tx] = impl.TRandomImpl.wrap(peer)
 }
 
 /** A transactional pseudo-random number generator which

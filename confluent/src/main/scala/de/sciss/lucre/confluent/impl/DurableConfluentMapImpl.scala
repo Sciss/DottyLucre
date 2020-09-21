@@ -274,7 +274,7 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
       //            (path.dropAndReplaceHead( preLen, writeTerm ), value)
       val access  = wp.term +: path.drop(wp.len)
       val in      = DataInput(wp.value)
-      ser.read(in, tx)(???) // (access)
+      ser.read(in, tx)(access)
     }
   }
 

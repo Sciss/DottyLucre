@@ -18,8 +18,8 @@ import de.sciss.lucre.confluent.Log.log
 import de.sciss.lucre.confluent.impl.DurableCacheMapImpl.Store
 import de.sciss.lucre.confluent.impl.{PathImpl => Path}
 import de.sciss.lucre.data.Ancestor
-import de.sciss.lucre.impl.ReactionMapImpl
-import de.sciss.lucre.{Confluent, ConfluentLike, DataStore, Ident, IdentMap, NewImmutSerializer, Observer, TSerializer, TSource, TVar, TxnLike, Txn => LTxn}
+import de.sciss.lucre.impl.{ReactionMapImpl, TRandomImpl}
+import de.sciss.lucre.{ConfluentLike, DataStore, Ident, IdentMap, NewImmutSerializer, Observer, TRandom, TRef, TSerializer, TSource, TxnLike, Txn => LTxn}
 import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.annotation.tailrec
@@ -55,21 +55,21 @@ trait Mixin[Tx <: Txn[Tx]]
     new InMemoryIdMapImpl[T, Map[Int, List[Observer[T, _]]]](map)
   }
 
-  private val global: GlobalState[T, D] = ???
-//    durable.step { implicit tx =>
-//      val root = durable.rootJoin { implicit tx =>
-//        val durRootId     = durable.newIdValue() // stm.DurableSurgery.newIdValue(durable)
-//        val idCnt         = tx.newCachedIntVar(0)
-//        val versionLinear = tx.newCachedIntVar(0)
-//        val versionRandom = tx.newCachedLongVar(RandomImpl.initialScramble(0L)) // scramble !!!
-//        val partialTree   = Ancestor.newTree[D, Long](1L << 32)(tx, Serializer.Long, _.toInt)
-//        GlobalState[T, D](durRootId = durRootId, idCnt = idCnt, versionLinear = versionLinear,
-//          versionRandom = versionRandom, partialTree = partialTree)
-//      }
-//      root()
-//    }
+  private val global: GlobalState[T, D] =
+    durable.step { implicit tx =>
+      val root = durable.rootJoin { implicit tx =>
+        val durRootId     = durable.newIdValue() // stm.DurableSurgery.newIdValue(durable)
+        val idCnt         = tx.newCachedIntVar(0)
+        val versionLinear = tx.newCachedIntVar(0)
+        val versionRandom = tx.newCachedLongVar(TRandomImpl.initialScramble(0L)) // scramble !!!
+        val partialTree   = Ancestor.newTree[D, Long](1L << 32)(tx, implicitly[TSerializer[D, Long]], _.toInt)
+        GlobalState[T, D](durRootId = durRootId, idCnt = idCnt, versionLinear = versionLinear,
+          versionRandom = versionRandom, partialTree = partialTree)
+      }
+      root()
+    }
 
-//  private val versionRandom = Random.wrap(global.versionRandom)
+  private val versionRandom = TRandom.wrap(global.versionRandom)
 
   override def toString = "Confluent"
 
@@ -85,7 +85,7 @@ trait Mixin[Tx <: Txn[Tx]]
     global.versionLinear() = lin
     var rnd = 0
     while ({
-      rnd = ??? // versionRandom.nextInt()
+      rnd = versionRandom.nextInt()
 
       rnd == 0
     }) ()
@@ -112,24 +112,24 @@ trait Mixin[Tx <: Txn[Tx]]
 
   final def newCursor(init: Access[T])(implicit tx: T): Cursor[T, D] = {
     implicit val dtx: D = durableTx(tx)
-//    implicit val s: S { type D = system.D } = this  // this is to please the IntelliJ IDEA presentation compiler
+    implicit val s: ConfluentLike[T] { type D = self.D } = this
     Cursor[T, D](init)
   }
 
   final def readCursor(in: DataInput)(implicit tx: T): Cursor[T, D] = {
     implicit val dtx: D = durableTx(tx)
     implicit val dAcc: Unit = ()
-//    implicit val s: S { type D = system.D } = this  // this is to please the IntelliJ IDEA presentation compiler
+    implicit val s: ConfluentLike[T] { type D = self.D } = this  // this is to please the IntelliJ IDEA presentation compiler
     Cursor.read[T, D](in, dtx)
   }
 
-  final def root[A](init: T => A)(implicit serializer: TSerializer[T, A]): TVar[T, A] =
+  final def root[A](init: T => A)(implicit serializer: TSerializer[T, A]): TRef[T, A] =
     executeRoot { implicit tx =>
       rootBody(init)
     }
 
   final def rootJoin[A](init: T => A)
-                       (implicit itx: TxnLike, serializer: TSerializer[T, A]): TVar[T, A] = {
+                       (implicit itx: TxnLike, serializer: TSerializer[T, A]): TRef[T, A] = {
     log("::::::: rootJoin :::::::")
     TxnExecutor.defaultAtomic { itx =>
       implicit val tx: T = wrapRoot(itx)
@@ -138,13 +138,13 @@ trait Mixin[Tx <: Txn[Tx]]
   }
 
   private def rootBody[A](init: T => A)
-                         (implicit tx: T, serializer: TSerializer[T, A]): TVar[T, A] = {
+                         (implicit tx: T, serializer: TSerializer[T, A]): TRef[T, A] = {
     val (rootVar, _, _) = initRoot(init, _ => (), _ => ())
     rootVar
   }
 
   def cursorRoot[A, B](init: T => A)(result: T => A => B)
-                      (implicit serializer: TSerializer[T, A]): (TVar[T, A], B) =
+                      (implicit serializer: TSerializer[T, A]): (TRef[T, A], B) =
     executeRoot { implicit tx =>
       val (rootVar, rootVal, _) = initRoot(init, _ => (), _ => ())
       rootVar -> result(tx)(rootVal)
@@ -159,13 +159,13 @@ trait Mixin[Tx <: Txn[Tx]]
         // read durable
         val did = global.durRootId
         // stm.DurableSurgery.read (durable)(did)(bSer.read(_, ()))
-        ??? // durable.read(did)(bSer.read(_, ()))
+        durable.read(did)(bSer.read(_, dtx)(()))
       }, { _ /* tx */ =>
         // create durable
         val _durV = durInit(dtx)
         val did = global.durRootId
         // stm.DurableSurgery.write(durable)(did)(bSer.write(_durV, _))
-        ??? // durable.write(did)(bSer.write(_durV, _))
+        durable.write(did)(bSer.write(_durV, _))
         _durV
       })
       tx.newHandle(confV) -> durV
@@ -178,14 +178,14 @@ trait Mixin[Tx <: Txn[Tx]]
   }
 
   private def initRoot[A, B](initA: T => A, readB: T => B, initB: T => B)
-                            (implicit tx: T, serA: TSerializer[T, A]): (TVar[T, A], A, B) = {
+                            (implicit tx: T, serA: TSerializer[T, A]): (TRef[T, A], A, B) = {
     val rootVar     = new RootVar[T, A](0, "Root") // serializer
     val rootPath    = tx.inputAccess
     val arrOpt      = varMap.getImmutable[Array[Byte]](0, tx)(rootPath, ByteArraySerializer)
     val (aVal, bVal) = arrOpt match {
       case Some(arr) =>
         val in      = DataInput(arr)
-        val aRead   = serA.read(in, tx)(???) // (rootPath)
+        val aRead   = serA.read(in, tx)(rootPath.!)
         val bRead   = readB(tx)
         (aRead, bRead)
 
@@ -357,7 +357,7 @@ trait Mixin[Tx <: Txn[Tx]]
   // do not make this final
   def close(): Unit = {
     store     .close()
-    ??? // durable   .close()
+    durable   .close()
   }
 
   def numRecords    (implicit tx: T): Int = store.numEntries

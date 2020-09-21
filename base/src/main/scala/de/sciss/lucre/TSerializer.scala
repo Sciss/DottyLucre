@@ -1,7 +1,13 @@
 package de.sciss.lucre
 
-import de.sciss.lucre.impl.ListSerializer
+import de.sciss.lucre.impl.{VecSerializer, ListSerializer}
 import de.sciss.serial.{DataInput, DataOutput}
+
+import scala.collection.immutable.{IndexedSeq => Vec}
+
+trait TReader[T <: Exec[T], +A] {
+  def read(in: DataInput, tx: T)(implicit access: tx.Acc): A
+}
 
 object TSerializer {
   // XXX TODO -- we can no longer cast, another shitty result of dropping type projections
@@ -14,10 +20,11 @@ object TSerializer {
 
   implicit def list[T <: Exec[T], A](implicit peer: TSerializer[T, A]): TSerializer[T, List[A]] =
     new ListSerializer[T, A](peer)
-}
-trait TSerializer[T <: Exec[T], A] {
-  def read(in: DataInput, tx: T)(implicit acc: tx.Acc): A
 
+  implicit def vec[T <: Exec[T], A](implicit peer: TSerializer[T, A]): TSerializer[T, Vec[A]] =
+    new VecSerializer[T, A](peer)
+}
+trait TSerializer[T <: Exec[T], A] extends TReader[T, A] {
   def write(v: A, out: DataOutput): Unit
 }
 

@@ -30,13 +30,12 @@ object DurableLike {
     final type Acc    = Unit
     final type Id     = DurableLike.Id[T]
 
-//    def newCachedVar[A](  init: A    )(implicit serializer: TSerializer[T, A]): Var[A]
-//    def newCachedIntVar(  init: Int  ): Var[Int ]
-//    def newCachedLongVar( init: Long ): Var[Long]
-//    def readCachedVar[A]( in: DataInput)(implicit serializer: TSerializer[T, A]): Var[A]
-//    def readCachedIntVar( in: DataInput): Var[Int ]
-//    def readCachedLongVar(in: DataInput): Var[Long]
-    
+    def newCachedVar[A](  init: A    )(implicit serializer: TSerializer[T, A]): TVar[T, A]
+    def newCachedIntVar(  init: Int  ): TVar[T, Int ]
+    def newCachedLongVar( init: Long ): TVar[T, Long]
+    def readCachedVar[A]( in: DataInput)(implicit serializer: TSerializer[T, A]): TVar[T, A]
+    def readCachedIntVar( in: DataInput): TVar[T, Int ]
+    def readCachedLongVar(in: DataInput): TVar[T, Long]
   }
 }
 trait DurableLike[Tx <: DurableLike.Txn[Tx]] extends Sys /*[S]*/ with Cursor[Tx] {
@@ -48,7 +47,7 @@ trait DurableLike[Tx <: DurableLike.Txn[Tx]] extends Sys /*[S]*/ with Cursor[Tx]
   // final type Entry[A]    = _Var[S#Tx, A]
 //  type Tx               <: DurableLike.Txn[S]
   type T = Tx
-  // type I                <: InMemoryLike[I]
+  type I <: InMemoryLike.Txn[I]
 
   /** Reports the current number of records stored in the database. */
   def numRecords(implicit tx: T): Int
@@ -80,5 +79,5 @@ trait DurableLike[Tx <: DurableLike.Txn[Tx]] extends Sys /*[S]*/ with Cursor[Tx]
 
   def wrap(peer: InTxn, systemTimeNanos: Long = 0L): T  // XXX TODO this might go in Cursor?
 
-  // def inMemory: I
+  def inMemory: InMemoryLike[I]
 }

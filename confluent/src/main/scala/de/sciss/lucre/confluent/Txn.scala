@@ -14,12 +14,15 @@
 package de.sciss.lucre.confluent
 
 import de.sciss.lucre
-import de.sciss.lucre.{Confluent, NewImmutSerializer, TSerializer, TSource, confluent}
+import de.sciss.lucre.{ConfluentLike, DurableLike, NewImmutSerializer, TSerializer, TSource, confluent}
 
 trait Txn[T <: Txn[T]] extends lucre.Txn[T] {
-  def system: Confluent
+  def system: ConfluentLike[T]
 
-  //  implicit def durable: S#D#Tx
+  type D <: DurableLike.Txn[D]
+
+  implicit def durable: D
+
   type Id     = Ident[T]
   type Acc    = Access[T]
   type Var[A] = confluent.Var[A]

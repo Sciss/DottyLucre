@@ -15,7 +15,7 @@ package de.sciss.lucre.confluent
 package impl
 
 import de.sciss.lucre.confluent.Log.log
-import de.sciss.lucre.{NewImmutSerializer, TSerializer, TSource, TVar}
+import de.sciss.lucre.{NewImmutSerializer, TRef, TSerializer, TSource, TVar}
 import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.collection.immutable.LongMap
@@ -187,7 +187,7 @@ private[impl] final class VarTxImpl[T <: Txn[T], A](protected val tx: T, protect
 
 private final class RootVar[T <: Txn[T], A](id1: Int, name: String)
                                            (implicit val ser: TSerializer[T, A])
-  extends TVar[T, A] {
+  extends TRef[T, A] {
 
   def setInit(v: A)(implicit tx: T): Unit = this() = v // XXX could add require( tx.inAccess == Path.root )
 

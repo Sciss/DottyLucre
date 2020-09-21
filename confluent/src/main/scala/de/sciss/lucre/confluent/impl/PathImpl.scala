@@ -128,7 +128,10 @@ private[confluent] object PathImpl {
    */
   private final class Path[T <: Txn[T]](val tree: FingerTree[(Int, Long), Long])
     extends Access[T] with FingerTreeLike[(Int, Long), Long, Path[T]] {
+
     implicit protected def m: fingertree.Measure[Long, (Int, Long)] = PathMeasure
+
+    def !(implicit tx: T): tx.Acc = this
 
     override def toString: String = mkString("Path(", ", ", ")")
 
@@ -265,8 +268,8 @@ private[confluent] object PathImpl {
 //    def mkString(prefix: String, sep: String, suffix: String): String =
 //      tree.iterator.map(i => (i >> 32).toInt).mkString(prefix, sep, suffix)
 
-    def info(implicit tx: T): VersionInfo = ??? // tx.system.versionInfo(term)
+    def info(implicit tx: T): VersionInfo = tx.system.versionInfo(term)
 
-    def takeUntil(timeStamp: Long)(implicit tx: T): Access[T] = ??? // tx.system.versionUntil(this, timeStamp)
+    def takeUntil(timeStamp: Long)(implicit tx: T): Access[T] = tx.system.versionUntil(this, timeStamp)
   }
 }

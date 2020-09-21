@@ -26,6 +26,8 @@ object Access {
 }
 
 trait Access[T <: Txn[T]] extends Writable with PathLike {
+  def ! (implicit tx: T): tx.Acc
+
   def mkString(prefix: String, sep: String, suffix: String): String
 
   /** Prepends a single element. */

@@ -13,16 +13,13 @@
 
 package de.sciss.lucre.confluent
 
-import de.sciss.lucre.{DataStore, DurableLike, InMemoryLike, TSerializer, TSource, TxnLike, confluent, Sys => LSys}
-import de.sciss.serial
+import de.sciss.lucre.{DataStore, DurableLike, InMemoryLike, TRef, TSerializer, TSource, TxnLike, confluent, Sys => LSys}
 import de.sciss.serial.DataInput
 
 import scala.collection.immutable.{IndexedSeq => Vec}
 
 /** This is analogous to a `ConfluentLike` trait. Since there is only one system in
   * `LucreConfluent`, it was decided to just name it `confluent.Sys`.
-  *
-  * @tparam S   the implementing system
   */
 trait Sys /*[S <: Sys[S]]*/ extends LSys /*[S]*/ {
   type D <: DurableLike .Txn[D]
@@ -34,8 +31,8 @@ trait Sys /*[S <: Sys[S]]*/ extends LSys /*[S]*/ {
   final type Var[A]     = confluent.Var[/*T,*/ A]
   // final type Entry[A]   = Sys.Entry[T, A]
 
-//  def durable : D
-  // def inMemory: I
+  def durable : DurableLike [D]
+  def inMemory: InMemoryLike[I]
 
   def durableTx (tx: T): D
   //  /* private[lucre] */ def inMemoryTx(tx: Tx): I#Tx
@@ -61,8 +58,8 @@ trait Sys /*[S <: Sys[S]]*/ extends LSys /*[S]*/ {
   // ---- cursors ----
 
   def newCursor()(implicit tx: T): Cursor[T, D]
-  /* private[confluent] */ def newCursor (init: Access[T]  )(implicit tx: T): Cursor[T, D]
-  /* private[confluent] */ def readCursor(in: DataInput)(implicit tx: T): Cursor[T, D]
+  /* private[confluent] */ def newCursor (init: Access[T])(implicit tx: T): Cursor[T, D]
+  /* private[confluent] */ def readCursor(in: DataInput)  (implicit tx: T): Cursor[T, D]
 
   /** Initializes the data structure, by either reading an existing entry or generating the root entry
     * with the `init` function. The method than allows the execution of another function within the
@@ -79,7 +76,7 @@ trait Sys /*[S <: Sys[S]]*/ extends LSys /*[S]*/ {
     * @return             the access to the data structure along with the result of the second function.
     */
   def cursorRoot[A, B](init: T => A)(result: T => A => B)
-                      (implicit serializer: serial.Serializer[T, Access[T], A]): (Var[A], B)
+                      (implicit serializer: TSerializer[T, A]): (TRef[T, A], B)
 
   /** Initializes the data structure both with a confluently persisted and an ephemeral-durable value.
     *

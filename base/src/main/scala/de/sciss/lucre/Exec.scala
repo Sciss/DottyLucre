@@ -13,7 +13,6 @@
 
 package de.sciss.lucre
 
-import de.sciss.lucre
 import de.sciss.serial.DataInput
 
 trait Exec[T <: Exec[T]] {
@@ -22,7 +21,7 @@ trait Exec[T <: Exec[T]] {
   type Id <: Ident[T]
   type Acc
 
-  type Var[A] <: lucre.Var[A]
+//  type Var[A] <: lucre.Var[A]
 
   //  /** Back link to the underlying system. */
   //  val s: S
@@ -32,14 +31,6 @@ trait Exec[T <: Exec[T]] {
   // ---- variables ----
 
 //  def newRef[A](init: A): Ref[T, A]
-
-//  def newVar[A](id: Id, init: A)(implicit serializer: TxSerializer[T,/* Acc,*/ A]): Var[A]
-//
-//  def newBooleanVar(id: Id, init: Boolean): Var[Boolean]
-//  def newIntVar    (id: Id, init: Int    ): Var[Int]
-//  def newLongVar   (id: Id, init: Long   ): Var[Long]
-
-//  def newVarArray[A](size: Int): Array[Var[A]]
 
   /** Creates a new in-memory transactional map for storing and retrieving values based on a mutable's identifier
    * as key. If a system is confluently persistent, the `get` operation will find the most recent key that
@@ -54,12 +45,6 @@ trait Exec[T <: Exec[T]] {
 
   //  def newInMemorySet[A]    : RefSet[S, A]
   //  def newInMemoryMap[A, B] : RefMap[S, A, B]
-
-//  def readVar[A](id: Id, in: DataInput)(implicit serializer: TxSerializer[T, /*Acc,*/ A]): Var[A]
-//
-//  def readBooleanVar(id: Id, in: DataInput): Var[Boolean]
-//  def readIntVar    (id: Id, in: DataInput): Var[Int]
-//  def readLongVar   (id: Id, in: DataInput): Var[Long]
 
   def readId(in: DataInput)(implicit acc: Acc): Id
 

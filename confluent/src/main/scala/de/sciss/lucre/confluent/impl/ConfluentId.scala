@@ -34,7 +34,7 @@ private abstract class IdImpl[T <: Txn[T]] extends Ident[T] {
     path.write(out)
   }
 
-  @inline final protected def alloc(): Id = new ConfluentId(tx, ??? /*system.newIdValue()(this)*/, path)
+  @inline final protected def alloc(): Id = new ConfluentId(tx, tx.system.newIdValue()(tx), path)
 
   final def newVar[A](init: A)(implicit ser: TSerializer[T, A]): Var[A] = {
     val res = makeVar[A](alloc())
@@ -68,13 +68,13 @@ private abstract class IdImpl[T <: Txn[T]] extends Ident[T] {
   }
 
   private def makeVar[A](id: Id)(implicit ser: TSerializer[T, A]): BasicVar[T, A ] = {
-    ???
-    //    ser match {
-    //      case plain: NewImmutSerializer[_] =>
-    //        new VarImpl[T, A](this, id, plain.asInstanceOf[NewImmutSerializer[A]])
-    //      case _ =>
-    //        new VarTxImpl[T, A](id)
-    //    }
+    // XXX TODO
+    ser match {
+//      case plain: NewImmutSerializer[_] =>
+//        new VarImpl[T, A](this, id, plain.asInstanceOf[NewImmutSerializer[A]])
+      case _ =>
+        new VarTxImpl[T, A](tx, id)
+    }
   }
 
   final def readVar[A](in: DataInput)(implicit ser: TSerializer[T, A]): Var[A] = {

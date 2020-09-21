@@ -14,24 +14,24 @@
 package de.sciss.lucre.confluent
 
 import de.sciss.lucre.confluent.impl.{CursorImpl => Impl}
-import de.sciss.lucre.{DurableLike, Ident, TDisposable, TSerializer, Cursor => LCursor, Txn => LTxn, Var => LVar}
+import de.sciss.lucre.{ConfluentLike, DurableLike, Ident, TDisposable, TSerializer, Cursor => LCursor, Txn => LTxn, Var => LVar}
 import de.sciss.serial.{DataInput, Writable}
 
 object Cursor {
   def apply[T <: Txn[T], D1 <: DurableLike.Txn[D1]](init: Access[T] = Access.root[T])
-                                                   (implicit tx: D1 /*, system: S { type D = D1 }*/): Cursor[T, D1] =
+                                                   (implicit tx: D1, system: ConfluentLike[T] { type D = D1 }): Cursor[T, D1] =
     wrap(Data(init))
 
   def wrap[T <: Txn[T], D1 <: DurableLike.Txn[D1]](data: Data[T, D1])
-                                                  /*(implicit system: S { type D = D1 })*/: Cursor[T, D1] =
+                                                  (implicit system: ConfluentLike[T] { type D = D1 }): Cursor[T, D1] =
     Impl[T, D1](data)
 
   def read[T <: Txn[T], D1 <: DurableLike.Txn[D1]](in: DataInput, tx: D1)
-                                                  (implicit access: tx.Acc /*, system: S { type D = D1 }*/): Cursor[T, D1] =
+                                                  (implicit access: tx.Acc, system: ConfluentLike[T] { type D = D1 }): Cursor[T, D1] =
     Impl.read[T, D1](in, tx)
 
   implicit def serializer[T <: Txn[T], D1 <: DurableLike.Txn[D1]](
-    implicit system: T { type D = D1 }): TSerializer[D1, Cursor[T, D1]] = Impl.serializer[T, D1]
+    implicit system: ConfluentLike[T] { type D = D1 }): TSerializer[D1, Cursor[T, D1]] = Impl.serializer[T, D1]
 
   object Data {
     def apply[T <: Txn[T], D <: LTxn[D]](init: Access[T] = Access.root[T])(implicit tx: D): Data[T, D] =
@@ -55,5 +55,5 @@ trait Cursor[T <: Txn[T], D <: LTxn[D]]
 
   def stepFrom[A](path: Access[T], retroactive: Boolean = false, systemTimeNanos: Long = 0L)(fun: T => A): A
   
-  def position(implicit tx: D): Access[T]
+  def positionD(implicit tx: D): Access[T]
 }

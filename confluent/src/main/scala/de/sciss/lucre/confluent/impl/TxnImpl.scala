@@ -17,8 +17,7 @@ package impl
 import de.sciss.lucre.confluent.Log.log
 import de.sciss.lucre.confluent.impl.{PathImpl => Path}
 import de.sciss.lucre.impl.BasicTxnImpl
-import de.sciss.lucre.{Ident => LIdent}
-import de.sciss.lucre.{Confluent, Durable, DurableLike, IdentMap, InMemory, NewImmutSerializer, Obj, ReactionMap, TMap, TSerializer, TSource}
+import de.sciss.lucre.{Confluent, Durable, DurableLike, IdentMap, InMemory, NewImmutSerializer, Obj, ReactionMap, TMap, TSerializer, TSource, Ident => LIdent}
 import de.sciss.serial.DataInput
 
 import scala.collection.immutable.{IndexedSeq => Vec, Queue => IQueue}
@@ -36,7 +35,7 @@ trait TxnMixin[Tx <: Txn[Tx]]
 
   // ---- info ----
 
-  final private[lucre] def reactionMap: ReactionMap[T] = ??? // system.reactionMap
+  final private[lucre] def reactionMap: ReactionMap[T] = system.reactionMap
 
   final def info: VersionInfo.Modifiable = this
 
@@ -115,11 +114,11 @@ trait TxnMixin[Tx <: Txn[Tx]]
     flushCaches(meld, markNewVersionFlag, dirtyMaps)
   }
 
-  final protected def fullCache: CacheMap.Durable[T, Int, DurablePersistentMap[T, Int]] = ??? // system.fullCache
+  final protected def fullCache: CacheMap.Durable[T, Int, DurablePersistentMap[T, Int]] = system.fullCache
   // final protected def partialCache  = system.partialCache
 
   final def newId(): Id = {
-    val res = new ConfluentId[T](this, ??? /*system.newIdValue()(this)*/, Path.empty[T])
+    val res = new ConfluentId[T](this, system.newIdValue()(this), Path.empty[T])
     log(s"txn newId $res")
     res
   }
@@ -151,14 +150,13 @@ trait TxnMixin[Tx <: Txn[Tx]]
   // ----
 
   final def readTreeVertexLevel(term: Long): Int = {
-    ???
-//    system.store.get(out => {
-//      out.writeByte(0)
-//      out.writeInt(term.toInt)
-//    })(in => {
-//      in./* PACKED */ readInt()  // tree index!
-//      in./* PACKED */ readInt()
-//    })(this).getOrElse(sys.error(s"Trying to access non-existent vertex ${term.toInt}"))
+    system.store.get(out => {
+      out.writeByte(0)
+      out.writeInt(term.toInt)
+    })(in => {
+      in./* PACKED */ readInt()  // tree index!
+      in./* PACKED */ readInt()
+    })(this).getOrElse(sys.error(s"Trying to access non-existent vertex ${term.toInt}"))
   }
 
   final def addInputVersion(path: Access[T]): Unit = {
@@ -220,9 +218,6 @@ trait TxnMixin[Tx <: Txn[Tx]]
   final def removeFromCache(id: Id): Unit =
     fullCache.removeCacheOnly(id.base, this)(id.path)
 
-//  @inline final protected def alloc       (pid: Id): Id = new ConfluentId(this, ??? /*system.newIdValue()(this)*/, pid.path)
-//  @inline final protected def allocPartial(pid: Id): Id = new PartialId(this, ??? /*system.newIdValue()(this)*/, pid.path)
-
 //  final def newVar[A](pid: Id, init: A)(implicit ser: TSerializer[T, A]): Var[A] = {
 //    val res = makeVar[A](alloc(pid))
 //    log(s"txn newVar $res")
@@ -277,7 +272,7 @@ trait RegularTxnMixin[Tx <: Txn[Tx], D <: DurableLike.Txn[D]] extends TxnMixin[T
   protected def cursorCache: Cache[T]
 
   final protected def flushCaches(meldInfo: MeldInfo[T], newVersion: Boolean, caches: Vec[Cache[T]]): Unit =
-    ??? // system.flushRegular(meldInfo, newVersion, caches :+ cursorCache)(this)
+    system.flushRegular(meldInfo, newVersion, caches :+ cursorCache)(this)
 
   override def toString = s"Confluent#Tx$inputAccess"
 }
@@ -291,13 +286,13 @@ trait RootTxnMixin[Tx <: Txn[Tx], D <: DurableLike.Txn[D]]
   final def isRetroactive = false
 
   final protected def flushCaches(meldInfo: MeldInfo[T], newVersion: Boolean, caches: Vec[Cache[T]]): Unit =
-    ??? // system.flushRoot(meldInfo, newVersion, caches)(this)
+    system.flushRoot(meldInfo, newVersion, caches)(this)
 
   override def toString = "Confluent.RootTxn"
 }
 
 private[impl] sealed trait TxnImpl extends Confluent.Txn /*Txn[Confluent.Txn]*/ {
-  final lazy val inMemory: InMemory.Txn = ??? // system.inMemory.wrap(peer)
+  final lazy val inMemory: InMemory.Txn = system.inMemory.wrap(peer)
 }
 
 private[impl] final class RegularTxn(val system: Confluent, val durable: Durable.Txn,
@@ -313,6 +308,6 @@ private[impl] final class RootTxn(val system: Confluent, val peer: InTxn)
 
   lazy val durable: Durable.Txn = {
     log("txn durable")
-    ??? // system.durable.wrap(peer)
+    system.durable.wrap(peer)
   }
 }

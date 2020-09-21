@@ -3,6 +3,7 @@ package de.sciss.lucre.impl
 import de.sciss.lucre.{Exec, TSerializer}
 import de.sciss.serial.{DataInput, DataOutput}
 
+import scala.collection.immutable.{IndexedSeq => Vec}
 import scala.collection.mutable
 
 abstract class CollectionSerializer[T <: Exec[T], A, That <: Traversable[A]] extends TSerializer[T, That] {
@@ -38,4 +39,10 @@ final class ListSerializer[T <: Exec[T], A](val peer: TSerializer[T, A])
   extends CollectionSerializer[T, A, List[A]] {
   def newBuilder: mutable.Builder[A, List[A]] = List.newBuilder[A]
   def empty: List[A] = Nil
+}
+
+final class VecSerializer[T <: Exec[T], A](val peer: TSerializer[T, A])
+  extends CollectionSerializer[T, A, Vec[A]] {
+  def newBuilder: mutable.Builder[A, Vec[A]] = Vec.newBuilder[A]
+  def empty: Vec[A] = Vector.empty
 }
