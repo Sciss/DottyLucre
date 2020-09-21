@@ -23,5 +23,5 @@ We now come to settle on the following rewrites:
 - `S#Tx` -> `T`
 - `read(in: DataInput, access: S#Acc)(implicit tx: S#Tx)` ->
   `read(in: DataInput, tx: T)(implicit acc: tx.Acc)`
-- `Serializer[S#Tx, S#Acc, Form[S]]` -> `TxSerializer[T, Form[T]]`
+- `Serializer[S#Tx, S#Acc, Form[S]]` -> `TSerializer[T, Form[T]]`
 - `S#Id` -> `Ident[T]`
