@@ -130,7 +130,7 @@ object DetSkipOctree {
                                                               val pointView: (A /*, T*/) => PL, val tx: T)
                                                              (implicit val space: Space[PL, P, H],
                                                               val keySerializer: TSerializer[T, A])
-    extends Impl[T, PL, P, H, A] {
+    extends Impl[T, PL, P, H, A] { octree =>
 
     val skipList: HASkipList.Set[T, this.Leaf] =
       HASkipList.Set.empty[T, this.Leaf](skipGap, KeyObserver)(tx, LeafOrdering, LeafSerializer)
@@ -148,7 +148,7 @@ object DetSkipOctree {
       }
       implicit val r2: TSerializer[T, this.Next] = RightOptionReader
       val headRight = cid.newVar[this.Next](Empty)
-      new LeftTopBranchImpl(cid, children = ch, nextRef = headRight)
+      new LeftTopBranchImpl(octree, cid, children = ch, nextRef = headRight)
     }
     val lastTreeRef: Var[this.TopBranch] = {
       implicit val r3: TSerializer[T, this.TopBranch] = TopBranchSerializer
@@ -365,6 +365,605 @@ object DetSkipOctree {
     private[DetSkipOctree] def parent_=(node: RightBranch[T, PL, P, H, A]): Unit
   }
 
+  /* Nodes are defined by a hyperCube area as well as a list of children,
+   * as well as a pointer `next` to the corresponding node in the
+   * next highest tree. A `Branch` also provides various search methods.
+   */
+  private sealed trait BranchImpl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A] {
+    thisBranch: Branch[T, PL, P, H, A] =>
+
+    // ---- abstract ----
+
+    protected def nextRef: Var[Next[T, PL, P, H, A]]
+
+    /** Called when a leaf has been removed from the node.
+     * The node may need to cleanup after this, e.g. promote
+     * an under-full node upwards.
+     */
+    protected def leafRemoved(): Unit
+
+    protected def nodeName: String
+
+    // ---- impl ----
+
+    final def next_=(node: Next[T, PL, P, H, A]): Unit = nextRef() = node
+
+    final def next: Next[T, PL, P, H, A] = nextRef()
+
+    final def nextOption: Option[Branch[T, PL, P, H, A]] = thisBranch.next match {
+      case Empty                      => None
+      case b: Branch[T, PL, P, H, A]  => Some(b)
+    }
+
+    final override def union(mq: H, point2: PL): H = {  // scalac warning bug
+      val q = thisBranch.hyperCube
+      mq.greatestInterestingH(q, point2)
+    }
+
+    final def orthantIndexIn(iq: H): Int =  // scalac warning bug
+      iq.indexOfH(thisBranch.hyperCube)
+
+    protected final def shortString = s"$nodeName($thisBranch.hyperCube)"
+  }
+
+  private trait LeftBranchImpl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A]
+    extends BranchImpl[T, PL, P, H, A] {
+
+    branch: LeftBranch[T, PL, P, H, A] =>
+
+    // ---- abstract ----
+    
+    protected val octree: Impl[T, PL, P, H, A]
+
+    /** For a `LeftBranch`, all its children are more specific
+     * -- they are instances of `LeftChild` and thus support
+     * order intervals.
+     */
+    protected def children: Array[Var[LeftChild[T, PL, P, H, A]]]
+
+    // ---- impl ----
+
+    final def prevOption: Option[Branch[T, PL, P, H, A]] = None
+
+    final def child(idx: Int): LeftChild[T, PL, P, H, A] = children(idx)()
+
+    final def updateChild(idx: Int, c: LeftChild[T, PL, P, H, A]): Unit = children(idx)() = c
+
+    final def demoteLeaf(point: PL, leaf: Leaf[T, PL, P, H, A]): Unit = {
+      val qIdx  = branch.hyperCube.indexOfP(point)
+      val ok    = child(qIdx) == leaf
+      if (ok) {
+        updateChild(qIdx, Empty)
+        leafRemoved()
+        leaf.remove() // dispose()
+      } else {
+        if (!DetSkipOctree.sanitizing)
+          assert(assertion = false, s"Internal error - expected $leaf not found in $this")
+      }
+    }
+
+    final def insert(point: PL, value: A): Leaf[T, PL, P, H, A] = {
+      val qIdx = branch.hyperCube.indexOfP(point)
+      child(qIdx) match {
+        case Empty =>
+          newLeaf(qIdx, /* point, */ value) // (this adds it to the children!)
+
+        case old: LeftNonEmptyChild[T, PL, P, H, A] =>
+          // define the greatest interesting square for the new node to insert
+          // in this node at qIdx:
+          val qn2 = old.union(branch.hyperCube.orthant(qIdx), point)
+          // create the new node (this adds it to the children!)
+          val n2 = newNode(qIdx, qn2)
+          val oIdx = old.orthantIndexIn(qn2)
+          n2.updateChild(oIdx, old)
+          val lIdx = qn2.indexOfP(point)
+          assert(oIdx != lIdx)
+          // This is a tricky bit! And a reason
+          // why should eventually try to do without
+          // parent pointers at all. Since `old`
+          // may be a leaf whose parent points
+          // to a higher level tree, we need to
+          // check first if the parent is `this`,
+          // and if so, adjust the parent to point
+          // to the new intermediate node `ne`!
+          if (old.parent == this) old.updateParentLeft(n2)
+          n2.newLeaf(lIdx, value)
+      }
+    }
+
+    /** Instantiates an appropriate
+     * leaf whose parent is this node, and which should be
+     * ordered according to its position in this node.
+     *
+     * @param   qIdx  the orthant index of the new leaf in this node
+     * @param   value the value associated with the new leaf
+     * @return  the new leaf which has already assigned this node as
+     *          parent and is already stored in this node's children
+     *          at index `qIdx`
+     */
+    private[DetSkipOctree] def newLeaf(qIdx: Int, value: A): Leaf[T, PL, P, H, A] = {
+      val leafId    = octree.tx.newId()
+      import octree.BranchSerializer
+      val parentRef = leafId.newVar[Branch[T, PL, P, H, A]](this)
+      val l         = new LeafImpl[T, PL, P, H, A](octree, leafId, value, parentRef)
+      updateChild(qIdx, l)
+      l
+    }
+
+    /*
+     * Instantiates an appropriate
+     * sub-node whose parent is this node, and which should be
+     * ordered according to its position in this node.
+     *
+     * @param   qIdx  the orthant index of the new node in this (parent) node
+     * @param   iq    the hyper-cube of the new node
+     * @return  the new node which has already assigned this node as
+     *          parent and is already stored in this node's children
+     *          at index `qIdx`
+     */
+    private[this] def newNode(qIdx: Int, iq: H): LeftChildBranch[T, PL, P, H, A] = {
+      val sz  = children.length
+      //        val ch  = tx.newVarArray[LeftChild](sz)
+      val ch  = new Array[Var[LeftChild[T, PL, P, H, A]]](sz)
+      val cid = octree.tx.newId()
+      var i = 0
+      while (i < sz) {
+        ch(i) = cid.newVar[LeftChild[T, PL, P, H, A]](Empty)(octree.LeftChildSerializer)
+        i += 1
+      }
+      import octree.LeftBranchSerializer
+      val parentRef   = cid.newVar[LeftBranch[T, PL, P, H, A]](this)
+      val rightRef    = cid.newVar[Next[T, PL, P, H, A]](Empty)(octree.RightOptionReader)
+      val n           = new LeftChildBranchImpl[T, PL, P, H, A](
+        octree, cid, parentRef, iq, children = ch, nextRef = rightRef
+      )
+      updateChild(qIdx, n)
+      n
+    }
+  }
+
+  /* A leaf in the octree, carrying a map entry
+   * in the form of a point and associated value.
+   * Note that a single instance of a leaf is used
+   * across the levels of the octree! That means
+   * that multiple child pointers may go to the
+   * same leaf, while the parent of a leaf always
+   * points into the highest level octree that
+   * the leaf resides in, according to the skiplist.
+   */
+  private final class LeafImpl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](octree: Impl[T, PL, P, H, A],
+                                                                              val id: Ident[T], val value: A, 
+                                                                              parentRef: Var[Branch[T, PL, P, H, A]])
+    extends LeftNonEmptyChild [T, PL, P, H, A] 
+      with RightNonEmptyChild [T, PL, P, H, A]
+      with LeafOrEmpty        [T, PL, P, H, A]
+      with Leaf               [T, PL, P, H, A] {
+
+    def updateParentLeft (p: LeftBranch [T, PL, P, H, A] ): Unit = parent_=(p)
+    def updateParentRight(p: RightBranch[T, PL, P, H, A] ): Unit = parent_=(p)
+
+    def parent    : Branch[T, PL, P, H, A]          = parentRef()
+    def parent_=(p: Branch[T, PL, P, H, A] ): Unit  = parentRef() = p
+
+    def dispose(): Unit = {
+      id.dispose()
+      parentRef.dispose()
+    }
+
+    def write(out: DataOutput): Unit = {
+      out.writeByte(1)
+      id.write(out)
+      octree.keySerializer.write(value, out)
+      parentRef.write(out)
+    }
+
+    def union(mq: H, point2: PL): H =
+      mq.greatestInterestingP(octree.pointView(value /*, tx*/), point2)
+
+    def orthantIndexIn(iq: H): Int =
+      iq.indexOfP(octree.pointView(value /*, tx*/))
+
+    def shortString = s"Leaf($value)"
+
+    def remove(): Unit = dispose()
+  }
+
+  private final class LeftChildBranchImpl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](val octree: Impl[T, PL, P, H, A],
+                                                                                         val id: Ident[T],
+                                                                                         parentRef: Var[LeftBranch[T, PL, P, H, A]], 
+                                                                                         val hyperCube: H,
+                                            protected val children: Array[Var[LeftChild[T, PL, P, H, A]]],
+                                            protected val nextRef: Var[Next[T, PL, P, H, A]])
+    extends LeftBranchImpl[T, PL, P, H, A] 
+      with LeftChildBranch[T, PL, P, H, A] {
+
+    thisBranch =>
+
+    protected def nodeName = "LeftInner"
+
+    def updateParentLeft(p: LeftBranch[T, PL, P, H, A]): Unit = parent = p
+
+    def parent       : LeftBranch[T, PL, P, H, A]         = parentRef()
+    def parent_=(node: LeftBranch[T, PL, P, H, A]): Unit  = parentRef() = node
+
+    def dispose(): Unit = {
+      id        .dispose()
+      parentRef .dispose()
+      var i = 0
+      val sz = children.length
+      while (i < sz) {
+        children(i).dispose()
+        i += 1
+      }
+      nextRef.dispose()
+    }
+
+    def write(out: DataOutput): Unit = {
+      out.writeByte(3)
+      id.write(out)
+      parentRef.write(out)
+      octree.space.hyperCubeSerializer.write(thisBranch.hyperCube, out)
+      var i = 0
+      val sz = children.length
+      while (i < sz) {
+        children(i).write(out)
+        i += 1
+      }
+      nextRef.write(out)
+    }
+
+    private[this] def remove(): Unit = dispose()
+
+    // make sure the node is not becoming uninteresting, in which case
+    // we need to merge upwards
+    protected def leafRemoved(): Unit = {
+      val sz = children.length
+      @tailrec def removeIfLonely(i: Int): Unit =
+        if (i < sz) child(i) match {
+          case lonely: LeftNonEmptyChild[T, PL, P, H, A] =>
+            @tailrec def isLonely(j: Int): Boolean = {
+              j == sz || (child(j) match {
+                case _: LeftNonEmptyChild[T, PL, P, H, A] => false
+                case _ => isLonely(j + 1)
+              })
+            }
+            if (isLonely(i + 1)) {
+              val p     = parent
+              val myIdx = p.hyperCube.indexOfH(thisBranch.hyperCube)
+              p.updateChild(myIdx, lonely)
+              if (lonely.parent == this) lonely.updateParentLeft(p)
+              remove() // dispose() // removeAndDispose()
+            }
+
+          case _ => removeIfLonely(i + 1)
+        }
+
+      removeIfLonely(0)
+    }
+  }
+
+
+  private trait RightBranchImpl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A]
+    extends BranchImpl[T, PL, P, H, A] {
+
+    branch: RightBranch[T, PL, P, H, A] =>
+
+    // ---- abstract ----
+    
+    protected val octree: Impl[T, PL, P, H, A]
+
+    protected def children: Array[Var[RightChild[T, PL, P, H, A]]]
+
+    // ---- impl ----
+
+    final def prevOption: Option[Branch[T, PL, P, H, A]] = Some(prev: Branch[T, PL, P, H, A])
+
+    final def child      (idx: Int)               : RightChild[T, PL, P, H, A] = children(idx)()
+    final def updateChild(idx: Int, c: RightChild[T, PL, P, H, A]): Unit       = children(idx)() = c
+
+    /** Promotes a leaf that exists in Qi-1 to this
+     * tree, by inserting it into this node which
+     * is its interesting node in Qi.
+     *
+     * If the result of insertion is a new child node
+     * below this node, this intermediate node will
+     * be connected to Qi by looking for the corresponding
+     * hyper-cube in the given search path that led here
+     * (i.e. that was constructed in `findPN`).
+     *
+     * This method also sets the parent of the leaf
+     * accordingly.
+     */
+    final def insert(point: PL, leaf: Leaf[T, PL, P, H, A]): Unit = {
+      //         val point   = pointView( leaf.value )
+      val qIdx = branch.hyperCube.indexOfP(point)
+      child(qIdx) match {
+        case Empty =>
+          updateChild(qIdx, leaf)
+          leaf.parent = this
+        case old: RightNonEmptyChild[T, PL, P, H, A] =>
+          // determine the greatest interesting square for the new
+          // intermediate node to create
+          val qn2 = old.union(branch.hyperCube.orthant(qIdx), point)
+          // find the corresponding node in the lower tree
+          @tailrec def findInPrev(b: Branch[T, PL, P, H, A]): Branch[T, PL, P, H, A] = {
+            if (b.hyperCube == qn2) b
+            else {
+              val idx = b.hyperCube.indexOfP(point)
+              b.child(idx) match {
+                case _: LeafOrEmpty[T, PL, P, H, A] => sys.error("Internal error - cannot find sub-cube in prev")
+                case cb: Branch[T, PL, P, H, A]     => findInPrev(cb)
+              }
+            }
+          }
+          val pPrev = findInPrev(prev)
+          val n2    = newNode(qIdx, pPrev, qn2)
+          val oIdx  = old.orthantIndexIn(qn2)
+          n2.updateChild(oIdx, old)
+          // This is a tricky bit! And a reason
+          // why should eventually try to do without
+          // parent pointers at all. Since `old`
+          // may be a leaf whose parent points
+          // to a higher level tree, we need to
+          // check first if the parent is `this`,
+          // and if so, adjust the parent to point
+          // to the new intermediate node `ne`!
+          if (old.parent == this) old.updateParentRight(n2)
+          val lIdx = qn2.indexOfP(point)
+          n2.updateChild(lIdx, leaf)
+          leaf.parent = n2
+      }
+    }
+
+    /*
+     * Instantiates an appropriate
+     * sub-node whose parent is this node, and whose predecessor
+     * in the lower octree is given.
+     *
+     * @param   qIdx  the orthant index in this node where the node belongs
+     * @param   prev  the new node's prev field, i.e. its correspondent in
+     *                Qi-1
+     * @param   iq    the hyper-cube for the new node
+     * @return  the new node which has already been inserted into this node's
+     *          children at index `qIdx`.
+     */
+    @inline private[this] def newNode(qIdx: Int, prev: Branch[T, PL, P, H, A], iq: H): RightChildBranch[T, PL, P, H, A] = {
+      val sz  = children.length
+      //        val ch  = tx.newVarArray[RightChild](sz)
+      val ch  = new Array[Var[RightChild[T, PL, P, H, A]]](sz)
+      val cid = octree.tx.newId()
+      var i = 0
+      implicit val ser: TSerializer[T, RightChild[T, PL, P, H, A]] = octree.RightChildSerializer
+      while (i < sz) {
+        ch(i) = cid.newVar[RightChild[T, PL, P, H, A]](Empty)
+        i += 1
+      }
+      import octree.RightBranchSerializer
+      val parentRef = cid.newVar[RightBranch[T, PL, P, H, A]](this)
+      val rightRef  = cid.newVar[Next[T, PL, P, H, A]](Empty)(octree.RightOptionReader)
+      val n         = new RightChildBranchImpl[T, PL, P, H, A](octree, cid, parentRef, prev, iq, ch, rightRef)
+      prev.next     = n
+      updateChild(qIdx, n)
+      n
+    }
+
+    final def demoteLeaf(point: PL, leaf: Leaf[T, PL, P, H, A]): Unit = {
+      val qIdx = branch.hyperCube.indexOfP(point)
+      assert(child(qIdx) == leaf)
+      updateChild(qIdx, Empty)
+
+      @tailrec def findParent(b: Branch[T, PL, P, H, A], idx: Int): Branch[T, PL, P, H, A] = b.child(idx) match {
+        case sl: Leaf  [T, PL, P, H, A] => assert(sl == leaf); b
+        case cb: Branch[T, PL, P, H, A] => findParent(cb, cb.hyperCube.indexOfP(point))
+        case Empty                      => throw new IllegalStateException  // should not happen by definition
+      }
+
+      val newParent = findParent(prev, qIdx)
+      leafRemoved()
+      leaf.parent = newParent
+    }
+  }
+
+  private final class RightChildBranchImpl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](val octree: Impl[T, PL, P, H, A],
+                                                                                          val id: Ident[T], 
+                                                                                          parentRef: Var[RightBranch[T, PL, P, H, A]],
+                                           val prev: Branch[T, PL, P, H, A], val hyperCube: H,
+                                           protected val children: Array[Var[RightChild[T, PL, P, H, A]]],
+                                           protected val nextRef: Var[Next[T, PL, P, H, A]])
+    extends RightChildBranch[T, PL, P, H, A] with RightBranchImpl[T, PL, P, H, A] {
+
+    thisBranch =>
+
+    protected def nodeName = "RightInner"
+
+    def updateParentRight(p: RightBranch[T, PL, P, H, A]): Unit = parent = p
+
+    private[this] def remove(): Unit = {
+      // first unlink
+      prev.next = Empty
+      dispose()
+    }
+
+    def dispose(): Unit = {
+      id.dispose()
+      //         // first unlink
+      //         prev.next = Empty
+
+      // then dispose refs
+      parentRef.dispose()
+      var i = 0
+      val sz = children.length
+      while (i < sz) {
+        children(i).dispose()
+        i += 1
+      }
+      nextRef.dispose()
+    }
+
+    def write(out: DataOutput): Unit = {
+      out.writeByte(5)
+      id.write(out)
+      parentRef.write(out)
+      prev.write(out)
+      octree.space.hyperCubeSerializer.write(thisBranch.hyperCube, out)
+      var i = 0
+      val sz = children.length
+      while (i < sz) {
+        children(i).write(out)
+        i += 1
+      }
+      nextRef.write(out)
+    }
+
+    //      private def removeAndDispose()( implicit tx: T ): Unit = {
+    //         prev.next = Empty
+    //         dispose()
+    //      }
+
+    def parent                     : RightBranch[T, PL, P, H, A] = parentRef()
+    def parent_=(node: RightBranch[T, PL, P, H, A]): Unit        = parentRef() = node
+
+    // make sure the node is not becoming uninteresting, in which case
+    // we need to merge upwards
+    protected def leafRemoved(): Unit = {
+      val sz = children.length
+      @tailrec def removeIfLonely(i: Int): Unit =
+        if (i < sz) child(i) match {
+          case lonely: RightNonEmptyChild[T, PL, P, H, A] =>
+            @tailrec def isLonely(j: Int): Boolean = {
+              j == sz || (child(j) match {
+                case _: RightNonEmptyChild[T, PL, P, H, A]  => false
+                case _                                      => isLonely(j + 1)
+              })
+            }
+            if (isLonely(i + 1)) {
+              val p       = parent
+              val myIdx   = p.hyperCube.indexOfH(thisBranch.hyperCube)
+              p.updateChild(myIdx, lonely)
+              if (lonely.parent == this) lonely.updateParentRight(p)
+              remove()
+            }
+
+          case _ => removeIfLonely(i + 1)
+        }
+
+      removeIfLonely(0)
+    }
+  }
+
+  private final class LeftTopBranchImpl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](val octree: Impl[T, PL, P, H, A],
+                                                                                       val id: Ident[T],
+                                          protected val children: Array[Var[LeftChild[T, PL, P, H, A]]],
+                                          protected val nextRef: Var[Next[T, PL, P, H, A]])
+    extends LeftTopBranch[T, PL, P, H, A]
+      with LeftBranchImpl[T, PL, P, H, A] 
+      with TopBranchImpl [T, PL, P, H, A] 
+      with Mutable[T] {
+    
+    // that's alright, we don't need to do anything special here
+    protected def leafRemoved(): Unit = ()
+
+    def dispose(): Unit = {
+      id.dispose()
+      var i = 0
+      val sz = children.length
+      while (i < sz) {
+        children(i).dispose()
+        i += 1
+      }
+      nextRef.dispose()
+    }
+
+    def write(out: DataOutput): Unit = {
+      out.writeByte(2)
+      id.write(out)
+      // no need to write the hyperCube?
+      var i = 0
+      val sz = children.length
+      while (i < sz) {
+        children(i).write(out)
+        i += 1
+      }
+      nextRef.write(out)
+    }
+
+    protected def nodeName = "LeftTop"
+  }
+
+
+  private final class RightTopBranchImpl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](val octree: Impl[T, PL, P, H, A],
+                                                                                        val id: Ident[T],
+                                                                                        val prev: TopBranch[T, PL, P, H, A],
+                                           protected val children: Array[Var[RightChild[T, PL, P, H, A]]],
+                                           protected val nextRef: Var[Next[T, PL, P, H, A]])
+    extends RightTopBranch[T, PL, P, H, A]
+      with RightBranchImpl[T, PL, P, H, A]
+      with TopBranchImpl  [T, PL, P, H, A] {
+
+    protected def nodeName = "RightTop"
+
+    private[this] def remove(): Unit = {
+      // first unlink
+      assert(octree.lastTree == this)
+      octree.lastTree = prev
+      prev.next       = Empty
+      dispose()
+    }
+
+    def dispose(): Unit = {
+      id.dispose()
+      //         // first unlink
+      //         assert( lastTreeImpl == this )
+      //         lastTreeImpl= prev
+      //         prev.next   = Empty
+
+      // then dispose refs
+      var i = 0
+      val sz = children.length
+      while (i < sz) {
+        children(i).dispose()
+        i += 1
+      }
+      nextRef.dispose()
+    }
+
+    def write(out: DataOutput): Unit = {
+      out.writeByte(4)
+      id.write(out)
+      // no need to write the hypercube!
+      prev.write(out)
+      var i = 0
+      val sz = children.length
+      while (i < sz) {
+        children(i).write(out)
+        i += 1
+      }
+      nextRef.write(out)
+    }
+
+    // remove this node if it empty now and right-node tree
+    protected def leafRemoved(): Unit = {
+      if (next != Empty) return
+
+      val sz = children.length
+      var i = 0
+      while (i < sz) {
+        val c = child(i)
+        if (c != Empty) return // node not empty, abort the check
+        i += 1
+      }
+
+      // ok, we are the right most tree and the node is empty...
+      remove()
+    }
+  }
+
+  private sealed trait TopBranchImpl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], _A] {
+    protected val octree: Impl[T, PL, P, H, _A]
+    
+    final def hyperCube: H = octree.hyperCube
+  }
+
   // cf. https://github.com/lampepfl/dotty/issues/9844
   private abstract class Impl[_T <: Exec[_T], _PL, P, _H <: HyperCube[_PL, _H], _A]
     extends DetSkipOctree[_T, _PL, P, _H, _A] {
@@ -391,7 +990,7 @@ object DetSkipOctree {
 
     // ---- abstract types and methods ----
     
-    protected def tx: _T
+    def tx: _T
 
     implicit def space: Space[_PL, P, _H]
     implicit def keySerializer: TSerializer[_T, _A]
@@ -417,7 +1016,7 @@ object DetSkipOctree {
       }
     }
 
-    implicit protected object RightBranchSerializer extends TSerializer[_T, RightBranch] {
+    implicit object RightBranchSerializer extends TSerializer[_T, RightBranch] {
       def read(in: DataInput, tx: _T)(implicit access: tx.Acc): RightBranch = {
         val cookie = in.readByte()
         val id = tx.readId(in)
@@ -431,7 +1030,7 @@ object DetSkipOctree {
       def write(v: RightBranch, out: DataOutput): Unit = v.write(out)
     }
 
-    implicit protected object BranchSerializer extends TSerializer[_T, Branch] {
+    implicit object BranchSerializer extends TSerializer[_T, Branch] {
       def read(in: DataInput, tx: _T)(implicit access: tx.Acc): Branch = {
         val cookie = in.readByte()
         val id = tx.readId(in)
@@ -461,7 +1060,7 @@ object DetSkipOctree {
       def write(v: TopBranch, out: DataOutput): Unit = v.write(out)
     }
 
-    protected object LeftChildSerializer extends TSerializer[_T, LeftChild] {
+    object LeftChildSerializer extends TSerializer[_T, LeftChild] {
       def read(in: DataInput, tx: _T)(implicit access: tx.Acc): LeftChild = {
         val cookie = in.readByte()
         if (cookie == 0) return Empty
@@ -476,7 +1075,7 @@ object DetSkipOctree {
       def write(v: LeftChild, out: DataOutput): Unit = v.write(out)
     }
 
-    implicit protected object LeftBranchSerializer extends TSerializer[_T, LeftBranch] {
+    implicit object LeftBranchSerializer extends TSerializer[_T, LeftBranch] {
       def read(in: DataInput, tx: _T)(implicit access: tx.Acc): LeftBranch = {
         val cookie = in.readByte()
         val id = tx.readId(in)
@@ -490,7 +1089,7 @@ object DetSkipOctree {
       def write(v: LeftBranch, out: DataOutput): Unit = v.write(out)
     }
 
-    implicit protected object RightChildSerializer extends TSerializer[_T, RightChild] {
+    implicit object RightChildSerializer extends TSerializer[_T, RightChild] {
       def read(in: DataInput, tx: _T)(implicit access: tx.Acc): RightChild = {
         val cookie = in.readByte()
         if (cookie == 0) return Empty
@@ -505,7 +1104,7 @@ object DetSkipOctree {
       def write(v: RightChild, out: DataOutput): Unit = v.write(out)
     }
 
-    implicit protected object LeftTopBranchSerializer extends TSerializer[_T, LeftTopBranch] {
+    implicit object LeftTopBranchSerializer extends TSerializer[_T, LeftTopBranch] {
       def read(in: DataInput, tx: _T)(implicit access: tx.Acc): LeftTopBranch = {
         val cookie = in.readByte()
         if (cookie != 2) sys.error(s"Unexpected cookie $cookie")
@@ -516,7 +1115,7 @@ object DetSkipOctree {
       def write(v: LeftTopBranch, out: DataOutput): Unit = v.write(out)
     }
 
-    protected object RightOptionReader extends TSerializer[_T, Next] {
+    object RightOptionReader extends TSerializer[_T, Next] {
       def read(in: DataInput, tx: _T)(implicit access: tx.Acc): Next = {
         val cookie = in.readByte()
         if (cookie == 0) return Empty
@@ -579,7 +1178,7 @@ object DetSkipOctree {
             }
             val nextRef   = cid.newVar[Next](Empty)(RightOptionReader)
             val prev      = lastTree
-            val res       = new RightTopBranchImpl(cid, prev, ch, nextRef)
+            val res       = new RightTopBranchImpl(octree, cid, prev, ch, nextRef)
             prev.next     = res
             lastTree  = res
             res
@@ -1188,324 +1787,9 @@ object DetSkipOctree {
     private[this] def readLeaf(in: DataInput, tx: _T, id: Ident[_T])(implicit access: tx.Acc): Leaf = {
       val value     = keySerializer.read(in, tx)
       val parentRef = id.readVar[Branch](in)
-      new LeafImpl(id, value, parentRef)
+      new LeafImpl(octree, id, value, parentRef)
     }
-
-    protected trait LeftBranchImpl
-      extends BranchImpl {
-
-      branch: LeftBranch =>
-
-      // ---- abstract ----
-
-      /** For a `LeftBranch`, all its children are more specific
-       * -- they are instances of `LeftChild` and thus support
-       * order intervals.
-       */
-      protected def children: Array[Var[LeftChild]]
-      
-      // ---- impl ----
-
-      final def prevOption: Option[Branch] = None
-
-      final def child(idx: Int): LeftChild = children(idx)()
-
-      final def updateChild(idx: Int, c: LeftChild): Unit = children(idx)() = c
-
-      final def demoteLeaf(point: _PL, leaf: Leaf): Unit = {
-        val qIdx  = branch.hyperCube.indexOfP(point)
-        val ok    = child(qIdx) == leaf
-        if (ok) {
-          updateChild(qIdx, Empty)
-          leafRemoved()
-          leaf.remove() // dispose()
-        } else {
-          if (!DetSkipOctree.sanitizing)
-            assert(assertion = false, s"Internal error - expected $leaf not found in $this")
-        }
-      }
-
-      final def insert(point: _PL, value: _A): Leaf = {
-        val qIdx = branch.hyperCube.indexOfP(point)
-        child(qIdx) match {
-          case Empty =>
-            newLeaf(qIdx, /* point, */ value) // (this adds it to the children!)
-
-          case old: LeftNonEmptyChild =>
-            // define the greatest interesting square for the new node to insert
-            // in this node at qIdx:
-            val qn2 = old.union(branch.hyperCube.orthant(qIdx), point)
-            // create the new node (this adds it to the children!)
-            val n2 = newNode(qIdx, qn2)
-            val oIdx = old.orthantIndexIn(qn2)
-            n2.updateChild(oIdx, old)
-            val lIdx = qn2.indexOfP(point)
-            assert(oIdx != lIdx)
-            // This is a tricky bit! And a reason
-            // why should eventually try to do without
-            // parent pointers at all. Since `old`
-            // may be a leaf whose parent points
-            // to a higher level tree, we need to
-            // check first if the parent is `this`,
-            // and if so, adjust the parent to point
-            // to the new intermediate node `ne`!
-            if (old.parent == this) old.updateParentLeft(n2)
-            n2.newLeaf(lIdx, value)
-        }
-      }
-
-      /** Instantiates an appropriate
-       * leaf whose parent is this node, and which should be
-       * ordered according to its position in this node.
-       *
-       * @param   qIdx  the orthant index of the new leaf in this node
-       * @param   value the value associated with the new leaf
-       * @return  the new leaf which has already assigned this node as
-       *          parent and is already stored in this node's children
-       *          at index `qIdx`
-       */
-      private[DetSkipOctree] def newLeaf(qIdx: Int, value: _A): Leaf = {
-        val leafId    = octree.tx.newId()
-        val parentRef = leafId.newVar[Branch](this)
-        val l         = new LeafImpl(leafId, value, parentRef)
-        updateChild(qIdx, l)
-        l
-      }
-
-      /*
-       * Instantiates an appropriate
-       * sub-node whose parent is this node, and which should be
-       * ordered according to its position in this node.
-       *
-       * @param   qIdx  the orthant index of the new node in this (parent) node
-       * @param   iq    the hyper-cube of the new node
-       * @return  the new node which has already assigned this node as
-       *          parent and is already stored in this node's children
-       *          at index `qIdx`
-       */
-      private[this] def newNode(qIdx: Int, iq: _H): LeftChildBranch = {
-        val sz  = children.length
-//        val ch  = tx.newVarArray[LeftChild](sz)
-        val ch  = new Array[Var[LeftChild]](sz)
-        val cid = tx.newId()
-        var i = 0
-        while (i < sz) {
-          ch(i) = cid.newVar[LeftChild](Empty)(LeftChildSerializer)
-          i += 1
-        }
-        val parentRef   = cid.newVar[LeftBranch](this)
-        val rightRef    = cid.newVar[Next](Empty)(RightOptionReader)
-        val n           = new LeftChildBranchImpl(
-          cid, parentRef, iq, children = ch, nextRef = rightRef
-        )
-        updateChild(qIdx, n)
-        n
-      }
-    }
-
-    protected trait RightBranchImpl
-      extends BranchImpl {
-
-      branch: RightBranch =>
-
-      // ---- abstract ----
-
-      protected def children: Array[Var[RightChild]]
-
-      // ---- impl ----
-
-      final def prevOption: Option[Branch] = Some(prev: Branch)
-
-      final def child      (idx: Int)               : RightChild = children(idx)()
-      final def updateChild(idx: Int, c: RightChild): Unit       = children(idx)() = c
-
-      /** Promotes a leaf that exists in Qi-1 to this
-       * tree, by inserting it into this node which
-       * is its interesting node in Qi.
-       *
-       * If the result of insertion is a new child node
-       * below this node, this intermediate node will
-       * be connected to Qi by looking for the corresponding
-       * hyper-cube in the given search path that led here
-       * (i.e. that was constructed in `findPN`).
-       *
-       * This method also sets the parent of the leaf
-       * accordingly.
-       */
-      final def insert(point: _PL, leaf: Leaf): Unit = {
-        //         val point   = pointView( leaf.value )
-        val qIdx = branch.hyperCube.indexOfP(point)
-        child(qIdx) match {
-          case Empty =>
-            updateChild(qIdx, leaf)
-            leaf.parent = this
-          case old: RightNonEmptyChild =>
-            // determine the greatest interesting square for the new
-            // intermediate node to create
-            val qn2 = old.union(branch.hyperCube.orthant(qIdx), point)
-            // find the corresponding node in the lower tree
-            @tailrec def findInPrev(b: Branch): Branch = {
-              if (b.hyperCube == qn2) b
-              else {
-                val idx = b.hyperCube.indexOfP(point)
-                b.child(idx) match {
-                  case _: LeafOrEmpty => sys.error("Internal error - cannot find sub-cube in prev")
-                  case cb: Branch     => findInPrev(cb)
-                }
-              }
-            }
-            val pPrev = findInPrev(prev)
-            val n2    = newNode(qIdx, pPrev, qn2)
-            val oIdx  = old.orthantIndexIn(qn2)
-            n2.updateChild(oIdx, old)
-            // This is a tricky bit! And a reason
-            // why should eventually try to do without
-            // parent pointers at all. Since `old`
-            // may be a leaf whose parent points
-            // to a higher level tree, we need to
-            // check first if the parent is `this`,
-            // and if so, adjust the parent to point
-            // to the new intermediate node `ne`!
-            if (old.parent == this) old.updateParentRight(n2)
-            val lIdx = qn2.indexOfP(point)
-            n2.updateChild(lIdx, leaf)
-            leaf.parent = n2
-        }
-      }
-
-      /*
-       * Instantiates an appropriate
-       * sub-node whose parent is this node, and whose predecessor
-       * in the lower octree is given.
-       *
-       * @param   qIdx  the orthant index in this node where the node belongs
-       * @param   prev  the new node's prev field, i.e. its correspondent in
-       *                Qi-1
-       * @param   iq    the hyper-cube for the new node
-       * @return  the new node which has already been inserted into this node's
-       *          children at index `qIdx`.
-       */
-      @inline private[this] def newNode(qIdx: Int, prev: Branch, iq: _H): RightChildBranch = {
-        val sz  = children.length
-//        val ch  = tx.newVarArray[RightChild](sz)
-        val ch  = new Array[Var[RightChild]](sz)
-        val cid = tx.newId()
-        var i = 0
-        while (i < sz) {
-          ch(i) = cid.newVar[RightChild](Empty)
-          i += 1
-        }
-        val parentRef = cid.newVar[RightBranch](this)
-        val rightRef  = cid.newVar[Next](Empty)(RightOptionReader)
-        val n         = new RightChildBranchImpl(cid, parentRef, prev, iq, ch, rightRef)
-        prev.next     = n
-        updateChild(qIdx, n)
-        n
-      }
-
-      final def demoteLeaf(point: _PL, leaf: Leaf): Unit = {
-        val qIdx = branch.hyperCube.indexOfP(point)
-        assert(child(qIdx) == leaf)
-        updateChild(qIdx, Empty)
-
-        @tailrec def findParent(b: Branch, idx: Int): Branch = b.child(idx) match {
-          case sl: Leaf   => assert(sl == leaf); b
-          case cb: Branch => findParent(cb, cb.hyperCube.indexOfP(point))
-          case Empty      => throw new IllegalStateException  // should not happen by definition
-        }
-
-        val newParent = findParent(prev, qIdx)
-        leafRemoved()
-        leaf.parent = newParent
-      }
-    }
-
-    /** A leaf in the octree, carrying a map entry
-     * in the form of a point and associated value.
-     * Note that a single instance of a leaf is used
-     * across the levels of the octree! That means
-     * that multiple child pointers may go to the
-     * same leaf, while the parent of a leaf always
-     * points into the highest level octree that
-     * the leaf resides in, according to the skiplist.
-     */
-    protected final class LeafImpl(val id: Ident[_T], val value: _A, parentRef: Var[Branch])
-      extends LeftNonEmptyChild with RightNonEmptyChild with LeafOrEmpty with Leaf {
-
-      def updateParentLeft (p: LeftBranch ): Unit = parent_=(p)
-      def updateParentRight(p: RightBranch): Unit = parent_=(p)
-
-      def parent             : Branch  = parentRef()
-      def parent_=(p: Branch): Unit    = parentRef() = p
-
-      def dispose(): Unit = {
-        id.dispose()
-        parentRef.dispose()
-      }
-
-      def write(out: DataOutput): Unit = {
-        out.writeByte(1)
-        id.write(out)
-        keySerializer.write(value, out)
-        parentRef.write(out)
-      }
-
-      def union(mq: _H, point2: _PL): _H =
-        mq.greatestInterestingP(pointView(value /*, tx*/), point2)
-
-      def orthantIndexIn(iq: _H): Int =
-        iq.indexOfP(pointView(value /*, tx*/))
-
-      def shortString = s"Leaf($value)"
-
-      def remove(): Unit = dispose()
-    }
-
-    /** Nodes are defined by a hyperCube area as well as a list of children,
-     * as well as a pointer `next` to the corresponding node in the
-     * next highest tree. A `Branch` also provides various search methods.
-     */
-    protected sealed trait BranchImpl {
-      thisBranch: Branch =>
-
-      // ---- abstract ----
-
-      protected def nextRef: Var[Next]
-      
-      /** Called when a leaf has been removed from the node.
-       * The node may need to cleanup after this, e.g. promote
-       * an under-full node upwards.
-       */
-      protected def leafRemoved(): Unit
-
-      protected def nodeName: String
-
-      // ---- impl ----
-
-      final def next_=(node: Next): Unit = nextRef() = node
-
-      final def next: Next = nextRef()
-
-      final def nextOption: Option[Branch] = thisBranch.next match {
-        case Empty      => None
-        case b: Branch  => Some(b)
-      }
-
-      final override def union(mq: _H, point2: _PL): _H = {  // scalac warning bug
-        val q = thisBranch.hyperCube
-        mq.greatestInterestingH(q, point2)
-      }
-
-      final def orthantIndexIn(iq: _H): Int =  // scalac warning bug
-        iq.indexOfH(thisBranch.hyperCube)
-
-      protected final def shortString = s"$nodeName($thisBranch.hyperCube)"
-    }
-
-    protected sealed trait TopBranchImpl {
-      final def hyperCube: _H = octree.hyperCube
-    }
-
+    
     /*
      * Serialization-id: 2
      */
@@ -1519,41 +1803,7 @@ object DetSkipOctree {
         i += 1
       }
       val nextRef = id.readVar[Next](in)(RightOptionReader)
-      new LeftTopBranchImpl(id, children = ch, nextRef = nextRef)
-    }
-
-    protected final class LeftTopBranchImpl(val id: Ident[_T],
-                                            protected val children: Array[Var[LeftChild]],
-                                            protected val nextRef: Var[Next])
-      extends LeftTopBranch with LeftBranchImpl with TopBranchImpl with Mutable[_T] {
-      // that's alright, we don't need to do anything special here
-      protected def leafRemoved(): Unit = ()
-
-      def dispose(): Unit = {
-        id.dispose()
-        var i = 0
-        val sz = children.length
-        while (i < sz) {
-          children(i).dispose()
-          i += 1
-        }
-        nextRef.dispose()
-      }
-
-      def write(out: DataOutput): Unit = {
-        out.writeByte(2)
-        id.write(out)
-        // no need to write the hyperCube?
-        var i = 0
-        val sz = children.length
-        while (i < sz) {
-          children(i).write(out)
-          i += 1
-        }
-        nextRef.write(out)
-      }
-
-      protected def nodeName = "LeftTop"
+      new LeftTopBranchImpl(octree, id, children = ch, nextRef = nextRef)
     }
 
     /*
@@ -1572,79 +1822,9 @@ object DetSkipOctree {
         i += 1
       }
       val nextRef = id.readVar[Next](in)(RightOptionReader)
-      new LeftChildBranchImpl(id, parentRef, hc, children = ch, nextRef = nextRef)
+      new LeftChildBranchImpl(octree, id, parentRef, hc, children = ch, nextRef = nextRef)
     }
-
-    protected final class LeftChildBranchImpl(val id: Ident[_T], parentRef: Var[LeftBranch], val hyperCube: _H,
-                                              protected val children: Array[Var[LeftChild]],
-                                              protected val nextRef: Var[Next])
-      extends LeftBranchImpl with LeftChildBranch {
-
-      thisBranch =>
-
-      protected def nodeName = "LeftInner"
-
-      def updateParentLeft(p: LeftBranch): Unit = parent = p
-
-      def parent                    : LeftBranch = parentRef()
-      def parent_=(node: LeftBranch): Unit       = parentRef() = node
-
-      def dispose(): Unit = {
-        id        .dispose()
-        parentRef .dispose()
-        var i = 0
-        val sz = children.length
-        while (i < sz) {
-          children(i).dispose()
-          i += 1
-        }
-        nextRef.dispose()
-      }
-
-      def write(out: DataOutput): Unit = {
-        out.writeByte(3)
-        id.write(out)
-        parentRef.write(out)
-        space.hyperCubeSerializer.write(thisBranch.hyperCube, out)
-        var i = 0
-        val sz = children.length
-        while (i < sz) {
-          children(i).write(out)
-          i += 1
-        }
-        nextRef.write(out)
-      }
-
-      private[this] def remove(): Unit = dispose()
-
-      // make sure the node is not becoming uninteresting, in which case
-      // we need to merge upwards
-      protected def leafRemoved(): Unit = {
-        val sz = children.length
-        @tailrec def removeIfLonely(i: Int): Unit =
-          if (i < sz) child(i) match {
-            case lonely: LeftNonEmptyChild =>
-              @tailrec def isLonely(j: Int): Boolean = {
-                j == sz || (child(j) match {
-                  case _: LeftNonEmptyChild => false
-                  case _ => isLonely(j + 1)
-                })
-              }
-              if (isLonely(i + 1)) {
-                val p     = parent
-                val myIdx = p.hyperCube.indexOfH(thisBranch.hyperCube)
-                p.updateChild(myIdx, lonely)
-                if (lonely.parent == this) lonely.updateParentLeft(p)
-                remove() // dispose() // removeAndDispose()
-              }
-
-            case _ => removeIfLonely(i + 1)
-          }
-
-        removeIfLonely(0)
-      }
-    }
-
+    
     /*
       * Serialization-id: 4
       */
@@ -1660,70 +1840,7 @@ object DetSkipOctree {
         i += 1
       }
       val nextRef = id.readVar[Next](in)(RightOptionReader)
-      new RightTopBranchImpl(id, prev, ch, nextRef)
-    }
-
-    protected final class RightTopBranchImpl(val id: Ident[_T], val prev: TopBranch,
-                                             protected val children: Array[Var[RightChild]],
-                                             protected val nextRef: Var[Next])
-      extends RightTopBranch with RightBranchImpl with TopBranchImpl {
-
-      protected def nodeName = "RightTop"
-
-      private[this] def remove(): Unit = {
-        // first unlink
-        assert(lastTree == this)
-        lastTree  = prev
-        prev.next     = Empty
-        dispose()
-      }
-
-      def dispose(): Unit = {
-        id.dispose()
-        //         // first unlink
-        //         assert( lastTreeImpl == this )
-        //         lastTreeImpl= prev
-        //         prev.next   = Empty
-
-        // then dispose refs
-        var i = 0
-        val sz = children.length
-        while (i < sz) {
-          children(i).dispose()
-          i += 1
-        }
-        nextRef.dispose()
-      }
-
-      def write(out: DataOutput): Unit = {
-        out.writeByte(4)
-        id.write(out)
-        // no need to write the hypercube!
-        prev.write(out)
-        var i = 0
-        val sz = children.length
-        while (i < sz) {
-          children(i).write(out)
-          i += 1
-        }
-        nextRef.write(out)
-      }
-
-      // remove this node if it empty now and right-node tree
-      protected def leafRemoved(): Unit = {
-        if (next != Empty) return
-
-        val sz = children.length
-        var i = 0
-        while (i < sz) {
-          val c = child(i)
-          if (c != Empty) return // node not empty, abort the check
-          i += 1
-        }
-
-        // ok, we are the right most tree and the node is empty...
-        remove()
-      }
+      new RightTopBranchImpl(octree, id, prev, ch, nextRef)
     }
 
     /*
@@ -1743,94 +1860,9 @@ object DetSkipOctree {
         i += 1
       }
       val nextRef = id.readVar[Next](in)(RightOptionReader)
-      new RightChildBranchImpl(id, parentRef, prev, hc, ch, nextRef)
+      new RightChildBranchImpl(octree, id, parentRef, prev, hc, ch, nextRef)
     }
-
-    private final class RightChildBranchImpl(val id: Ident[_T], parentRef: Var[RightBranch],
-                                             val prev: Branch, val hyperCube: _H,
-                                             protected val children: Array[Var[RightChild]],
-                                             protected val nextRef: Var[Next])
-      extends RightChildBranch with RightBranchImpl {
-
-      thisBranch =>
-
-      protected def nodeName = "RightInner"
-
-      def updateParentRight(p: RightBranch): Unit = parent = p
-
-      private[this] def remove(): Unit = {
-        // first unlink
-        prev.next = Empty
-        dispose()
-      }
-
-      def dispose(): Unit = {
-        id.dispose()
-        //         // first unlink
-        //         prev.next = Empty
-
-        // then dispose refs
-        parentRef.dispose()
-        var i = 0
-        val sz = children.length
-        while (i < sz) {
-          children(i).dispose()
-          i += 1
-        }
-        nextRef.dispose()
-      }
-
-      def write(out: DataOutput): Unit = {
-        out.writeByte(5)
-        id.write(out)
-        parentRef.write(out)
-        prev.write(out)
-        space.hyperCubeSerializer.write(thisBranch.hyperCube, out)
-        var i = 0
-        val sz = children.length
-        while (i < sz) {
-          children(i).write(out)
-          i += 1
-        }
-        nextRef.write(out)
-      }
-
-      //      private def removeAndDispose()( implicit tx: T ): Unit = {
-      //         prev.next = Empty
-      //         dispose()
-      //      }
-
-      def parent                     : RightBranch = parentRef()
-      def parent_=(node: RightBranch): Unit        = parentRef() = node
-
-      // make sure the node is not becoming uninteresting, in which case
-      // we need to merge upwards
-      protected def leafRemoved(): Unit = {
-        val sz = children.length
-        @tailrec def removeIfLonely(i: Int): Unit =
-          if (i < sz) child(i) match {
-            case lonely: RightNonEmptyChild =>
-              @tailrec def isLonely(j: Int): Boolean = {
-                j == sz || (child(j) match {
-                  case _: RightNonEmptyChild  => false
-                  case _                      => isLonely(j + 1)
-                })
-              }
-              if (isLonely(i + 1)) {
-                val p       = parent
-                val myIdx   = p.hyperCube.indexOfH(thisBranch.hyperCube)
-                p.updateChild(myIdx, lonely)
-                if (lonely.parent == this) lonely.updateParentRight(p)
-                remove()
-              }
-
-            case _ => removeIfLonely(i + 1)
-          }
-
-        removeIfLonely(0)
-      }
-    }
-
+    
     def debugPrint(): String = {
       val bs  = new ByteArrayOutputStream()
       val ps  = new PrintStream(bs)
@@ -1979,7 +2011,7 @@ object DetSkipOctree {
               val parentRef   = cid.newVar[LeftBranch](b    )(LeftBranchSerializer)
               val rightRef    = cid.newVar[Next      ](Empty)(RightOptionReader   )
               val n           = new LeftChildBranchImpl(
-                cid, parentRef, iq, children = ch, nextRef = rightRef
+                octree, cid, parentRef, iq, children = ch, nextRef = rightRef
               )
               b.updateChild(qIdx, n)
               n
