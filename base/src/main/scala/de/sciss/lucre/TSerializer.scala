@@ -1,6 +1,6 @@
 package de.sciss.lucre
 
-import de.sciss.lucre.impl.{VecSerializer, ListSerializer}
+import de.sciss.lucre.impl.{ListSerializer, OptionSerializer, VecSerializer}
 import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.collection.immutable.{IndexedSeq => Vec}
@@ -23,6 +23,9 @@ object TSerializer {
 
   implicit def vec[T <: Exec[T], A](implicit peer: TSerializer[T, A]): TSerializer[T, Vec[A]] =
     new VecSerializer[T, A](peer)
+
+  implicit def option[T <: Exec[T], A](implicit peer: TSerializer[T, A]): TSerializer[T, Option[A]] =
+    new OptionSerializer[T, A](peer)
 }
 trait TSerializer[T <: Exec[T], A] extends TReader[T, A] {
   def write(v: A, out: DataOutput): Unit

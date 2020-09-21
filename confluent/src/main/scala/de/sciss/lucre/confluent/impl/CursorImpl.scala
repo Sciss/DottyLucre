@@ -140,7 +140,7 @@ object CursorImpl {
     }
 
     def flushCache(term: Long)(implicit tx: T): Unit = {
-      implicit val dtx: D1 = system.durableTx(tx)
+//      implicit val dtx: D1 = system.durableTx(tx)
       val newPath = tx.inputAccess.addTerm(term)
       data.path() = newPath
       logCursor(s"${data.id} flush path = $newPath")

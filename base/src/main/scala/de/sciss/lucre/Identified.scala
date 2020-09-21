@@ -13,8 +13,6 @@
 
 package de.sciss.lucre
 
-import de.sciss.lucre.{Exec, Ident}
-
 trait Identified[T <: Exec[T]] {
 //  val tx: T
 //

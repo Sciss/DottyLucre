@@ -19,7 +19,7 @@ import de.sciss.lucre.confluent.impl.DurableCacheMapImpl.Store
 import de.sciss.lucre.confluent.impl.{PathImpl => Path}
 import de.sciss.lucre.data.Ancestor
 import de.sciss.lucre.impl.{ReactionMapImpl, TRandomImpl}
-import de.sciss.lucre.{ConfluentLike, DataStore, Ident, IdentMap, NewImmutSerializer, Observer, TRandom, TRef, TSerializer, TSource, TxnLike, Txn => LTxn}
+import de.sciss.lucre.{ConfluentLike, DataStore, Ident, IdentMap, NewImmutSerializer, Observer, TRandom, TSerializer, TSource, TxnLike, Txn => LTxn}
 import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.annotation.tailrec

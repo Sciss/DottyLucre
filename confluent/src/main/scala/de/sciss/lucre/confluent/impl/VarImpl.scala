@@ -15,7 +15,7 @@ package de.sciss.lucre.confluent
 package impl
 
 import de.sciss.lucre.confluent.Log.log
-import de.sciss.lucre.{NewImmutSerializer, TRef, TSerializer, TSource, TVar}
+import de.sciss.lucre.{NewImmutSerializer, TSerializer}
 import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.collection.immutable.LongMap
@@ -212,11 +212,11 @@ private final class RootVar[T <: Txn[T], A](id1: Int, name: String)
     tx.getTxn(id)
   }
 
-  def swap(v: A)(implicit tx: T): A = {
-    val res = apply()
-    update(v)
-    res
-  }
+//  def swap(v: A)(implicit tx: T): A = {
+//    val res = apply()
+//    update(v)
+//    res
+//  }
 
 //  def write(out: DataOutput): Unit =
 //    sys.error("Unsupported Operation -- access.write")

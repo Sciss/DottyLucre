@@ -15,7 +15,7 @@ package de.sciss.lucre
 
 import de.sciss.lucre.confluent.impl.{ConfluentImpl => Impl}
 
-trait ConfluentLike[Tx <: confluent.Txn[Tx]] extends confluent.Sys {
+trait ConfluentLike[Tx <: confluent.Txn[Tx]] extends confluent.Txt {
   type T = Tx
 
   type D <: DurableLike.Txn[D]

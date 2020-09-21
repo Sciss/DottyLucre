@@ -13,7 +13,7 @@
 
 package de.sciss.lucre.confluent
 
-import de.sciss.lucre.{DataStore, DurableLike, InMemoryLike, TRef, TSerializer, TSource, TxnLike, confluent, Sys => LSys}
+import de.sciss.lucre.{DataStore, DurableLike, InMemoryLike, TSerializer, TSource, TxnLike, confluent, Sys => LSys}
 import de.sciss.serial.DataInput
 
 import scala.collection.immutable.{IndexedSeq => Vec}
@@ -21,7 +21,7 @@ import scala.collection.immutable.{IndexedSeq => Vec}
 /** This is analogous to a `ConfluentLike` trait. Since there is only one system in
   * `LucreConfluent`, it was decided to just name it `confluent.Sys`.
   */
-trait Sys /*[S <: Sys[S]]*/ extends LSys /*[S]*/ {
+trait Txt /*[S <: Sys[S]]*/ extends LSys /*[S]*/ {
   type D <: DurableLike .Txn[D]
   type I <: InMemoryLike.Txn[I]
 

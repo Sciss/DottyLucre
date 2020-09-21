@@ -4,12 +4,12 @@ import de.sciss.lucre.data.TotalOrder.Map
 import de.sciss.lucre.geom.{IntCube, IntDistanceMeasure3D, IntPoint3D, IntPoint3DLike, IntSpace}
 import de.sciss.lucre.store.BerkeleyDB
 import de.sciss.lucre.{Cursor, Durable, InMemory, Sys, TReader, TSerializer, TestUtil, Txn}
-import de.sciss.serial.{DataInput, DataOutput, Serializer, Writable}
+import de.sciss.serial.{DataInput, DataOutput, Writable}
 import org.scalatest.GivenWhenThen
 import org.scalatest.featurespec.AnyFeatureSpec
 
 import scala.annotation.tailrec
-import scala.collection.immutable.{Map => IMap, IndexedSeq => Vec, Set => ISet}
+import scala.collection.immutable.{IndexedSeq => Vec, Map => IMap, Set => ISet}
 import scala.concurrent.stm.Ref
 
 /*

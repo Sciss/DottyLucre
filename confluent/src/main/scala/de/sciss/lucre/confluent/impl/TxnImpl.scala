@@ -17,7 +17,7 @@ package impl
 import de.sciss.lucre.confluent.Log.log
 import de.sciss.lucre.confluent.impl.{PathImpl => Path}
 import de.sciss.lucre.impl.BasicTxnImpl
-import de.sciss.lucre.{Confluent, Durable, DurableLike, IdentMap, InMemory, NewImmutSerializer, Obj, ReactionMap, TMap, TSerializer, TSource, Ident => LIdent}
+import de.sciss.lucre.{Confluent, Durable, DurableLike, IdentMap, InMemory, NewImmutSerializer, Obj, ReactionMap, TMap, TSerializer, Ident => LIdent}
 import de.sciss.serial.DataInput
 
 import scala.collection.immutable.{IndexedSeq => Vec, Queue => IQueue}

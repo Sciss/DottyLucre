@@ -14,7 +14,7 @@
 package de.sciss.lucre.confluent
 
 import de.sciss.lucre
-import de.sciss.lucre.{ConfluentLike, DurableLike, NewImmutSerializer, TSerializer, TSource, confluent}
+import de.sciss.lucre.{ConfluentLike, DurableLike, NewImmutSerializer, TSerializer, confluent}
 
 trait Txn[T <: Txn[T]] extends lucre.Txn[T] {
   def system: ConfluentLike[T]

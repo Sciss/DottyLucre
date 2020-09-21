@@ -41,7 +41,7 @@ trait ProjectionTest {
   //   }
 
   def test3[T, S <: LSys /*[S]*/, Time](dynVar: LVar[/*Time,*/ Int])(implicit tx: T, dynView: T => Time): Unit = {
-    implicit val dtx: Time = dynView(tx)
+//    implicit val dtx: Time = dynView(tx)
     // dynVar.transform(_ + 33)(tx)
     dynVar() = dynVar() + 33
   }
