@@ -20,7 +20,7 @@ import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.util.hashing.MurmurHash3
 
-/*private*/ abstract class IdImpl[T <: Txn[T]] extends Ident[T] {
+private abstract class IdImpl[T <: Txn[T]] extends Ident[T] {
   type Id = Ident[T]
 
   protected def tx: T
@@ -142,7 +142,7 @@ private final class ConfluentId[T <: Txn[T]](protected val tx: T, val base: Int,
   override def toString: String = path.mkString(s"<$base @ ", ",", ">")
 }
 
-/*private*/ final class PartialId[T <: Txn[T]](protected val tx: T, val base: Int, val path: Access[T])
+private final class PartialId[T <: Txn[T]](protected val tx: T, val base: Int, val path: Access[T])
   extends IdImpl[T] {
 
   override def hashCode: Int = {
@@ -160,7 +160,7 @@ private final class ConfluentId[T <: Txn[T]](protected val tx: T, val base: Int,
   }
 
   def copy(newPath: Access[T]): Ident[T] = new PartialId(tx, base = base, path = newPath)
-  
+
     override def equals(that: Any): Boolean =
       that match {
         case b: PartialId[_] =>

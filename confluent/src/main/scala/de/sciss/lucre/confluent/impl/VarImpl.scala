@@ -103,7 +103,7 @@ private[impl] abstract class BasicVar[T <: Txn[T], A] extends Var[A] {
 //  final def transform(f: A => A): Unit = this() = f(this())
 }
 
-private[impl] final class VarImpl[T <: Txn[T], A](protected val tx: T, protected val id: Ident[T], 
+private[impl] final class VarImpl[T <: Txn[T], A](protected val tx: T, protected val id: Ident[T],
                                                   protected val ser: NewImmutSerializer[A])
   extends BasicVar[T, A] {
 

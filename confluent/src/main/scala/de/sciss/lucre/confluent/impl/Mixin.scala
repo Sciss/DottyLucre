@@ -86,10 +86,10 @@ trait Mixin[Tx <: Txn[Tx]]
     var rnd = 0
     while ({
       rnd = ??? // versionRandom.nextInt()
-      
+
       rnd == 0
     }) ()
-    
+
     (rnd.toLong << 32) | (lin.toLong & 0xFFFFFFFFL)
   }
 
