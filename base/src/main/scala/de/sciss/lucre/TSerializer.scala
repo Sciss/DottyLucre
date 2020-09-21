@@ -4,8 +4,13 @@ import de.sciss.lucre.impl.ListSerializer
 import de.sciss.serial.{DataInput, DataOutput}
 
 object TSerializer {
+  // XXX TODO -- we can no longer cast, another shitty result of dropping type projections
   implicit def immutable[T <: Exec[T], A](implicit peer: NewImmutSerializer[A]): TSerializer[T, A] =
-    peer.asInstanceOf[TSerializer[T, A]]
+    new TSerializer[T, A] {
+      def read(in: DataInput, tx: T)(implicit acc: tx.Acc): A = peer.read(in)
+
+      def write(v: A, out: DataOutput): Unit = peer.write(v, out)
+    }
 
   implicit def list[T <: Exec[T], A](implicit peer: TSerializer[T, A]): TSerializer[T, List[A]] =
     new ListSerializer[T, A](peer)
@@ -41,9 +46,11 @@ object NewImmutSerializer {
     def write(v: java.lang.String, out: DataOutput): Unit = out.writeUTF(v)
   }
 }
-trait NewImmutSerializer[A] extends TSerializer[AnyExec, A] {
-  override def read(in: DataInput, tx: AnyExec)(implicit acc: tx.Acc): A =
-    read(in)
+trait NewImmutSerializer[A] {
+//  override def read(in: DataInput, tx: AnyExec)(implicit acc: tx.Acc): A =
+//    read(in)
 
   def read(in: DataInput): A
+
+  def write(v: A, out: DataOutput): Unit
 }
