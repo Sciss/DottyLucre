@@ -337,7 +337,7 @@ object Ancestor {
       }
 
       private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, M] = {
-        val pointView = (p: M, tx: T) => p.toPoint // (tx)
+        val pointView = (p: M /*, tx: T*/) => p.toPoint // (tx)
         SkipOctree.read[T, IntPoint3DLike, IntPoint3D, IntCube, M](in, tx)(access, pointView, IntSpace.ThreeDim, markSerializer)
       }
     }
@@ -589,7 +589,7 @@ object Ancestor {
       TotalOrder.Map.empty[T, M](me, _.post, rootTag = Int.MaxValue)(tx, markSerializer)
 
     private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, M] = {
-      val pointView = (p: M, tx: T) => p.toPoint // (tx)
+      val pointView = (p: M /*, tx: T*/) => p.toPoint // (tx)
       SkipOctree.empty[T, IntPoint3DLike, IntPoint3D, IntCube, M](cube)(tx, pointView, IntSpace.ThreeDim, markSerializer)
     }
 

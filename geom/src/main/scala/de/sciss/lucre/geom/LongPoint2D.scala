@@ -69,7 +69,7 @@ trait LongPoint2DLike {
 }
 
 object LongPoint2D {
-  implicit def serializer: ImmutableSerializer[LongPoint2D] = LongSpace.TwoDim.pointSerializer
+  implicit def serializer: NewImmutSerializer[LongPoint2D] = LongSpace.TwoDim.pointSerializer
 }
 final case class LongPoint2D(x: Long, y: Long) extends LongPoint2DLike {
   def +(p: LongPoint2D) = LongPoint2D(x + p.x, y + p.y)

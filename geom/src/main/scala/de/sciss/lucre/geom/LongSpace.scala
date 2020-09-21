@@ -48,7 +48,7 @@ object LongSpace {
     }
 
 
-    implicit object pointSerializer extends ImmutableSerializer[LongPoint2D] {
+    implicit object pointSerializer extends NewImmutSerializer[LongPoint2D] {
       def read(in: DataInput): LongPoint2D = {
         val x = in.readLong()
         val y = in.readLong()
@@ -61,7 +61,7 @@ object LongSpace {
       }
     }
 
-    implicit object hyperCubeSerializer extends ImmutableSerializer[LongSquare] {
+    implicit object hyperCubeSerializer extends NewImmutSerializer[LongSquare] {
       def read(in: DataInput): LongSquare = {
         val cx = in.readLong()
         val cy = in.readLong()

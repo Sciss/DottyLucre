@@ -14,8 +14,6 @@
 package de.sciss.lucre
 package geom
 
-import de.sciss.serial.ImmutableSerializer
-
 object Space {
   final val bigZero = BigInt(0)
   final val bigOne  = BigInt(1)
@@ -39,6 +37,6 @@ trait Space[PL, P, /*HL,*/ H] {
 
   implicit def lexicalOrder: Ordering[PL]
 
-  implicit def pointSerializer    : ImmutableSerializer[P]
-  implicit def hyperCubeSerializer: ImmutableSerializer[H]
+  implicit def pointSerializer    : NewImmutSerializer[P]
+  implicit def hyperCubeSerializer: NewImmutSerializer[H]
 }

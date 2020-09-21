@@ -42,7 +42,7 @@ object IntSpace {
       }
     }
 
-    implicit object pointSerializer extends ImmutableSerializer[IntPoint2D] {
+    implicit object pointSerializer extends NewImmutSerializer[IntPoint2D] {
       def read(in: DataInput): IntPoint2D = {
         val x = in.readInt()
         val y = in.readInt()
@@ -55,7 +55,7 @@ object IntSpace {
       }
     }
 
-    implicit object hyperCubeSerializer extends ImmutableSerializer[IntSquare] {
+    implicit object hyperCubeSerializer extends NewImmutSerializer[IntSquare] {
       def read(in: DataInput): IntSquare = {
         val cx = in.readInt()
         val cy = in.readInt()
@@ -98,7 +98,7 @@ object IntSpace {
       }
     }
 
-    implicit object pointSerializer extends ImmutableSerializer[IntPoint3D] {
+    implicit object pointSerializer extends NewImmutSerializer[IntPoint3D] {
       def read(in: DataInput): IntPoint3D = {
         val x = in.readInt()
         val y = in.readInt()
@@ -113,7 +113,7 @@ object IntSpace {
       }
     }
 
-    implicit object hyperCubeSerializer extends ImmutableSerializer[IntCube] {
+    implicit object hyperCubeSerializer extends NewImmutSerializer[IntCube] {
       def read(in: DataInput): IntCube = {
         val cx  = in.readInt()
         val cy  = in.readInt()
@@ -146,7 +146,7 @@ object IntSpace {
       }
     }
 
-    implicit object pointSerializer extends ImmutableSerializer[NDim#Point] {
+    implicit object pointSerializer extends NewImmutSerializer[NDim#Point] {
       def write(v: NDim#Point, out: DataOutput): Unit = {
         val c = v.components
         out.writeShort(c.size)
@@ -160,7 +160,7 @@ object IntSpace {
       }
     }
 
-    implicit object hyperCubeSerializer extends ImmutableSerializer[NDim#HyperCube] {
+    implicit object hyperCubeSerializer extends NewImmutSerializer[NDim#HyperCube] {
       def write(v: NDim#HyperCube, out: DataOutput): Unit = {
         val c = v.components
         out.writeShort(c.size)
@@ -186,8 +186,8 @@ object IntSpace {
     val maxPoint        = IntPointN(Vector.fill(dim)(Int.MaxValue))
 
     def lexicalOrder       : Ordering[PointLike]            = NDim.lexicalOrder
-    def pointSerializer    : ImmutableSerializer[Point]     = NDim.pointSerializer
-    def hyperCubeSerializer: ImmutableSerializer[HyperCube] = NDim.hyperCubeSerializer
+    def pointSerializer    : NewImmutSerializer[Point]      = NDim.pointSerializer
+    def hyperCubeSerializer: NewImmutSerializer[HyperCube]  = NDim.hyperCubeSerializer
   }
 
   /** A helper method which efficiently calculates the unique integer in an interval [a, b] which has

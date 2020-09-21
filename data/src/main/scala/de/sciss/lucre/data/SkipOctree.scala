@@ -14,7 +14,7 @@
 package de.sciss.lucre
 package data
 
-import de.sciss.lucre.geom.{DistanceMeasure, QueryShape, Space}
+import de.sciss.lucre.geom.{DistanceMeasure, HyperCube, QueryShape, Space}
 import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.collection.immutable.{IndexedSeq => Vec}
@@ -23,26 +23,26 @@ object SkipOctree {
   implicit def nonTxnPointView[P, A](implicit view: A => P): (A, Any) => P =
     (a, _) => view(a)
 
-  def empty[T <: Exec[T], PL, P, H, A](hyperCube: H)
-                                      (implicit tx: T, view: (A, T) => P, space: Space[PL, P, H],
+  def empty[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](hyperCube: H)
+                                      (implicit tx: T, view: (A /*, T*/) => PL, space: Space[PL, P, H],
                                        keySerializer: TSerializer[T, A]): SkipOctree[T, PL, P, H, A] =
-    ??? // DeterministicSkipOctree.empty[T, PL, P, H, A](hyperCube)
+    DetSkipOctree.empty[T, PL, P, H, A](hyperCube)
 
-  def read[T <: Exec[T], PL, P, H, A](in: DataInput, tx: T)(
-    implicit access: tx.Acc, view: (A, T) => P, space: Space[PL, P, H],
-    keySerializer: TSerializer[T, A]): SkipOctree[T, PL, P, H, A] =
-    ??? // DeterministicSkipOctree.read[T, PL, P, H, A](in, access)
+  def read[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](in: DataInput, tx: T)(implicit access: tx.Acc, view: (A /*, T*/) => PL, 
+                                                            space: Space[PL, P, H],
+                                                            keySerializer: TSerializer[T, A]): SkipOctree[T, PL, P, H, A] =
+    DetSkipOctree.read[T, PL, P, H, A](in, tx)
 
-  implicit def serializer[T <: Exec[T], PL, P, H, A](implicit view: (A, T) => P, space: Space[PL, P, H],
+  implicit def serializer[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A /*, T*/) => PL, space: Space[PL, P, H],
                                                      keySerializer: TSerializer[T, A]): TSerializer[T, SkipOctree[T, PL, P, H, A]] =
     new Ser[T, PL, P, H, A]
 
-  private final class Ser[T <: Exec[T], PL, P, H, A](implicit view: (A, T) => P, space: Space[PL, P, H],
-                                                     keySerializer: TSerializer[T, A])
+  private final class Ser[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A /*, T*/) => PL, space: Space[PL, P, H],
+                                                                         keySerializer: TSerializer[T, A])
     extends TSerializer[T, SkipOctree[T, PL, P, H, A]] {
 
     def read(in: DataInput, tx: T)(implicit access: tx.Acc): SkipOctree[T, PL, P, H, A] =
-      ??? // DeterministicSkipOctree.read(in, access)
+      DetSkipOctree.read(in, tx)
 
     override def toString = "SkipOctree.serializer"
 
@@ -60,7 +60,7 @@ trait SkipOctree[T <: Exec[T], PL, P, H, A] extends Mutable[T] {
   def space: Space[PL, P, H]
 
   /** A function which maps an element (possibly through transactional access) to a geometric point coordinate. */
-  def pointView: (A, T) => PL
+  def pointView: A /*(A, T)*/ => PL
 
   /** The base square of the tree. No point can lie outside this square (or hyper-cube). */
   def hyperCube: H

@@ -15,6 +15,7 @@ package de.sciss.lucre.geom
 
 import collection.immutable.{IndexedSeq => Vec}
 import IntSpace.NDim
+import de.sciss.lucre.NewImmutSerializer
 import de.sciss.serial.ImmutableSerializer
 
 trait IntPointNLike {
@@ -36,7 +37,7 @@ trait IntPointNLike {
 }
 
 object IntPointN {
-  implicit def serializer: ImmutableSerializer[IntPointN] = IntSpace.NDim.pointSerializer
+  implicit def serializer: NewImmutSerializer[IntPointN] = IntSpace.NDim.pointSerializer
 }
 final case class IntPointN(components: Vec[Int]) extends IntPointNLike {
   // if( components.size != dim ) throw new IllegalArgumentException( "Expected " + dim + " components: " + components )

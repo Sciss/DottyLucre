@@ -85,6 +85,7 @@ lazy val base = project.in(file("base"))
   )
 
 lazy val geom = project.withId(s"$baseNameL-geom").in(file("geom"))
+  .dependsOn(base)    // XXX TODO --- this is just because of new serializers
   .settings(commonSettings)
   .settings(
     licenses := Seq(agpl),
