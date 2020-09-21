@@ -36,7 +36,7 @@ lazy val commonSettings = Seq(
   organization        := "de.sciss",
   description         := "Extension of Scala-STM, adding optional durability layer, and providing API for confluent and reactive event layers",
   homepage            := Some(url(s"https://git.iem.at/sciss/$baseName")),
-  scalaVersion        := "2.13.3",  // "0.27.0-RC1",
+  scalaVersion        := "0.27.0-RC1",  // "2.13.3",
   crossScalaVersions  := Seq("0.27.0-RC1", "2.13.3"), // "2.12.12",
   scalacOptions      ++= Seq(
     "-Xlint", "-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xsource:2.13"
@@ -44,10 +44,13 @@ lazy val commonSettings = Seq(
   scalacOptions in (Compile, compile) ++= {
     val jdkGt8 = scala.util.Properties.isJavaAtLeast("9")
     // note: https://github.com/lampepfl/dotty/issues/8634 
-    if (!isDotty.value && jdkGt8) Seq("-release", "8") else Nil
+    if (!(isDotty.value: @sbtUnchecked) && jdkGt8) Seq("-release", "8") else Nil
   }, // JDK >8 breaks API; skip scala-doc
   scalacOptions      ++= {
     if (loggingEnabled && isSnapshot.value) Nil else Seq("-Xelide-below", "INFO")     // elide debug logging!
+  },
+  sources in (Compile, doc) := {
+    if (isDotty.value: @sbtUnchecked) Nil else (sources in (Compile, doc)).value // dottydoc is pretty much broken
   },
   testOptions in Test += Tests.Argument("-oDF"),   // ScalaTest: durations and full stack traces
   parallelExecution in Test := false,

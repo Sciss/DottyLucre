@@ -19,4 +19,10 @@ trait PathLike {
   def size: Int
 
   def sumUntil(n: Int): Long
+
+  def head: Long
+  def last: Long
+
+  def isEmpty : Boolean
+  def nonEmpty: Boolean
 }

@@ -15,7 +15,6 @@ package de.sciss.lucre
 package impl
 
 import de.sciss.equal.Implicits._
-import de.sciss.serial
 import de.sciss.serial.{DataInput, DataOutput}
 
 trait ObjSerializer[T <: Txn[T], Repr <: Obj[T]]

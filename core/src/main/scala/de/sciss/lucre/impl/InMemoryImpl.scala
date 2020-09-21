@@ -15,9 +15,7 @@ package de.sciss.lucre
 package impl
 
 import de.sciss.equal.Implicits._
-import de.sciss.lucre.impl.{EphemeralTSource, ReactionMapImpl}
-import de.sciss.lucre.{TSource, Ident, IdentMap, InMemory, InMemoryLike, Obj, Observer, ReactionMap, TSerializer, TxnLike, Var}
-import de.sciss.serial.{DataInput, DataOutput, Serializer}
+import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.concurrent.stm.{InTxn, TxnExecutor, Ref => ScalaRef}
 

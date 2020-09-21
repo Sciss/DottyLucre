@@ -16,7 +16,7 @@ package impl
 
 import de.sciss.equal.Implicits._
 import de.sciss.lucre.Log.logTxn
-import de.sciss.serial.{DataInput, DataOutput, Serializer}
+import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.annotation.elidable
 import scala.concurrent.stm.{InTxn, Ref}
@@ -164,7 +164,7 @@ object DurableImpl {
 //      res
 //    }
 
-    final def newVarArray[A](size: Int): Array[Var[A]] = new Array[Var[A]](size)
+//    final def newVarArray[A](size: Int): Array[Var[A]] = new Array[Var[A]](size)
 
     final def newIdentMap[A]: IdentMap[Ident[T], T, A] =
       IdentMapImpl[Ident[T], T, A] { implicit tx => id => id.!.id }
@@ -506,7 +506,7 @@ object DurableImpl {
   private final class System(val store: DataStore)
     extends Mixin[Durable.Txn, InMemory.Txn] with Durable {
 
-    private type S = Durable    // scalac bug -- it _is_ used
+//    private type S = Durable    // scalac bug -- it _is_ used
 
     val inMemory: InMemory = InMemory()
 

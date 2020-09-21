@@ -1,5 +1,6 @@
-package de.sciss.lucre
+package de.sciss.lucre.data
 
+import de.sciss.lucre.Durable
 import de.sciss.lucre.store.BerkeleyDB
 import org.scalatest.Outcome
 import org.scalatest.flatspec.FixtureAnyFlatSpec

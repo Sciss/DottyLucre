@@ -13,9 +13,10 @@
 
 package de.sciss.lucre.confluent
 
-import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer}
+import de.sciss.lucre.NewImmutSerializer
+import de.sciss.serial.{DataInput, DataOutput}
 
-object ByteArraySerializer extends ImmutableSerializer[Array[Byte]] {
+object ByteArraySerializer extends NewImmutSerializer[Array[Byte]] {
   def write(v: Array[Byte], out: DataOutput): Unit = {
     out./* PACKED */ writeInt(v.length)
     out.write(v)

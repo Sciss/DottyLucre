@@ -45,8 +45,26 @@ object TotalOrder {
       new SetNew[T](tx, rootTag)
     }
 
-    def read[T <: Exec[T]](in: DataInput, tx: T)(implicit access: tx.Acc): Set[T] =
-      new SetRead(in, tx)
+    def read[T <: Exec[T]](in: DataInput, tx: T)(implicit access: tx.Acc): Set[T] = {
+      val _tx: tx.type = tx
+//      new SetRead(in, tx)
+      new Set[T] with MutableImpl[T] {
+
+        protected val tx: T = _tx
+
+        val id: Ident[T] = _tx.readId(in)
+
+        {
+          val version = in.readByte()
+          if (version != SER_VERSION)
+            sys.error(s"Incompatible serialized version (found $version, required $SER_VERSION).")
+        }
+
+        val sizeVal: Var[Int] = id.readIntVar(in)
+
+        val root: Set.Entry[T] = EntrySerializer.read(in, _tx)
+      }
+    }
 
     implicit def serializer[T <: Exec[T]]: TSerializer[T, Set[T]] =
       new SetSerializer[T]
@@ -153,28 +171,28 @@ object TotalOrder {
 
   private final class SetSerializer[T <: Exec[T]] extends TSerializer[T, Set[T]] {
     def read(in: DataInput, tx: T)(implicit access: tx.Acc): Set[T] =
-      new SetRead[T](in, tx)
+      Set.read[T](in, tx) // new SetRead[T](in, tx)
 
     def write(v: Set[T], out: DataOutput): Unit = v.write(out)
 
     override def toString = "Set.serializer"
   }
 
-  private final class SetRead[T <: Exec[T]](in: DataInput, protected val tx: T)(implicit access: tx.Acc)
-    extends Set[T] with MutableImpl[T] {
-
-    val id: Ident[T] = tx.readId(in)
-
-    {
-      val version = in.readByte()
-      if (version != SER_VERSION)
-        sys.error(s"Incompatible serialized version (found $version, required $SER_VERSION).")
-    }
-
-    val sizeVal: Var[Int] = id.readIntVar(in)
-
-    val root: Set.Entry[T] = EntrySerializer.read(in, tx)
-  }
+//  private final class SetRead[T <: Exec[T]](in: DataInput, protected val tx: T)(implicit access: tx.Acc)
+//    extends Set[T] with MutableImpl[T] {
+//
+//    val id: Ident[T] = tx.readId(in)
+//
+//    {
+//      val version = in.readByte()
+//      if (version != SER_VERSION)
+//        sys.error(s"Incompatible serialized version (found $version, required $SER_VERSION).")
+//    }
+//
+//    val sizeVal: Var[Int] = id.readIntVar(in)
+//
+//    val root: Set.Entry[T] = EntrySerializer.read(in, tx)
+//  }
 
   private final class SetNew[T <: Exec[T]](protected val tx: T, rootTag: Int)
     extends Set[T] with MutableImpl[T] {
@@ -409,21 +427,45 @@ object TotalOrder {
   // ---- Map ----
 
   object Map {
-    def empty[T <: Exec[T], A](relabelObserver: Map.RelabelObserver[T, A], entryView: A => Map.Entry[T, A],
+    def empty[T <: Exec[T], A](observer: Map.RelabelObserver[T, A], entryView: A => Map.Entry[T, A],
                                rootTag: Int = 0)
                               (implicit tx: T, keySerializer: TSerializer[T, A]): Map[T, A] = {
-      new MapNew[T, A](tx, relabelObserver, entryView, rootTag)
+      new MapNew[T, A](tx, observer, entryView, rootTag)
     }
 
-    def read[T <: Exec[T], A](in: DataInput, tx: T, relabelObserver: Map.RelabelObserver[T, A],
+    def read[T <: Exec[T], A](in: DataInput, tx: T, observer: Map.RelabelObserver[T, A],
                               entryView: A => Map.Entry[T, A])
-                             (implicit access: tx.Acc, keySerializer: TSerializer[T, A]): Map[T, A] =
-      new MapRead[T, A](tx, relabelObserver, entryView, in)
+                             (implicit access: tx.Acc, keySerializer: TSerializer[T, A]): Map[T, A] = {
+      val _tx: tx.type    = tx
+      val _entryView      = entryView
+      val _keySerializer  = keySerializer
+      val _observer       = observer
 
-    implicit def serializer[T <: Exec[T], A](relabelObserver: Map.RelabelObserver[T, A],
+//      new MapRead[T, A](tx, observer, entryView, in)
+      new Map[T, A] with MutableImpl[T] {
+
+        val entryView     : A => Entry[T, A]          = _entryView
+        val keySerializer : TSerializer[T, A]         = _keySerializer
+        val tx            : T                         = _tx
+        val observer      : Map.RelabelObserver[T, A] = _observer
+
+        val id: Ident[T] = _tx.readId(in)
+
+        {
+          val version = in.readByte()
+          require(version == SER_VERSION, s"Incompatible serialized version (found $version, required $SER_VERSION).")
+        }
+
+        val sizeVal: Var[Int] = id.readIntVar(in)
+
+        val root: Map.Entry[T, A] = EntrySerializer.read(in, _tx)
+      }
+    }
+
+    implicit def serializer[T <: Exec[T], A](observer: Map.RelabelObserver[T, A],
                                              entryView: A => Map.Entry[T, A])
                                             (implicit keySerializer: TSerializer[T, A]): TSerializer[T, Map[T, A]] =
-      new MapSerializer[T, A](relabelObserver, entryView)
+      new MapSerializer[T, A](observer, entryView)
 
     /**
      * A `RelabelObserver` is notified before and after a relabeling is taking place due to
@@ -577,37 +619,37 @@ object TotalOrder {
     override def toString: String = get.toString
   }
 
-  private final class MapSerializer[T <: Exec[T], A](relabelObserver: Map.RelabelObserver[T, A],
+  private final class MapSerializer[T <: Exec[T], A](observer: Map.RelabelObserver[T, A],
                                                      entryView: A => Map.Entry[T, A])
                                                     (implicit keySerializer: TSerializer[T, A])
     extends TSerializer[T, Map[T, A]] {
 
     def read(in: DataInput, tx: T)(implicit access: tx.Acc): Map[T, A] =
-      new MapRead[T, A](tx, relabelObserver, entryView, in)
+      Map.read[T, A](in, tx, observer, entryView) //  new MapRead[T, A](tx, observer, entryView, in)
 
     def write(v: Map[T, A], out: DataOutput): Unit = v.write(out)
 
     override def toString = "Map.serializer"
   }
 
-  private final class MapRead[T <: Exec[T], A](protected val tx: T,
-                                               protected val observer: Map.RelabelObserver[T, A],
-                                               val entryView: A => Map.Entry[T, A], in: DataInput)
-                                              (implicit access: tx.Acc,
-                                               private[TotalOrder] val keySerializer: TSerializer[T, A])
-    extends Map[T, A] with MutableImpl[T] {
-
-    val id: Ident[T] = tx.readId(in)
-
-    {
-      val version = in.readByte()
-      require(version == SER_VERSION, s"Incompatible serialized version (found $version, required $SER_VERSION).")
-    }
-
-    val sizeVal: Var[Int] = id.readIntVar(in)
-
-    val root: Map.Entry[T, A] = EntrySerializer.read(in, tx)
-  }
+//  private final class MapRead[T <: Exec[T], A](protected val tx: T,
+//                                               protected val observer: Map.RelabelObserver[T, A],
+//                                               val entryView: A => Map.Entry[T, A], in: DataInput)
+//                                              (implicit access: tx.Acc,
+//                                               private[TotalOrder] val keySerializer: TSerializer[T, A])
+//    extends Map[T, A] with MutableImpl[T] {
+//
+//    val id: Ident[T] = tx.readId(in)
+//
+//    {
+//      val version = in.readByte()
+//      require(version == SER_VERSION, s"Incompatible serialized version (found $version, required $SER_VERSION).")
+//    }
+//
+//    val sizeVal: Var[Int] = id.readIntVar(in)
+//
+//    val root: Map.Entry[T, A] = EntrySerializer.read(in, tx)
+//  }
 
   private final class MapNew[T <: Exec[T], A](protected val tx: T,
                                               protected val observer: Map.RelabelObserver[T, A],

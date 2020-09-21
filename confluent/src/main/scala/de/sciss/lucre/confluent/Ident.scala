@@ -15,9 +15,9 @@ package de.sciss.lucre.confluent
 
 import de.sciss.lucre.{Ident => LIdent}
 
-trait Identifier[T <: Txn[T]] extends LIdent[T] {
+trait Ident[T <: Txn[T]] extends LIdent[T] {
   def base: Int  // name, origin, base, agent, ancestry, germ, parent, root
   def path: Access[T]
 
-  def copy(path: Access[T]): Identifier[T]
+  def copy(path: Access[T]): Ident[T] // XXX TODO --- should this take a new transaction?
 }

@@ -71,20 +71,14 @@ trait Access[T <: Txn[T]] extends Writable with PathLike {
     * the term is replaced, otherwise a new tree is entered
     * (the new term is appended twice).
     */
-  def addTerm(term: Long)(implicit tx: T#Tx): Access[T]
+  def addTerm(term: Long)(implicit tx: T): Access[T]
 
   // drop initial elements
   def drop(num: Int): Access[T]
   def take(num: Int): Access[T]
 
-  def head: Long
-  def last: Long
-
-  def isEmpty:  Boolean
-  def nonEmpty: Boolean
-
   /** Retrieves the version information associated with the access path. */
-  def info(implicit tx: T#Tx): VersionInfo
+  def info(implicit tx: T): VersionInfo
 
   /** Truncates the path to a prefix corresponding to the most recent
     * transaction along the path which has occurred not after a given
@@ -105,5 +99,5 @@ trait Access[T <: Txn[T]] extends Writable with PathLike {
     *
     * @param   timeStamp  the query time (in terms of `System.currentTimeMillis`)
     */
-  def takeUntil(timeStamp: Long)(implicit tx: T#Tx): Access[T]
+  def takeUntil(timeStamp: Long)(implicit tx: T): Access[T]
 }

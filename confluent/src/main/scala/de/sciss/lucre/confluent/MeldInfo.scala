@@ -11,13 +11,14 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre
-package confluent
+package de.sciss.lucre.confluent
+
+import de.sciss.lucre.Confluent
 
 object MeldInfo {
   def empty[T <: Txn[T]]: MeldInfo[T] = anyMeldInfo.asInstanceOf[MeldInfo[T]]
 
-  private val anyMeldInfo = MeldInfo[Confluent](-1, Set.empty)
+  private val anyMeldInfo = MeldInfo[Confluent.Txn](-1, Set.empty)
 }
 
 final case class MeldInfo[T <: Txn[T]](highestLevel: Int, highestTrees: Set[Access[T]]) {

@@ -14,29 +14,33 @@
 package de.sciss.lucre.confluent
 
 import de.sciss.lucre
-import de.sciss.serial
-import de.sciss.serial.{Serializer, ImmutableSerializer}
+import de.sciss.lucre.{Confluent, NewImmutSerializer, TSerializer, TSource, confluent}
 
 trait Txn[T <: Txn[T]] extends lucre.Txn[T] {
-//  implicit def durable: S#D#Tx
+  def system: Confluent
 
-  def inputAccess: Access[T]
+  //  implicit def durable: S#D#Tx
+  type Id     = Ident[T]
+  type Acc    = Access[T]
+  type Var[A] = confluent.Var[A]
+
+  def inputAccess: Acc
 
   def info: VersionInfo.Modifiable
 
   def isRetroactive: Boolean
 
   /** The confluent handle is enhanced with the `meld` method. */
-  def newHandleM[A](value: A)(implicit serializer: Serializer[T, Access[T], A]): Source[T, A]
+  def newHandleM[A](value: A)(implicit serializer: TSerializer[T, A]): TSource[T, A]
 
   private[confluent] def readTreeVertexLevel(term: Long): Int
-  private[confluent] def addInputVersion(path: Access[T]): Unit
+  private[confluent] def addInputVersion(path: Acc): Unit
 
-  private[confluent] def putTxn[A](id: Id, value: A)(implicit ser: serial.Serializer[T, Access[T], A]): Unit
-  private[confluent] def putNonTxn[A](id: Id, value: A)(implicit ser: ImmutableSerializer[A]): Unit
+  private[confluent] def putTxn[A](id: Id, value: A)(implicit ser: TSerializer[T, A]): Unit
+  private[confluent] def putNonTxn[A](id: Id, value: A)(implicit ser: NewImmutSerializer[A]): Unit
 
-  private[confluent] def getTxn[A](id: Id)(implicit ser: serial.Serializer[T, Access[T], A]): A
-  private[confluent] def getNonTxn[A](id: Id)(implicit ser: ImmutableSerializer[A]): A
+  private[confluent] def getTxn[A](id: Id)(implicit ser: TSerializer[T, A]): A
+  private[confluent] def getNonTxn[A](id: Id)(implicit ser: NewImmutSerializer[A]): A
 
 //  private[confluent] def putPartial[A](id: Id, value: A)(implicit ser: serial.Serializer[T, Access[T], A]): Unit
 //  private[confluent] def getPartial[A](id: Id)(implicit ser: serial.Serializer[T, Access[T], A]): A

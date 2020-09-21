@@ -14,7 +14,7 @@
 package de.sciss.lucre
 
 import de.sciss.lucre.impl.TMapImpl
-import de.sciss.serial.{DataInput, Serializer}
+import de.sciss.serial.DataInput
 
 import scala.annotation.switch
 import scala.reflect.ClassTag

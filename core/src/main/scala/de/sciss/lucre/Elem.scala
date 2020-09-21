@@ -15,8 +15,6 @@ package de.sciss.lucre
 
 import de.sciss.equal.Implicits._
 import de.sciss.lucre.impl.ElemImpl
-import de.sciss.lucre.{Disposable, Event, TSerializer, Txn}
-import de.sciss.serial
 import de.sciss.serial.{DataInput, Writable}
 
 object Elem {

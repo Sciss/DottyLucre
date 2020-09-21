@@ -14,19 +14,21 @@
 package de.sciss.lucre.confluent
 package impl
 
+import de.sciss.lucre.confluent.Log.log
 import de.sciss.lucre.confluent.impl.{PathImpl => Path}
 import de.sciss.lucre.impl.BasicTxnImpl
-import de.sciss.lucre.{Confluent, Durable, IdentifierMap, InMemory, Obj, ReactionMap, TSerializer, stm, event => evt}
-import de.sciss.serial
-import de.sciss.serial.{DataInput, ImmutableSerializer}
-import de.sciss.lucre.confluent.Log.log
+import de.sciss.lucre.{Ident => LIdent}
+import de.sciss.lucre.{Confluent, Durable, DurableLike, IdentMap, InMemory, NewImmutSerializer, Obj, ReactionMap, TMap, TSerializer, TSource}
+import de.sciss.serial.DataInput
 
 import scala.collection.immutable.{IndexedSeq => Vec, Queue => IQueue}
 import scala.concurrent.stm.{InTxn, Txn => ScalaTxn}
 
-trait TxnMixin[T <: Txn[T]]
-  extends Txn[T] with BasicTxnImpl[T] with VersionInfo.Modifiable {
-  self: T =>
+trait TxnMixin[Tx <: Txn[Tx]]
+  extends Txn[Tx] with BasicTxnImpl[Tx] with VersionInfo.Modifiable {
+  self: Tx =>
+
+  type T = Tx
 
   // ---- abstract ----
 
@@ -34,7 +36,7 @@ trait TxnMixin[T <: Txn[T]]
 
   // ---- info ----
 
-  final private[lucre] def reactionMap: ReactionMap[T] = system.reactionMap
+  final private[lucre] def reactionMap: ReactionMap[T] = ??? // system.reactionMap
 
   final def info: VersionInfo.Modifiable = this
 
@@ -113,11 +115,11 @@ trait TxnMixin[T <: Txn[T]]
     flushCaches(meld, markNewVersionFlag, dirtyMaps)
   }
 
-  final protected def fullCache: CacheMap.Durable[T, Int, DurablePersistentMap[T, Int]] = system.fullCache
+  final protected def fullCache: CacheMap.Durable[T, Int, DurablePersistentMap[T, Int]] = ??? // system.fullCache
   // final protected def partialCache  = system.partialCache
 
   final def newId(): Id = {
-    val res = new ConfluentId[T](system.newIdValue()(this), Path.empty[T])
+    val res = new ConfluentId[T](this, ??? /*system.newIdValue()(this)*/, Path.empty[T])
     log(s"txn newId $res")
     res
   }
@@ -129,36 +131,37 @@ trait TxnMixin[T <: Txn[T]]
   // ---- attributes ----
 
   def attrMap(obj: Obj[T]): Obj.AttrMap[T] = {
-    val id        = obj.id
+    val id        = obj.id.!(this)
     val mBase     = id.base | 0x80000000  // XXX TODO --- a bit cheesy to throw away one bit entirely
-    val mapOpt    = fullCache.getCacheTxn[Obj.AttrMap[T]](mBase, id.path)(this, Obj.attrMapSerializer)
+    val mapOpt    = fullCache.getCacheTxn[Obj.AttrMap[T]](mBase, this)(id.path, Obj.attrMapSerializer)
     mapOpt.getOrElse {
-      val map = evt.Map.Modifiable[T, String, Obj](evt.Map.Key.String, this)
-      fullCache.putCacheTxn(mBase, id.path, map)(this, Obj.attrMapSerializer)
+      val map = TMap.Modifiable[T, String, Obj]()(TMap.Key.String, this)
+      fullCache.putCacheTxn[Obj.AttrMap[T]](mBase, map, this)(id.path, Obj.attrMapSerializer)
       markDirty()
       map
     }
   }
 
   override def attrMapOption(obj: Obj[T]): Option[Obj.AttrMap[T]] = {
-    val id        = obj.id
+    val id        = obj.id.!(this)
     val mBase     = id.base | 0x80000000  // XXX TODO --- a bit cheesy to throw away one bit entirely
-    fullCache.getCacheTxn[Obj.AttrMap[T]](mBase, id.path)(this, Obj.attrMapSerializer)
+    fullCache.getCacheTxn[Obj.AttrMap[T]](mBase, this)(id.path, Obj.attrMapSerializer)
   }
 
   // ----
 
   final def readTreeVertexLevel(term: Long): Int = {
-    system.store.get(out => {
-      out.writeByte(0)
-      out.writeInt(term.toInt)
-    })(in => {
-      in./* PACKED */ readInt()  // tree index!
-      in./* PACKED */ readInt()
-    })(this).getOrElse(sys.error(s"Trying to access non-existent vertex ${term.toInt}"))
+    ???
+//    system.store.get(out => {
+//      out.writeByte(0)
+//      out.writeInt(term.toInt)
+//    })(in => {
+//      in./* PACKED */ readInt()  // tree index!
+//      in./* PACKED */ readInt()
+//    })(this).getOrElse(sys.error(s"Trying to access non-existent vertex ${term.toInt}"))
   }
 
-  final def addInputVersion(path: T#Acc): Unit = {
+  final def addInputVersion(path: Access[T]): Unit = {
     val sem1 = path.seminal
     val sem2 = inputAccess.seminal
     if (sem1 == sem2) return
@@ -177,32 +180,32 @@ trait TxnMixin[T <: Txn[T]]
     }
   }
 
-  final def newHandle[A](value: A)(implicit serializer: serial.Serializer[T, T#Acc, A]): Source[T, A] = {
+  final def newHandle[A](value: A)(implicit serializer: TSerializer[T, A]): TSource[T, A] = {
     val h = new HandleImpl[T, A](value, inputAccess.index)
     addDirtyLocalCache(h)
     h
   }
 
-  final def newHandleM[A](value: A)(implicit serializer: serial.Serializer[T, T#Acc, A]): Source[T, A] =
+  final def newHandleM[A](value: A)(implicit serializer: TSerializer[T, A]): TSource[T, A] =
     newHandle(value)
 
-  final def getNonTxn[A](id: Id)(implicit ser: ImmutableSerializer[A]): A = {
+  final def getNonTxn[A](id: Id)(implicit ser: NewImmutSerializer[A]): A = {
     log(s"txn get $id")
-    fullCache.getCacheNonTxn[A](id.base, id.path)(this, ser).getOrElse(sys.error(s"No value for $id"))
+    fullCache.getCacheNonTxn[A](id.base, this)(id.path, ser).getOrElse(sys.error(s"No value for $id"))
   }
 
-  final def getTxn[A](id: Id)(implicit ser: serial.Serializer[T, T#Acc, A]): A = {
+  final def getTxn[A](id: Id)(implicit ser: TSerializer[T, A]): A = {
     log(s"txn get' $id")
-    fullCache.getCacheTxn[A](id.base, id.path)(this, ser).getOrElse(sys.error(s"No value for $id"))
+    fullCache.getCacheTxn[A](id.base, this)(id.path, ser).getOrElse(sys.error(s"No value for $id"))
   }
 
-  final def putTxn[A](id: Id, value: A)(implicit ser: serial.Serializer[T, T#Acc, A]): Unit = {
-    fullCache.putCacheTxn[A](id.base, id.path, value)(this, ser)
+  final def putTxn[A](id: Id, value: A)(implicit ser: TSerializer[T, A]): Unit = {
+    fullCache.putCacheTxn[A](id.base, value, this)(id.path, ser)
     markDirty()
   }
 
-  final def putNonTxn[A](id: Id, value: A)(implicit ser: ImmutableSerializer[A]): Unit = {
-    fullCache.putCacheNonTxn[A](id.base, id.path, value)(this, ser)
+  final def putNonTxn[A](id: Id, value: A)(implicit ser: NewImmutSerializer[A]): Unit = {
+    fullCache.putCacheNonTxn[A](id.base, value, this)(id.path, ser)
     markDirty()
   }
 
@@ -215,103 +218,52 @@ trait TxnMixin[T <: Txn[T]]
 //    partialCache.getPartial[A](id.base, id.path)(this, ser).getOrElse(sys.error(s"No value for $id"))
 
   final def removeFromCache(id: Id): Unit =
-    fullCache.removeCacheOnly(id.base, id.path)(this)
+    fullCache.removeCacheOnly(id.base, this)(id.path)
 
-  @inline final protected def alloc       (pid: Id): Id = new ConfluentId(system.newIdValue()(this), pid.path)
-  @inline final protected def allocPartial(pid: Id): Id = new PartialId  (system.newIdValue()(this), pid.path)
+//  @inline final protected def alloc       (pid: Id): Id = new ConfluentId(this, ??? /*system.newIdValue()(this)*/, pid.path)
+//  @inline final protected def allocPartial(pid: Id): Id = new PartialId(this, ??? /*system.newIdValue()(this)*/, pid.path)
 
-  final def newVar[A](pid: Id, init: A)(implicit ser: TSerializer[T, A]): Var[A] = {
-    val res = makeVar[A](alloc(pid))
-    log(s"txn newVar $res")
-    res.setInit(init)(this)
-    res
-  }
+//  final def newVar[A](pid: Id, init: A)(implicit ser: TSerializer[T, A]): Var[A] = {
+//    val res = makeVar[A](alloc(pid))
+//    log(s"txn newVar $res")
+//    res.setInit(init)
+//    res
+//  }
+//
+//  final def newBooleanVar(pid: Id, init: Boolean): Var[Boolean] = {
+//    val id  = alloc(pid)
+//    val res = new BooleanVar(this, id)
+//    log(s"txn newVar $res")
+//    res.setInit(init)
+//    res
+//  }
+//
+//  final def newIntVar(pid: Id, init: Int): Var[Int] = {
+//    val id  = alloc(pid)
+//    val res = new IntVar(this, id)
+//    log(s"txn newVar $res")
+//    res.setInit(init)
+//    res
+//  }
+//
+//  final def newLongVar(pid: Id, init: Long): Var[Long] = {
+//    val id  = alloc(pid)
+//    val res = new LongVar(this, id)
+//    log(s"txn newVar $res")
+//    res.setInit(init)
+//    res
+//  }
 
-  final def newBooleanVar(pid: Id, init: Boolean): Var[Boolean] = {
-    val id  = alloc(pid)
-    val res = new BooleanVar(id)
-    log(s"txn newVar $res")
-    res.setInit(init)(this)
-    res
-  }
+//  final def newVarArray[A](size: Int): Array[Var[A]] = new Array[Var[A]](size)
 
-  final def newIntVar(pid: Id, init: Int): Var[Int] = {
-    val id  = alloc(pid)
-    val res = new IntVar(id)
-    log(s"txn newVar $res")
-    res.setInit(init)(this)
-    res
-  }
-
-  final def newLongVar(pid: Id, init: Long): Var[Long] = {
-    val id  = alloc(pid)
-    val res = new LongVar(id)
-    log(s"txn newVar $res")
-    res.setInit(init)(this)
-    res
-  }
-
-  final def newVarArray[A](size: Int): Array[Var[A]] = new Array[Var[A]](size)
-
-  final def newInMemoryIdMap[A]: IdentMap[Id, T, A] = {
+  override final def newIdentMap[A]: IdentMap[LIdent[T], T, A] = {
     val map = InMemoryConfluentMap.newIntMap[T]
     new InMemoryIdMapImpl[T, A](map)
   }
 
-  final protected def readSource(in: DataInput, pid: Id): Id = {
-    val base = in./* PACKED */ readInt()
-    new ConfluentId(base, pid.path)
-  }
-
-  final protected def readPartialSource(in: DataInput, pid: Id): Id = {
-    val base = in./* PACKED */ readInt()
-    new PartialId(base, pid.path)
-  }
-
-  private def makeVar[A](id: Id)(implicit ser: TSerializer[T, A]): Var[A] /* BasicVar[ S, A ] */ = {
-    ser match {
-      case plain: ImmutableSerializer[_] =>
-        new VarImpl[T, A](id, plain.asInstanceOf[ImmutableSerializer[A]])
-      case _ =>
-        new VarTxImpl[T, A](id)
-    }
-  }
-
-  final def readVar[A](pid: Id, in: DataInput)(implicit ser: TSerializer[T, A]): Var[A] = {
-    val res = makeVar[A](readSource(in, pid))
-    log(s"txn read $res")
-    res
-  }
-
-//  final def readPartialVar[A](pid: S#Id, in: DataInput)(implicit ser: serial.Serializer[T, S#Acc, A]): S#Var[A] = {
-//    if (Confluent.DEBUG_DISABLE_PARTIAL) return readVar(pid, in)
-//
-//    val res = new PartialVarTxImpl[S, A](readPartialSource(in, pid))
-//    log(s"txn read $res")
-//    res
-//  }
-
-  final def readBooleanVar(pid: Id, in: DataInput): Var[Boolean] = {
-    val res = new BooleanVar(readSource(in, pid))
-    log(s"txn read $res")
-    res
-  }
-
-  final def readIntVar(pid: Id, in: DataInput): Var[Int] = {
-    val res = new IntVar(readSource(in, pid))
-    log(s"txn read $res")
-    res
-  }
-
-  final def readLongVar(pid: Id, in: DataInput): Var[Long] = {
-    val res = new LongVar(readSource(in, pid))
-    log(s"txn read $res")
-    res
-  }
-
-  final def readId(in: DataInput, acc: T#Acc): Id = {
+  override final def readId(in: DataInput)(implicit acc: Acc): Id = {
     val base  = in./* PACKED */ readInt()
-    val res   = new ConfluentId(base, Path.readAndAppend[T](in, acc)(this))
+    val res   = new ConfluentId(this, base, Path.readAndAppend[T](in, acc)(this))
     log(s"txn readId $res")
     res
   }
@@ -319,48 +271,48 @@ trait TxnMixin[T <: Txn[T]]
   override def toString = s"confluent.Sys#Tx$inputAccess"
 }
 
-trait RegularTxnMixin[T <: Txn[T], D <: DurableLike.Txn[D]] extends TxnMixin[T] {
-  self: T =>
+trait RegularTxnMixin[Tx <: Txn[Tx], D <: DurableLike.Txn[D]] extends TxnMixin[Tx] {
+  self: Tx =>
 
   protected def cursorCache: Cache[T]
 
   final protected def flushCaches(meldInfo: MeldInfo[T], newVersion: Boolean, caches: Vec[Cache[T]]): Unit =
-    system.flushRegular(meldInfo, newVersion, caches :+ cursorCache)(this)
+    ??? // system.flushRegular(meldInfo, newVersion, caches :+ cursorCache)(this)
 
   override def toString = s"Confluent#Tx$inputAccess"
 }
 
-trait RootTxnMixin[T <: Txn[T], D <: DurableLike.Txn[D]]
-  extends TxnMixin[T] {
-  self: T =>
+trait RootTxnMixin[Tx <: Txn[Tx], D <: DurableLike.Txn[D]]
+  extends TxnMixin[Tx] {
+  self: Tx =>
 
   final val inputAccess: Access[T] = Path.root[T]
 
   final def isRetroactive = false
 
   final protected def flushCaches(meldInfo: MeldInfo[T], newVersion: Boolean, caches: Vec[Cache[T]]): Unit =
-    system.flushRoot(meldInfo, newVersion, caches)(this)
+    ??? // system.flushRoot(meldInfo, newVersion, caches)(this)
 
   override def toString = "Confluent.RootTxn"
 }
 
-private[impl] sealed trait TxnImpl extends Txn[Confluent] {
-  final lazy val inMemory: InMemory.Txn = system.inMemory.wrap(peer)
+private[impl] sealed trait TxnImpl extends Confluent.Txn /*Txn[Confluent.Txn]*/ {
+  final lazy val inMemory: InMemory.Txn = ??? // system.inMemory.wrap(peer)
 }
 
 private[impl] final class RegularTxn(val system: Confluent, val durable: Durable.Txn,
-                               val inputAccess: Access[Confluent], val isRetroactive: Boolean,
-                               val cursorCache: Cache[Confluent#Tx])
-  extends RegularTxnMixin[Confluent, Durable] with TxnImpl {
+                               val inputAccess: Access[Confluent.Txn], val isRetroactive: Boolean,
+                               val cursorCache: Cache[Confluent.Txn])
+  extends RegularTxnMixin[Confluent.Txn, Durable.Txn] with TxnImpl {
 
   lazy val peer: InTxn = durable.peer
 }
 
 private[impl] final class RootTxn(val system: Confluent, val peer: InTxn)
-  extends RootTxnMixin[Confluent, Durable] with TxnImpl {
+  extends RootTxnMixin[Confluent.Txn, Durable.Txn] with TxnImpl {
 
   lazy val durable: Durable.Txn = {
     log("txn durable")
-    system.durable.wrap(peer)
+    ??? // system.durable.wrap(peer)
   }
 }

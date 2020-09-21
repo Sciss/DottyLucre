@@ -21,7 +21,7 @@ object InMemoryConfluentMap {
 }
 
 trait InMemoryConfluentMap[T <: Txn[T], K] {
-  def put[A](key: K, path: Access[T], value: A)(implicit tx: T): Unit
+  def put[A](key: K, value: A, tx: T)(implicit path: tx.Acc): Unit
 
   /** Finds the most recent value for an entity `id` with respect to version `path`.
     *
@@ -31,7 +31,7 @@ trait InMemoryConfluentMap[T <: Txn[T], K] {
     * @tparam A         the type of values stored with the entity
     * @return           `None` if no value was found, otherwise a `Some` of that value.
     */
-  def get[A](key: K, path: Access[T])(implicit tx: T): Option[A]
+  def get[A](key: K, tx: T)(implicit path: tx.Acc): Option[A]
 
   /** Finds the most recent value for an entity `id` with respect to version `path`. If a value is found,
     * it is return along with a suffix suitable for identifier path actualisation.
@@ -45,7 +45,7 @@ trait InMemoryConfluentMap[T <: Txn[T], K] {
     *                   value was found. However, the suffix overlaps the prefix in that it begins with the
     *                   tree entering/exiting tuple at which the value was found.
     */
-  def getWithSuffix[A](key: K, path: Access[T])(implicit tx: T): Option[(Access[T], A)]
+  def getWithSuffix[A](key: K, tx: T)(implicit path: tx.Acc): Option[(Access[T], A)]
 
-  def remove(key: K, path: Access[T])(implicit tx: T): Boolean
+  def remove(key: K, tx: T)(implicit path: tx.Acc): Boolean
 }

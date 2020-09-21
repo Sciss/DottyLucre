@@ -70,7 +70,7 @@ trait ExprVarImpl[T <: Txn[T], A, Repr <: Expr[T, A]]
     }
   }
 
-  final def swap(expr: Repr)(implicit tx: T): Repr = {
+  final def swap(expr: Repr): Repr = {
     val res = apply()
     update(expr)
     res

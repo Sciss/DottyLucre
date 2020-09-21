@@ -15,9 +15,7 @@ package de.sciss.lucre
 
 import de.sciss.equal.Implicits._
 import de.sciss.lucre.impl.ObjImpl
-import de.sciss.serial.{DataInput, Serializer}
-
-import scala.collection.mutable
+import de.sciss.serial.DataInput
 
 object Obj {
   def read[T <: Txn[T]](in: DataInput, tx: T)(implicit acc: tx.Acc): Obj[T] = ObjImpl.read(in, tx)
@@ -74,10 +72,10 @@ object Obj {
 //  val  AttrReplaced : evt.Map.Replaced.type = evt.Map.Replaced
 //  type AttrReplaced[T <: Txn[T]]            = evt.Map.Replaced[T, String, Obj[T]]
 //
-//  /* implicit */ def attrMapSerializer[T <: Txn[T]]: TxSerializer[T, AttrMap[T]] =
-//    anyAttrMapSer.asInstanceOf[TxSerializer[T, AttrMap[T]]]
-//
-//  private[this] val anyAttrMapSer = evt.Map.Modifiable.serializer[AnyTxn, String, Obj]
+  /* implicit */ def attrMapSerializer[T <: Txn[T]]: TSerializer[T, AttrMap[T]] =
+    anyAttrMapSer.asInstanceOf[TSerializer[T, AttrMap[T]]]
+
+  private[this] val anyAttrMapSer = TMap.Modifiable.serializer[AnyTxn, String, Obj]
 
   final val attrName = "name"
 }

@@ -21,19 +21,18 @@ import scala.concurrent.stm.InTxn
 object ConfluentImpl {
   def apply(storeFactory: DataStore.Factory): Confluent = {
     val mainStore   = storeFactory.open("data")
-    // val eventStore  = storeFactory.open("event", overwrite = true)
-    val durable     = Durable(mainStore /* , eventStore */)
-    new System(storeFactory, /* eventStore, */ durable)
+    val durable     = Durable(mainStore)
+    new System(storeFactory, durable)
   }
 
-  private final class System(protected val storeFactory: DataStore.Factory, // protected val eventStore: DataStore,
+  private final class System(protected val storeFactory: DataStore.Factory,
                              val durable: Durable)
-    extends Mixin[Confluent] with Confluent {
+    extends Mixin[Confluent.Txn] with Confluent {
 
 //    def inMemory: I = durable.inMemory
 
-    def durableTx (tx: T): D = tx.durable
-    def inMemoryTx(tx: T): I = tx.inMemory
+    def durableTx (tx: T): D = ??? // tx.durable
+    def inMemoryTx(tx: T): I = ??? // tx.inMemory
 
     protected def wrapRegular(dtx: D, inputAccess: Access[T], retroactive: Boolean, cursorCache: Cache[T],
                               systemTimeNanos: Long): T =

@@ -154,7 +154,7 @@ object IntSpace {
       }
 
       def read(in: DataInput): NDim#Point = {
-        val sz = in.readShort()
+        val sz = in.readShort().toInt
         val c = Vector.fill(sz)(in.readInt())
         IntPointN(c)
       }
@@ -169,7 +169,7 @@ object IntSpace {
       }
 
       def read(in: DataInput): NDim#HyperCube = {
-        val sz  = in.readShort()
+        val sz  = in.readShort().toInt
         val c   = Vector.fill(sz)(in.readInt())
         val ext = in.readInt()
         IntHyperCubeN(c, ext)

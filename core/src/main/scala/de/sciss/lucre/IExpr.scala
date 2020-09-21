@@ -13,8 +13,6 @@
 
 package de.sciss.lucre
 
-import de.sciss.lucre.{Base, Exec, ExprLike, IChangePublisher, TDisposable, TVar}
-
 object IExpr {
   trait Var[T <: Exec[T], A] extends IExpr[T, A] with TVar[T, IExpr[T, A]]
 }

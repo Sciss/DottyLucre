@@ -78,7 +78,23 @@ object Ancestor {
     implicit access: tx.Acc, versionSerializer: TSerializer[T, Version],
     intView: Version => Int): Tree[T, Version] = {
 
-    new TreeRead[T, Version](in, tx)
+    val _versionSerializer  = versionSerializer
+    val _intView            = intView
+
+//    new TreeRead[T, Version](in, tx)
+    new TreeImpl[T, Version] {
+      val intView           : Version => Int          = _intView
+      val versionSerializer : TSerializer[T, Version] = _versionSerializer
+
+      {
+        val serVer = in.readByte()
+        if (serVer != SER_VERSION)
+          sys.error(s"Incompatible serialized version (found $serVer, required $SER_VERSION).")
+      }
+
+      protected val order: TotalOrder.Set[T] = TotalOrder.Set.read(in, tx)
+      val root: K = VertexSerializer.read(in, tx)
+    }
   }
 
   private final class TreeSer[T <: Exec[T], Version](implicit versionSerializer: TSerializer[T, Version],
@@ -88,7 +104,7 @@ object Ancestor {
     def write(t: Tree[T, Version], out: DataOutput): Unit = t.write(out)
 
     def read(in: DataInput, tx: T)(implicit access: tx.Acc): Tree[T, Version] =
-      new TreeRead[T, Version](in, tx)
+      readTree(in, tx)
 
     override def toString = "Ancestor.treeSerializer"
   }
@@ -177,19 +193,19 @@ object Ancestor {
     }
   }
 
-  private final class TreeRead[T <: Exec[T], Version](in: DataInput, tx: T)(
-    implicit access: tx.Acc, val versionSerializer: TSerializer[T, Version], val intView: Version => Int)
-    extends TreeImpl[T, Version] {
-
-    {
-      val serVer = in.readByte()
-      if (serVer != SER_VERSION)
-        sys.error(s"Incompatible serialized version (found $serVer, required $SER_VERSION).")
-    }
-
-    protected val order: TotalOrder.Set[T] = TotalOrder.Set.read(in, tx)
-    val root: K = VertexSerializer.read(in, tx)
-  }
+//  private final class TreeRead[T <: Exec[T], Version](in: DataInput, tx: T)(
+//    implicit access: tx.Acc, val versionSerializer: TSerializer[T, Version], val intView: Version => Int)
+//    extends TreeImpl[T, Version] {
+//
+//    {
+//      val serVer = in.readByte()
+//      if (serVer != SER_VERSION)
+//        sys.error(s"Incompatible serialized version (found $serVer, required $SER_VERSION).")
+//    }
+//
+//    protected val order: TotalOrder.Set[T] = TotalOrder.Set.read(in, tx)
+//    val root: K = VertexSerializer.read(in, tx)
+//  }
 
   sealed trait Tree[T <: Exec[T], Version] extends Writable with Disposable {
     protected type K = Vertex[T, Version]
@@ -288,7 +304,43 @@ object Ancestor {
   def readMap[T <: Exec[T], Version, /* @spec(ValueSpec) */ A](in: DataInput, tx: T, full: Tree[T, Version])(
     implicit access: tx.Acc, valueSerializer: TSerializer[T, A]): Map[T, Version, A] = {
 
-    new MapRead[T, Version, A](full, in, tx, valueSerializer)
+    val _full             = full
+    val _valueSerializer  = valueSerializer
+
+//    new MapRead[T, Version, A](full, in, tx, valueSerializer)
+    new MapImpl[T, Version, A] {
+      me =>
+
+      val full            : Tree[T, Version]  = _full
+      val valueSerializer : TSerializer[T, A] = _valueSerializer
+
+      {
+        val serVer = in.readByte()
+        if (serVer != SER_VERSION)
+          sys.error(s"Incompatible serialized version (found $serVer, required $SER_VERSION).")
+      }
+
+      protected val preOrder: TotalOrder.Map[T, M] =
+        TotalOrder.Map.read[T, M](in, tx, me, _.pre)(access, markSerializer)
+
+      protected val postOrder: TotalOrder.Map[T, M] =
+        TotalOrder.Map.read[T, M](in, tx, me, _.post)(access, markSerializer)
+
+      protected val preList: SkipList.Set[T, M] = {
+        implicit val ord: scala.Ordering[M] = preOrdering
+        SkipList.Set.read[T, M](in, tx)
+      }
+
+      protected val postList: SkipList.Set[T, M] = {
+        implicit val ord: scala.Ordering[M] = postOrdering
+        SkipList.Set.read[T, M](in, tx)
+      }
+
+      private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, M] = {
+        val pointView = (p: M, tx: T) => p.toPoint // (tx)
+        SkipOctree.read[T, IntPoint3DLike, IntPoint3D, IntCube, M](in, tx)(access, pointView, IntSpace.ThreeDim, markSerializer)
+      }
+    }
   }
 
   /*
@@ -572,40 +624,40 @@ object Ancestor {
     }
   }
 
-  private final class MapRead[T <: Exec[T], Version, A](val full: Tree[T, Version], in: DataInput,
-                                                        tx: T,
-                                                        val valueSerializer: TSerializer[T, A])
-                                                       (implicit access: tx.Acc)
-    extends MapImpl[T, Version, A] {
-    me =>
-
-    {
-      val serVer = in.readByte()
-      if (serVer != SER_VERSION)
-        sys.error(s"Incompatible serialized version (found $serVer, required $SER_VERSION).")
-    }
-
-    protected val preOrder: TotalOrder.Map[T, M] =
-      TotalOrder.Map.read[T, M](in, tx, me, _.pre)(access, markSerializer)
-
-    protected val postOrder: TotalOrder.Map[T, M] =
-      TotalOrder.Map.read[T, M](in, tx, me, _.post)(access, markSerializer)
-
-    protected val preList: SkipList.Set[T, M] = {
-      implicit val ord: scala.Ordering[M] = preOrdering
-      SkipList.Set.read[T, M](in, tx)
-    }
-
-    protected val postList: SkipList.Set[T, M] = {
-      implicit val ord: scala.Ordering[M] = postOrdering
-      SkipList.Set.read[T, M](in, tx)
-    }
-
-    private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, M] = {
-      val pointView = (p: M, tx: T) => p.toPoint // (tx)
-      SkipOctree.read[T, IntPoint3DLike, IntPoint3D, IntCube, M](in, tx)(access, pointView, IntSpace.ThreeDim, markSerializer)
-    }
-  }
+//  private final class MapRead[T <: Exec[T], Version, A](val full: Tree[T, Version], in: DataInput,
+//                                                        tx: T,
+//                                                        val valueSerializer: TSerializer[T, A])
+//                                                       (implicit access: tx.Acc)
+//    extends MapImpl[T, Version, A] {
+//    me =>
+//
+//    {
+//      val serVer = in.readByte()
+//      if (serVer != SER_VERSION)
+//        sys.error(s"Incompatible serialized version (found $serVer, required $SER_VERSION).")
+//    }
+//
+//    protected val preOrder: TotalOrder.Map[T, M] =
+//      TotalOrder.Map.read[T, M](in, tx, me, _.pre)(access, markSerializer)
+//
+//    protected val postOrder: TotalOrder.Map[T, M] =
+//      TotalOrder.Map.read[T, M](in, tx, me, _.post)(access, markSerializer)
+//
+//    protected val preList: SkipList.Set[T, M] = {
+//      implicit val ord: scala.Ordering[M] = preOrdering
+//      SkipList.Set.read[T, M](in, tx)
+//    }
+//
+//    protected val postList: SkipList.Set[T, M] = {
+//      implicit val ord: scala.Ordering[M] = postOrdering
+//      SkipList.Set.read[T, M](in, tx)
+//    }
+//
+//    private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, M] = {
+//      val pointView = (p: M, tx: T) => p.toPoint // (tx)
+//      SkipOctree.read[T, IntPoint3DLike, IntPoint3D, IntCube, M](in, tx)(access, pointView, IntSpace.ThreeDim, markSerializer)
+//    }
+//  }
 
   sealed trait Map[T <: Exec[T], Version, A] extends Writable with Disposable {
     type K = Vertex[T, Version]

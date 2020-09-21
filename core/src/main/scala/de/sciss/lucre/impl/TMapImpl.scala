@@ -15,9 +15,9 @@ package de.sciss.lucre
 package impl
 
 import de.sciss.equal.Implicits._
-import de.sciss.serial.{DataInput, DataOutput, Serializer}
-import TMap.Key
+import de.sciss.lucre.TMap.Key
 import de.sciss.lucre.data.SkipList
+import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.reflect.ClassTag
 

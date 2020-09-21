@@ -13,38 +13,29 @@
 
 package de.sciss.lucre.confluent
 
-import de.sciss.lucre.{NewImmutSerializer, TSerializer, Sys => LSys, Txn => LTxn}
-import de.sciss.serial
-import de.sciss.serial.ImmutableSerializer
+import de.sciss.lucre.{NewImmutSerializer, TSerializer, Txn => LTxn}
 
 object CacheMap {
-  trait InMemory[T <: LTxn[T], /* @spec(KeySpec) */ K, +Store] extends CacheMap[T, K, Store] {
-    def putCache[A](key: K, tx: T, value: A)(path: tx.Acc): Unit
-    def getCache[A](key: K, tx: T)(path: tx.Acc): Option[A]
+  trait InMemory[T <: LTxn[T], K, +Store] extends CacheMap[T, K, Store] {
+    def putCache[A](key: K, value: A, tx: T)(implicit path: tx.Acc): Unit
+    def getCache[A](key: K, tx: T)(implicit path: tx.Acc): Option[A]
   }
 
-  trait Durable[T <: LTxn[T], /* @spec(KeySpec) */ K, +Store] extends CacheMap[T, K, Store] {
-    def putCacheTxn[A](key: K, tx: T, value: A)(path: tx.Acc)
-                      (implicit serializer: TSerializer[T, A]): Unit
+  trait Durable[T <: LTxn[T], K, +Store] extends CacheMap[T, K, Store] {
+    def putCacheTxn[A](key: K, value: A, tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Unit
 
-    def putCacheNonTxn[A](key: K, tx: T, value: A)(path: tx.Acc)
-                         (implicit serializer: NewImmutSerializer[A]): Unit
+    def putCacheNonTxn[A](key: K, value: A, tx: T)(implicit path: tx.Acc, serializer: NewImmutSerializer[A]): Unit
 
-    def getCacheTxn[A](key: K, tx: T)(path: tx.Acc)
-                      (implicit serializer: TSerializer[T, A]): Option[A]
+    def getCacheTxn[A](key: K, tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Option[A]
 
-    def getCacheNonTxn[A](key: K, tx: T)(path: tx.Acc)
-                         (implicit serializer: ImmutableSerializer[A]): Option[A]
+    def getCacheNonTxn[A](key: K, tx: T)(implicit path: tx.Acc, serializer: NewImmutSerializer[A]): Option[A]
   }
 
-  trait Partial[T <: LTxn[T], /* @spec(KeySpec) */ K, +Store] extends CacheMap[T, K, Store] {
-    def putPartial[A](key: K, tx: T, value: A)(path: tx.Acc)
-                     (implicit serializer: TSerializer[T, A]): Unit
+  trait Partial[T <: LTxn[T], K, +Store] extends CacheMap[T, K, Store] {
+    def putPartial[A](key: K, value: A, tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Unit
 
-    def getPartial[A](key: K, tx: T)(path: tx.Acc)
-                     (implicit serializer: TSerializer[T, A]): Option[A]
+    def getPartial[A](key: K, tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Option[A]
   }
-
 }
 
 trait CacheMap[T <: LTxn[T], /* @spec(KeySpec) */ K, +Store] extends Cache[T] {
@@ -57,9 +48,9 @@ trait CacheMap[T <: LTxn[T], /* @spec(KeySpec) */ K, +Store] extends Cache[T] {
 
   // ---- implementation ----
 
-  def getCacheOnly[A](key: K, tx: T)(path: tx.Acc): Option[A]
+  def getCacheOnly[A](key: K, tx: T)(implicit path: tx.Acc): Option[A]
 
-  def cacheContains(key: K, tx: T)(path: tx.Acc): Boolean
+  def cacheContains(key: K, tx: T)(implicit path: tx.Acc): Boolean
 
   /**
    * Removes an entry from the cache, and only the cache. This will not affect any
@@ -69,7 +60,7 @@ trait CacheMap[T <: LTxn[T], /* @spec(KeySpec) */ K, +Store] extends Cache[T] {
    * @param key        key at which the entry is stored
    * @param tx         the current transaction
    */
-  def removeCacheOnly(key: K, tx: T)(path: tx.Acc): Boolean
+  def removeCacheOnly(key: K, tx: T)(implicit path: tx.Acc): Boolean
 
   /**
    * This method should be invoked from the implementations flush hook after it has
@@ -82,5 +73,5 @@ trait CacheMap[T <: LTxn[T], /* @spec(KeySpec) */ K, +Store] extends Cache[T] {
    */
   def flushCache(term: Long)(implicit tx: T): Unit
 
-  def removeCache(key: K, tx: T)(path: tx.Acc): Boolean
+  def removeCache(key: K, tx: T)(implicit path: tx.Acc): Boolean
 }

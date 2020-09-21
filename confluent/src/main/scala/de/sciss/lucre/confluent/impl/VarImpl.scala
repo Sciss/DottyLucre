@@ -14,36 +14,36 @@
 package de.sciss.lucre.confluent
 package impl
 
-import de.sciss.serial
-import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer}
 import de.sciss.lucre.confluent.Log.log
+import de.sciss.lucre.{NewImmutSerializer, TSerializer, TSource, TVar}
+import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.collection.immutable.LongMap
 
-private[impl] final class HandleImpl[T <: Txn[T], A](stale: A, writeIndex: S#Acc)
-                                              (implicit serializer: serial.Serializer[S#Tx, S#Acc, A])
-  extends Source[S, A] with Cache[S#Tx] {
+private[impl] final class HandleImpl[T <: Txn[T], A](stale: A, writeIndex: Access[T])
+                                              (implicit serializer: TSerializer[T, A])
+  extends TSource[T, A] with Cache[T] {
 
   private var writeTerm = 0L
 
   override def toString = s"handle: $stale"
 
-  def flushCache(term: Long)(implicit tx: S#Tx): Unit =
+  def flushCache(term: Long)(implicit tx: T): Unit =
     writeTerm = term
 
-  def meld(from: S#Acc)(implicit tx: S#Tx): A = {
+  def meld(from: Access[T])(implicit tx: T): A = {
     if (writeTerm == 0L) throw new IllegalStateException(s"Cannot meld a handle that was not yet flushed: $this")
     log(s"$this meld $from")
     tx.addInputVersion(from)
     apply1(from)
   }
 
-  def apply()(implicit tx: S#Tx): A = {
+  def apply()(implicit tx: T): A = {
     if (writeTerm == 0L) return stale // wasn't flushed yet
     apply1(tx.inputAccess)
   }
 
-  private def apply1(readPath: S#Acc)(implicit tx: S#Tx): A = {
+  private def apply1(readPath: Access[T])(implicit tx: T): A = {
     val out = DataOutput()
     serializer.write(stale, out)
     val in = DataInput(out.buffer, 0, out.size)
@@ -69,7 +69,7 @@ private[impl] final class HandleImpl[T <: Txn[T], A](stale: A, writeIndex: S#Acc
       if (hash == 0L) {
         // full entry
         val suffix = writeTerm +: readPath.drop(preLen)
-        return serializer.read(in, suffix)
+        return serializer.read(in, tx)(suffix)
       } else {
         // partial hash
         val (fullIndex, fullTerm) = maxIndex.splitAtSum(hash)
@@ -81,48 +81,50 @@ private[impl] final class HandleImpl[T <: Txn[T], A](stale: A, writeIndex: S#Acc
   }
 }
 
-private[impl] abstract class BasicVar[T <: Txn[T], A] extends Var[S, A] {
-  protected def id: S#Id
+private[impl] abstract class BasicVar[T <: Txn[T], A] extends Var[A] {
+  protected def tx: T
+  protected def id: Ident[T]
 
   final def write(out: DataOutput): Unit = out./* PACKED */ writeInt(id.base)
 
-  final def swap(v: A)(implicit tx: S#Tx): A = {
+  final def swap(v: A): A = {
     val res = apply()
     update(v)
     res
   }
 
-  final def dispose()(implicit tx: S#Tx): Unit = {
+  final def dispose(): Unit = {
     tx.removeFromCache(id)
     id.dispose()
   }
 
-  def setInit(v: A)(implicit tx: S#Tx): Unit
+  def setInit(v: A): Unit
 
-//  final def transform(f: A => A)(implicit tx: S#Tx): Unit = this() = f(this())
+//  final def transform(f: A => A): Unit = this() = f(this())
 }
 
-private[impl] final class VarImpl[T <: Txn[T], A](protected val id: S#Id, protected val ser: ImmutableSerializer[A])
-  extends BasicVar[S, A] {
+private[impl] final class VarImpl[T <: Txn[T], A](protected val tx: T, protected val id: Ident[T], 
+                                                  protected val ser: NewImmutSerializer[A])
+  extends BasicVar[T, A] {
 
-  def meld(from: S#Acc)(implicit tx: S#Tx): A = {
+  def meld(from: Access[T]): A = {
     log(s"$this meld $from")
-    val idm = new ConfluentId[S](id.base, from)
+    val idm = new ConfluentId[T](tx, id.base, from)
     tx.addInputVersion(from)
     tx.getNonTxn[A](idm)(ser)
   }
 
-  def update(v: A)(implicit tx: S#Tx): Unit = {
+  def update(v: A): Unit = {
     log(s"$this set $v")
     tx.putNonTxn(id, v)(ser)
   }
 
-  def apply()(implicit tx: S#Tx): A = {
+  def apply(): A = {
     log(s"$this get")
     tx.getNonTxn[A](id)(ser)
   }
 
-  def setInit(v: A)(implicit tx: S#Tx): Unit = {
+  def setInit(v: A): Unit = {
     log(s"$this ini $v")
     tx.putNonTxn(id, v)(ser)
   }
@@ -130,23 +132,23 @@ private[impl] final class VarImpl[T <: Txn[T], A](protected val id: S#Id, protec
   override def toString = s"Var($id)"
 }
 
-//private[impl] final class PartialVarTxImpl[T <: Txn[T], A](protected val id: S#Id)
-//                                                    (implicit ser: serial.Serializer[S#Tx, S#Acc, A])
-//  extends BasicVar[S, A] {
+//private[impl] final class PartialVarTxImpl[T <: Txn[T], A](protected val id: Ident[T])
+//                                                    (implicit ser: serial.Serializer[S#Tx, Access[T], A])
+//  extends BasicVar[T, A] {
 //
-//  def meld(from: S#Acc)(implicit tx: S#Tx): A = ...
+//  def meld(from: Access[T]): A = ...
 //
-//  def update(v: A)(implicit tx: S#Tx): Unit = {
+//  def update(v: A): Unit = {
 //    logPartial(s"$this set $v")
 //    tx.putPartial(id, v)
 //  }
 //
-//  def apply()(implicit tx: S#Tx): A = {
+//  def apply(): A = {
 //    logPartial(s"$this get")
 //    tx.getPartial(id)
 //  }
 //
-//  def setInit(v: A)(implicit tx: S#Tx): Unit = {
+//  def setInit(v: A): Unit = {
 //    logPartial(s"$this ini $v")
 //    tx.putPartial(id, v)
 //  }
@@ -154,28 +156,28 @@ private[impl] final class VarImpl[T <: Txn[T], A](protected val id: S#Id, protec
 //  override def toString = s"PartialVar($id)"
 //}
 
-private[impl] final class VarTxImpl[T <: Txn[T], A](protected val id: S#Id)
-                                             (implicit ser: serial.Serializer[S#Tx, S#Acc, A])
-  extends BasicVar[S, A] {
+private[impl] final class VarTxImpl[T <: Txn[T], A](protected val tx: T, protected val id: Ident[T])
+                                                   (implicit ser: TSerializer[T, A])
+  extends BasicVar[T, A] {
 
-  def meld(from: S#Acc)(implicit tx: S#Tx): A = {
+  def meld(from: Access[T]): A = {
     log(s"$this meld $from")
-    val idm = new ConfluentId[S](id.base, from)
+    val idm = new ConfluentId[T](tx, id.base, from)
     tx.addInputVersion(from)
     tx.getTxn[A](idm)
   }
 
-  def update(v: A)(implicit tx: S#Tx): Unit = {
+  def update(v: A): Unit = {
     log(s"$this set $v")
     tx.putTxn(id, v)
   }
 
-  def apply()(implicit tx: S#Tx): A = {
+  def apply(): A = {
     log(s"$this get")
     tx.getTxn(id)
   }
 
-  def setInit(v: A)(implicit tx: S#Tx): Unit = {
+  def setInit(v: A): Unit = {
     log(s"$this ini $v")
     tx.putTxn(id, v)
   }
@@ -184,65 +186,65 @@ private[impl] final class VarTxImpl[T <: Txn[T], A](protected val id: S#Id)
 }
 
 private final class RootVar[T <: Txn[T], A](id1: Int, name: String)
-                                           (implicit val ser: serial.Serializer[S#Tx, S#Acc, A])
-  extends Var[S, A] {
+                                           (implicit val ser: TSerializer[T, A])
+  extends TVar[T, A] {
 
-  def setInit(v: A)(implicit tx: S#Tx): Unit = this() = v // XXX could add require( tx.inAccess == Path.root )
+  def setInit(v: A)(implicit tx: T): Unit = this() = v // XXX could add require( tx.inAccess == Path.root )
 
   override def toString: String = name // "Root"
 
-  private def id(implicit tx: S#Tx): S#Id = new ConfluentId[S](id1, tx.inputAccess)
+  private def id(implicit tx: T): Ident[T] = new ConfluentId[T](tx, id1, tx.inputAccess)
 
-  def meld(from: S#Acc)(implicit tx: S#Tx): A = {
+  def meld(from: Access[T])(implicit tx: T): A = {
     log(s"$this meld $from")
-    val idm = new ConfluentId[S](id1, from)
+    val idm = new ConfluentId[T](tx, id1, from)
     tx.addInputVersion(from)
     tx.getTxn(idm)
   }
 
-  def update(v: A)(implicit tx: S#Tx): Unit = {
+  def update(v: A)(implicit tx: T): Unit = {
     log(s"$this set $v")
     tx.putTxn(id, v)
   }
 
-  def apply()(implicit tx: S#Tx): A = {
+  def apply()(implicit tx: T): A = {
     log(s"$this get")
     tx.getTxn(id)
   }
 
-  def swap(v: A)(implicit tx: S#Tx): A = {
+  def swap(v: A)(implicit tx: T): A = {
     val res = apply()
     update(v)
     res
   }
 
-  def write(out: DataOutput): Unit =
-    sys.error("Unsupported Operation -- access.write")
+//  def write(out: DataOutput): Unit =
+//    sys.error("Unsupported Operation -- access.write")
 
-  def dispose()(implicit tx: S#Tx): Unit = ()
+//  def dispose()(implicit tx: T): Unit = ()
 }
 
-private[impl] final class BooleanVar[T <: Txn[T]](protected val id: S#Id)
-  extends BasicVar[S, Boolean] with ImmutableSerializer[Boolean] {
+private[impl] final class BooleanVar[T <: Txn[T]](protected val tx: T, protected val id: Ident[T])
+  extends BasicVar[T, Boolean] with NewImmutSerializer[Boolean] {
 
-  def meld(from: S#Acc)(implicit tx: S#Tx): Boolean = {
+  def meld(from: Access[T]): Boolean = {
     log(s"$this meld $from")
-    val idm = new ConfluentId[S](id.base, from)
+    val idm = new ConfluentId[T](tx, id.base, from)
     tx.addInputVersion(from)
-    tx.getNonTxn[Boolean](idm)
+    tx.getNonTxn[Boolean](idm)(this)
   }
 
-  def apply()(implicit tx: S#Tx): Boolean = {
+  def apply(): Boolean = {
     log(s"$this get")
     tx.getNonTxn[Boolean](id)(this)
   }
 
-  def setInit(v: Boolean)(implicit tx: S#Tx): Unit = {
+  def setInit(v: Boolean): Unit = {
     log(s"$this ini $v")
     tx.putNonTxn(id, v)(this)
   }
 
-  def update(v: Boolean)(implicit tx: S#Tx): Unit = {
+  def update(v: Boolean): Unit = {
     log(s"$this set $v")
     tx.putNonTxn(id, v)(this)
   }
@@ -255,27 +257,27 @@ private[impl] final class BooleanVar[T <: Txn[T]](protected val id: S#Id)
   def read(in: DataInput): Boolean = in.readBoolean()
 }
 
-private[impl] final class IntVar[T <: Txn[T]](protected val id: S#Id)
-  extends BasicVar[S, Int] with ImmutableSerializer[Int] {
+private[impl] final class IntVar[T <: Txn[T]](protected val tx: T, protected val id: Ident[T])
+  extends BasicVar[T, Int] with NewImmutSerializer[Int] {
 
-  def meld(from: S#Acc)(implicit tx: S#Tx): Int = {
+  def meld(from: Access[T]): Int = {
     log(s"$this meld $from")
-    val idm = new ConfluentId[S](id.base, from)
+    val idm = new ConfluentId[T](tx, id.base, from)
     tx.addInputVersion(from)
     tx.getNonTxn[Int](idm)
   }
 
-  def apply()(implicit tx: S#Tx): Int = {
+  def apply(): Int = {
     log(s"$this get")
     tx.getNonTxn[Int](id)(this)
   }
 
-  def setInit(v: Int)(implicit tx: S#Tx): Unit = {
+  def setInit(v: Int): Unit = {
     log(s"$this ini $v")
     tx.putNonTxn(id, v)(this)
   }
 
-  def update(v: Int)(implicit tx: S#Tx): Unit = {
+  def update(v: Int): Unit = {
     log(s"$this set $v")
     tx.putNonTxn(id, v)(this)
   }
@@ -288,27 +290,27 @@ private[impl] final class IntVar[T <: Txn[T]](protected val id: S#Id)
   def read(in: DataInput): Int = in.readInt()
 }
 
-private[impl] final class LongVar[T <: Txn[T]](protected val id: S#Id)
-  extends BasicVar[S, Long] with ImmutableSerializer[Long] {
+private[impl] final class LongVar[T <: Txn[T]](protected val tx: T, protected val id: Ident[T])
+  extends BasicVar[T, Long] with NewImmutSerializer[Long] {
 
-  def meld(from: S#Acc)(implicit tx: S#Tx): Long = {
+  def meld(from: Access[T]): Long = {
     log(s"$this meld $from")
-    val idm = new ConfluentId[S](id.base, from)
+    val idm = new ConfluentId[T](tx, id.base, from)
     tx.addInputVersion(from)
     tx.getNonTxn[Long](idm)
   }
 
-  def apply()(implicit tx: S#Tx): Long = {
+  def apply(): Long = {
     log(s"$this get")
     tx.getNonTxn[Long](id)(this)
   }
 
-  def setInit(v: Long)(implicit tx: S#Tx): Unit = {
+  def setInit(v: Long): Unit = {
     log(s"$this ini $v")
     tx.putNonTxn(id, v)(this)
   }
 
-  def update(v: Long)(implicit tx: S#Tx): Unit = {
+  def update(v: Long): Unit = {
     log(s"$this set $v")
     tx.putNonTxn(id, v)(this)
   }

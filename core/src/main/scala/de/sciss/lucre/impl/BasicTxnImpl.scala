@@ -14,7 +14,7 @@
 package de.sciss.lucre
 package impl
 
-import scala.concurrent.stm.{Ref => ScalaRef, Txn => ScalaTxn}
+import scala.concurrent.stm.{Txn => ScalaTxn}
 
 trait BasicTxnImpl[T <: Txn[T]] extends Txn[T] {
   self: T =>

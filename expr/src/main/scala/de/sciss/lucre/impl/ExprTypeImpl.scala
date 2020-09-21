@@ -14,8 +14,8 @@
 package de.sciss.lucre
 package impl
 
-import de.sciss.serial.{DataInput, DataOutput, Serializer}
 import de.sciss.lucre
+import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.annotation.switch
 import scala.language.implicitConversions

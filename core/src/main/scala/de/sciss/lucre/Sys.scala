@@ -13,15 +13,10 @@
 
 package de.sciss.lucre
 
-import de.sciss.lucre.{Base, TSource, ReactionMap, TSerializer, Txn, TxnLike}
-import de.sciss.serial.Serializer
-
 /** A system in LucreSTM describes a particular mode of representing values in time and of
  * persisting values to disk. The `Sys` trait contains types for variables, identifiers,
  * access paths, and transactions which are unique to each system (such as ephemeral in-memory,
  * confluently persistent etc.).
- *
- * @tparam S   the representation type of the system
  */
 trait Sys /*[S <: Sys[S]]*/ extends Base /*[S]*/ {
   //  type I <: InMemoryLike[I]

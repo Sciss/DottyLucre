@@ -13,7 +13,6 @@
 
 package de.sciss.lucre
 
-import de.sciss.lucre.{Base, Exec, Form, Observable}
 import de.sciss.model.Change
 
 /** This is the current compromise for unifying `Ex`/`IExpr` and `Expr`

@@ -1,6 +1,7 @@
-package de.sciss.lucre
+package de.sciss.lucre.data
 
 import de.sciss.lucre.store.BerkeleyDB
+import de.sciss.lucre.{Cursor, Durable, InMemory, TSerializer, TSource, TestUtil, Txn}
 import org.scalatest.GivenWhenThen
 import org.scalatest.featurespec.AnyFeatureSpec
 
@@ -187,7 +188,7 @@ class SkipListSuite extends AnyFeatureSpec with GivenWhenThen {
   }
 
   private def withList[T <: Txn[T]](name: String,
-                                    lf: SkipList.KeyObserver[T, Int] => (Cursor[T], TSource[T, SkipList.Set[T, Int]], 
+                                    lf: SkipList.KeyObserver[T, Int] => (Cursor[T], TSource[T, SkipList.Set[T, Int]],
                                       () => Unit)): Unit = {
     def scenarioWithTime(descr: String)(body: => Unit): Unit =
       Scenario(descr) {

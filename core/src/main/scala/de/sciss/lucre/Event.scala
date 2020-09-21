@@ -14,9 +14,7 @@
 package de.sciss.lucre
 
 import de.sciss.equal.Implicits._
-import Log.logEvent
-import de.sciss.lucre.{Ident, Mutable, Observable, TDisposable, TSerializer, Var}
-import de.sciss.serial
+import de.sciss.lucre.Log.logEvent
 import de.sciss.serial.{DataInput, DataOutput, Writable}
 
 import scala.annotation.switch

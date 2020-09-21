@@ -14,9 +14,8 @@
 package de.sciss.lucre.confluent
 
 import de.sciss.lucre.confluent.impl.{CursorImpl => Impl}
-import de.sciss.lucre.{DurableLike, Ident, TDisposable, Cursor => LCursor, Txn => LTxn, TSerializer}
-import de.sciss.serial
-import de.sciss.serial.{DataInput, Serializer, Writable}
+import de.sciss.lucre.{DurableLike, Ident, TDisposable, TSerializer, Cursor => LCursor, Txn => LTxn, Var => LVar}
+import de.sciss.serial.{DataInput, Writable}
 
 object Cursor {
   def apply[T <: Txn[T], D1 <: DurableLike.Txn[D1]](init: Access[T] = Access.root[T])
@@ -27,9 +26,9 @@ object Cursor {
                                                   /*(implicit system: S { type D = D1 })*/: Cursor[T, D1] =
     Impl[T, D1](data)
 
-  def read[T <: Txn[T], D1 <: DurableLike.Txn[D1]](in: DataInput)
-                                                  (implicit tx: D1 /*, system: S { type D = D1 }*/): Cursor[T, D1] =
-    Impl.read[T, D1](in)
+  def read[T <: Txn[T], D1 <: DurableLike.Txn[D1]](in: DataInput, tx: D1)
+                                                  (implicit access: tx.Acc /*, system: S { type D = D1 }*/): Cursor[T, D1] =
+    Impl.read[T, D1](in, tx)
 
   implicit def serializer[T <: Txn[T], D1 <: DurableLike.Txn[D1]](
     implicit system: T { type D = D1 }): TSerializer[D1, Cursor[T, D1]] = Impl.serializer[T, D1]
@@ -46,7 +45,7 @@ object Cursor {
   }
   trait Data[T <: Txn[T], D <: LTxn[D]] extends TDisposable[D] with Writable {
     def id  : Ident[D] // D#Id
-    def path: Var[Access[T]] // D#Var[S#Acc]
+    def path: LVar[Access[T]] // D#Var[S#Acc]
   }
 }
 trait Cursor[T <: Txn[T], D <: LTxn[D]]

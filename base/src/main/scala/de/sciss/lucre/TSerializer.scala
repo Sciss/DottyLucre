@@ -17,6 +17,12 @@ trait TSerializer[T <: Exec[T], A] {
 }
 
 object NewImmutSerializer {
+  implicit object Unit extends NewImmutSerializer[scala.Unit] {
+    def write(v: scala.Unit, out: DataOutput): Unit = ()
+
+    def read(in: DataInput): scala.Unit = ()
+  }
+
   implicit object Int extends NewImmutSerializer[scala.Int] {
     override def read(in: DataInput): scala.Int = in.readInt()
 

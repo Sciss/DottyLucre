@@ -15,10 +15,9 @@ package de.sciss.lucre
 package confluent
 package impl
 
-import de.sciss.lucre.{Var => LVar}
 import de.sciss.lucre.data.Ancestor
-import de.sciss.serial
-import de.sciss.serial.{DataInput, DataOutput, Serializer}
+import de.sciss.lucre.{Var => LVar}
+import de.sciss.serial.{DataInput, DataOutput}
 
 private[impl] object GlobalState {
   private val SER_VERSION = 0x436F6E666C6E7400L  // "Conflnt\0"
@@ -44,10 +43,10 @@ private[impl] object GlobalState {
       if (serVer != SER_VERSION)
         throw new IllegalStateException(s"Incompatible serialized version. Found $serVer but require $SER_VERSION")
       val durRootId     = in.readInt() // readInt()
-      val idCnt         = tx.readCachedIntVar(in)
-      val versionLinear = tx.readCachedIntVar(in)
-      val versionRandom = tx.readCachedLongVar(in)
-      val partialTree   = Ancestor.readTree[D, Long](in, tx)(acc, Serializer.Long, _.toInt)
+      val idCnt         = ??? // tx.readCachedIntVar(in)
+      val versionLinear = ??? // tx.readCachedIntVar(in)
+      val versionRandom = ??? // tx.readCachedLongVar(in)
+      val partialTree   = Ancestor.readTree[D, Long](in, tx)(acc, implicitly[TSerializer[D, Long]], _.toInt)
       GlobalState[T, D](durRootId = durRootId, idCnt = idCnt, versionLinear = versionLinear,
         versionRandom = versionRandom, partialTree = partialTree)
     }

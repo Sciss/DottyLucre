@@ -15,7 +15,9 @@ package de.sciss.lucre
 
 import de.sciss.lucre
 import de.sciss.model.Change
-import de.sciss.serial.{DataInput, ImmutableSerializer, Serializer}
+import de.sciss.serial.{DataInput, ImmutableSerializer}
+
+import scala.language.implicitConversions
 
 object Expr {
   // XXX TODO -- we need to rethink this type

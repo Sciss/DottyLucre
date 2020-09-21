@@ -30,7 +30,7 @@ final class InMemoryConfluentMapImpl[T <: Txn[T], K] extends InMemoryConfluentMa
 
   override def toString = s"InMemoryConfluentMap($store)"
 
-  def put[A](key: K, path: Access[T], value: A)(implicit tx: T): Unit = {
+  def put[A](key: K, value: A, tx: T)(implicit path: tx.Acc): Unit = {
     implicit val itx: InTxn = tx.peer
     val (index, term) = path.splitIndex
 
@@ -44,7 +44,7 @@ final class InMemoryConfluentMapImpl[T <: Txn[T], K] extends InMemoryConfluentMa
     store.put(key, entries)
   }
 
-  def remove(key: K, path: Access[T])(implicit tx: T): Boolean = {
+  def remove(key: K, tx: T)(implicit path: tx.Acc): Boolean = {
     implicit val itx: InTxn = tx.peer
     store.get(key) match {
       case Some(entries) =>
@@ -67,7 +67,7 @@ final class InMemoryConfluentMapImpl[T <: Txn[T], K] extends InMemoryConfluentMa
     }
   }
 
-  def get[A](key: K, path: Access[T])(implicit tx: T): Option[A] = {
+  def get[A](key: K, tx: T)(implicit path: tx.Acc): Option[A] = {
     if (path.isEmpty) return None
     store.get(key)(tx.peer).flatMap { entries =>
       val (maxIndex, maxTerm) = path.splitIndex
@@ -75,7 +75,7 @@ final class InMemoryConfluentMapImpl[T <: Txn[T], K] extends InMemoryConfluentMa
     }
   }
 
-  def getWithSuffix[A](key: K, path: Access[T])(implicit tx: T): Option[(Access[T], A)] = {
+  def getWithSuffix[A](key: K, tx: T)(implicit path: tx.Acc): Option[(Access[T], A)] = {
     if (path.isEmpty) return None
     store.get(key)(tx.peer).flatMap { entries =>
       val (maxIndex, maxTerm) = path.splitIndex

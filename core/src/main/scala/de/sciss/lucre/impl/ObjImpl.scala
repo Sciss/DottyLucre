@@ -14,7 +14,7 @@
 package de.sciss.lucre
 package impl
 
-import de.sciss.serial.{DataInput, DataOutput, Serializer}
+import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.annotation.meta.field
 

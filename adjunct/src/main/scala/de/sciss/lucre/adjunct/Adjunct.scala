@@ -140,7 +140,7 @@ object Adjunct {
     }
     implicit object longIntLong extends Widen2[Long, Int, Long] {
       def widen1(a: Long ): Long = a
-      def widen2(a: Int  ): Long = a
+      def widen2(a: Int  ): Long = a.toLong
 
       final val id = 0x108
     }
@@ -427,7 +427,7 @@ object Adjunct {
 
   type ScalarEq[A] = Eq[A] with Scalar[A]
 
-  final object IntSeqTop
+  object IntSeqTop
     extends NumInt      [Seq[Int]]
       with  SeqLikeNum  [Int]
       with  SeqLikeToNum[Int]
@@ -468,7 +468,7 @@ object Adjunct {
     }
   }
 
-  final object IntTop
+  object IntTop
     extends NumInt          [Int]
       with  ScalarEqImpl    [Int]
       with  ScalarToNumImpl [Int]
@@ -567,7 +567,7 @@ object Adjunct {
     def defaultValue: Int = 0
   }
 
-  final object LongTop
+  object LongTop
     extends NumInt          [Long]
       with  ScalarEqImpl    [Long]
       with  ScalarToNumImpl [Long]
@@ -659,7 +659,7 @@ object Adjunct {
     def widen1(a: A): A = a
   }
 
-  final object DoubleSeqTop
+  object DoubleSeqTop
     extends SeqLikeNumFrac  [Double]
       with  SeqLikeToNum    [Double]
       with  SeqLikeNumDouble[Double]
@@ -813,7 +813,7 @@ object Adjunct {
     def defaultValue: Double = 0.0
   }
 
-  implicit final object BooleanSeqTop
+  implicit object BooleanSeqTop
     extends NumBool[Seq[Boolean]]
       with SeqLikeEq    [Boolean]
       with SeqLikeToNum [Boolean] 
@@ -845,7 +845,7 @@ object Adjunct {
     }
   }
 
-  implicit final object BooleanTop
+  implicit object BooleanTop
     extends NumBool       [Boolean]
       with ScalarEqImpl   [Boolean]
       with ScalarToNumImpl[Boolean]
@@ -876,7 +876,7 @@ object Adjunct {
     def defaultValue: Boolean = false
   }
 
-  implicit final object StringTop
+  implicit object StringTop
     extends ScalarEqImpl[String]
     with    FromAny     [String]
     with    HasDefault  [String] {

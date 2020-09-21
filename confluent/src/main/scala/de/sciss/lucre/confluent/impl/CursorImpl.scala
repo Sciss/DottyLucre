@@ -17,9 +17,8 @@ package impl
 
 import de.sciss.lucre.confluent.Cursor.Data
 import de.sciss.lucre.confluent.Log.logCursor
-import de.sciss.lucre.{confluent, Txn => LTxn, Var => LVar}
-import de.sciss.serial
-import de.sciss.serial.{DataInput, DataOutput, Serializer}
+import de.sciss.lucre.{Txn => LTxn, Var => LVar, Ident => LIdent}
+import de.sciss.serial.{DataInput, DataOutput}
 
 object CursorImpl {
   private final val COOKIE  = 0x4375  // "Cu"
@@ -28,47 +27,48 @@ object CursorImpl {
   /*(implicit system: S { type D = D1 })*/: TSerializer[D1, Cursor[T, D1]] = new Ser[T, D1]
 
   private final class Ser[T <: Txn[T], D1 <: DurableLike.Txn[D1]]/*(implicit system: S { type D = D1 })*/
-    extends serial.Serializer[D1, D1#Acc, Cursor[T, D1]] {
+    extends TSerializer[D1, Cursor[T, D1]] {
 
     def write(v: Cursor[T, D1], out: DataOutput): Unit = v.write(out)
 
-    def read(in: DataInput, access: Unit)(implicit tx: D1): Cursor[T, D1] = CursorImpl.read[T, D1](in)
+    def read(in: DataInput, tx: D1)(implicit access: tx.Acc): Cursor[T, D1] =
+      CursorImpl.read[T, D1](in, tx)
   }
 
 //  private trait NoSys extends Sys[NoSys] { type D = stm.Durable }
-  private type NoSys = Sys
+//  private type NoSys = Sys
 
   /* implicit */ def pathSerializer[T <: Txn[T], D <: LTxn[D]]: TSerializer[D, Access[T]] =
     anyPathSer.asInstanceOf[PathSer[T, D]]
 
-  private final val anyPathSer = new PathSer[NoSys, NoSys#D]
+  private final val anyPathSer = new PathSer[Confluent.Txn, AnyTxn]
 
   private final class PathSer[T <: Txn[T], D1 <: LTxn[D1]] // (implicit system: S { type D = D1 })
     extends TSerializer[D1, Access[T]] {
 
     def write(v: Access[T], out: DataOutput): Unit = v.write(out)
 
-    def read(in: DataInput, access: D1#Acc)(implicit tx: D1): Access[T] =
+    def read(in: DataInput, tx: D1)(implicit access: tx.Acc): Access[T] =
       confluent.Access.read(in) // system.readPath(in)
   }
 
-  def newData[T <: Txn[T], D <: LTxn[D]](init: Access[T] = Access.root[T])(implicit tx: D#Tx): Data[T, D] = {
+  def newData[T <: Txn[T], D <: LTxn[D]](init: Access[T] = Access.root[T])(implicit tx: D): Data[T, D] = {
     val id    = tx.newId()
-    val path  = tx.newVar(id, init)(pathSerializer[T, D])
+    val path  = id.newVar(init)(pathSerializer[T, D])
     new DataImpl[T, D](id, path)
   }
 
   def dataSerializer[T <: Txn[T], D <: LTxn[D]]: TSerializer[D, Data[T, D]] =
     anyDataSer.asInstanceOf[DataSer[T, D]]
 
-  private final val anyDataSer = new DataSer[NoSys, NoSys#D]
+  private final val anyDataSer = new DataSer[Confluent.Txn, AnyTxn]
 
   private final class DataSer[T <: Txn[T], D <: LTxn[D]]
     extends TSerializer[D, Data[T, D]] {
 
     def write(d: Data[T, D], out: DataOutput): Unit = d.write(out)
 
-    def read(in: DataInput, tx: T)(implicit access: tx.Acc): Data[T, D] = readData[T, D](in, tx)
+    def read(in: DataInput, tx: D)(implicit access: tx.Acc): Data[T, D] = readData[T, D](in, tx)
   }
 
   def readData[T <: Txn[T], D <: LTxn[D]](in: DataInput, tx: D)(implicit access: tx.Acc): Data[T, D] = {
@@ -79,7 +79,7 @@ object CursorImpl {
     new DataImpl[T, D](id, path)
   }
 
-  private final class DataImpl[T <: Txn[T], D <: LTxn[D]](val id: D#Id, val path: LVar[Access[T]])
+  private final class DataImpl[T <: Txn[T], D <: LTxn[D]](val id: LIdent[D], val path: LVar[Access[T]])
     extends Data[T, D] {
 
     def write(out: DataOutput): Unit = {
@@ -88,7 +88,7 @@ object CursorImpl {
       path.write(out)
     }
 
-    def dispose()(implicit tx: D#Tx): Unit = {
+    def dispose()(implicit tx: D): Unit = {
       path.dispose()
       id  .dispose()
     }
@@ -98,9 +98,9 @@ object CursorImpl {
                                                   /*(implicit system: S { type D = D1 })*/: Cursor[T, D1] =
     new Impl[T, D1](data)
 
-  def read[T <: Txn[T], D1 <: DurableLike.Txn[D1]](in: DataInput)
-                                                  (implicit tx: D1 /*, system: S { type D = D1 }*/): Cursor[T, D1] = {
-    val data = readData[T, D1](in, ())
+  def read[T <: Txn[T], D1 <: DurableLike.Txn[D1]](in: DataInput, tx: D1)(implicit access: tx.Acc)
+                                                 /* (implicit , system: S { type D = D1 })*/: Cursor[T, D1] = {
+    val data = readData[T, D1](in, tx)
     Cursor.wrap[T, D1](data)
   }
 
@@ -111,7 +111,7 @@ object CursorImpl {
     override def toString = s"Cursor${data.id}"
 
     private def topLevelAtomic[A](fun: D1 => A): A = Txn.atomic { itx =>
-      val dtx = system.durable.wrap(itx)
+      val dtx = ??? : D1 // system.durable.wrap(itx)
       fun(dtx)
     }
 
@@ -133,20 +133,21 @@ object CursorImpl {
 
     private def performStep[A](inputAccess: Access[T], retroactive: Boolean, systemTimeNanos: Long,
                                dtx: D1, fun: T => A): A = {
-      val tx = system.createTxn(dtx = dtx, inputAccess = inputAccess, retroactive = retroactive,
-        cursorCache = this, systemTimeNanos = systemTimeNanos)
+      val tx: T = ???
+//        system.createTxn(dtx = dtx, inputAccess = inputAccess, retroactive = retroactive,
+//          cursorCache = this, systemTimeNanos = systemTimeNanos)
       logCursor(s"${data.id} step. input path = $inputAccess")
       fun(tx)
     }
 
     def flushCache(term: Long)(implicit tx: T): Unit = {
-      implicit val dtx: D1 = system.durableTx(tx)
+      implicit val dtx: D1 = ??? // system.durableTx(tx)
       val newPath = tx.inputAccess.addTerm(term)
       data.path() = newPath
       logCursor(s"${data.id} flush path = $newPath")
     }
 
-    def position(implicit tx: T ): Access[T]  = position(system.durableTx(tx))
+    def position(implicit tx: T ): Access[T]  = ??? // position(system.durableTx(tx))
     def position(implicit tx: D1): Access[T]  = data.path()
 
     def dispose()(implicit tx: D1): Unit = {

@@ -14,15 +14,15 @@
 package de.sciss.lucre.confluent
 package impl
 
-import de.sciss.lucre.DataStore
-import de.sciss.serial.{DataInput, Serializer, DataOutput, ImmutableSerializer}
+import de.sciss.lucre.{DataStore, NewImmutSerializer, TSerializer}
+import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.annotation.switch
 
 object DurableConfluentMapImpl {
   private sealed trait     Entry      [T <: Txn[T], A]
-  private final case class EntryPre   [T <: Txn[T], A](hash: Long) extends Entry[T, A]
-  private final case class EntrySingle[T <: Txn[T], A](term: Long, v: A) extends Entry[T, A]
+  private final case class EntryPre   [T <: Txn[T], A](hash: Long)        extends Entry[T, A]
+  private final case class EntrySingle[T <: Txn[T], A](term: Long, v: A)  extends Entry[T, A]
   private final case class EntryMap   [T <: Txn[T], A](m: IndexMap[T, A]) extends Entry[T, A]
 
   private final class WithPrefix[A](val len: Int, val term: Long, val value: A)
@@ -37,27 +37,27 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
 
   protected def writeKey(key: K, out: DataOutput): Unit
 
-  final def isFresh(key: K, path: Access[T])(implicit tx: T): Boolean = {
-    store.get { out =>
+  final def isFresh(key: K, tx: T)(implicit path: tx.Acc): Boolean = {
+    store.get({ out =>
       writeKey(key, out)
       out.writeLong(path.indexSum)
-    } { in =>
+    })({ in =>
       (in.readByte(): @switch) match {
         case 1 => true // a single value is found
         case 2 => true // a map is found
         case _ => false // only a partial hash is found
       }
-    } getOrElse false
+    })(tx).contains(true) // getOrElse(false)
   }
 
-  final def putImmutable[A](key: K, path: Access[T], value: A)
-                           (implicit tx: T, ser: ImmutableSerializer[A]): Unit = {
+  final def putImmutable[A](key: K, value: A, tx: T)
+                           (implicit path: tx.Acc, ser: NewImmutSerializer[A]): Unit = {
     val (index, term) = path.splitIndex
     // first we need to see if anything has already been written to the index of the write path
-    store.flatGet { out =>
+    store.flatGet[Entry[T, A]]({ out =>
       writeKey(key, out)
       out.writeLong(index.sum)
-    } { in =>
+    })({ in =>
       (in.readByte(): @switch) match {
         case 1 =>
           // a single 'root' value is found. extract it for successive re-write.
@@ -66,19 +66,19 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
           Some(EntrySingle(term2, prev))
         case 2 =>
           // there is already a map found
-          val m = handler.readIndexMap[A](in, index)
+          val m = handler.readIndexMap[A](in, tx)(index, ser)
           Some(EntryMap(m))
         case _ => None // this would be a partial hash which we don't use
       }
-    } match {
+    })(tx) match {
       // with the previous entry read, react as follows:
       // if there is a single entry, construct a new ancestor.map with the
       // entry's value taken as root value
       case Some(EntrySingle(prevTerm, prevValue)) if term != prevTerm =>  // skip to overwrite existing entries
-        putFullMap[A](key, index, term, value, prevTerm, prevValue)
+        putFullMap[A](key, index, term, value, prevTerm, prevValue)(tx, ser)
       // if there is an existing map, simply add the new value to it
       case Some(EntryMap(m)) =>
-        m.add(term, value)
+        m.add(term, value)(tx)
       // if there is no previous entry...
       case _ =>
         // we may write a single entry if and only if the value can be seen
@@ -87,8 +87,8 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
         // re-written in the tree root, hence path.suffix == <term, term>)
         val indexTerm = index.term
         if (term == indexTerm) {
-          putPartials(key, index)
-          putFullSingle[A](key, index, term, value)
+          putPartials(key, index)(tx)
+          putFullSingle[A](key, index, term, value)(tx, ser)
           // otherwise, we must read the root value for the entity, and then
           // construct a new map containing that root value along with the
           // new value
@@ -110,29 +110,29 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
           //                  )
           //                  putPartials( key, index )
           //                  putFullMap[ A ]( key, index, term, value, indexTerm, prevValue )
-          getImmutable[A](key, path) match {
+          getImmutable[A](key, tx) match {
             case Some(prevValue) =>
-              putPartials(key, index)
-              putFullMap   [A](key, index, term, value, indexTerm, prevValue)
+              putPartials(key, index)(tx)
+              putFullMap   [A](key, index, term, value, indexTerm, prevValue)(tx, ser)
 
             case _ =>
-              putPartials(key, index)
-              putFullSingle[A](key, index, term, value)
+              putPartials(key, index)(tx)
+              putFullSingle[A](key, index, term, value)(tx, ser)
           }
         }
     }
   }
 
-  final def put[A](key: K, path: Access[T], value: A)(implicit tx: T, ser: Serializer[T, Access[T], A]): Unit = {
+  final def put[A](key: K, value: A, tx: T)(implicit path: tx.Acc, ser: TSerializer[T, A]): Unit = {
     val (index, term) = path.splitIndex
     val arrOut  = DataOutput()
     ser.write(value, arrOut)
     val arr     = arrOut.toByteArray
     // first we need to see if anything has already been written to the index of the write path
-    store.flatGet { out =>
+    store.flatGet[Entry[T, Array[Byte]]]({ out =>
       writeKey(key, out)
       out.writeLong(index.sum)
-    } { in =>
+    })({ in =>
       (in.readByte(): @switch) match {
         case 1 =>
           // a single 'root' value is found. extract it for successive re-write.
@@ -142,11 +142,11 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
           Some(EntrySingle(term2, arr /* prev */))
         case 2 =>
           // there is already a map found
-          val m = handler.readIndexMap[Array[Byte]/* A */](in, index)(tx, ByteArraySerializer)
+          val m = handler.readIndexMap[Array[Byte]/* A */](in, tx)(index, ByteArraySerializer)
           Some(EntryMap(m))
         case _ => None // this would be a partial hash which we don't use
       }
-    } match {
+    })(tx) match {
       // with the previous entry read, react as follows:
       // if there is a single entry, construct a new ancestor.map with the
       // entry's value taken as root value
@@ -154,7 +154,7 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
         putFullMap[Array[Byte]](key, index, term, arr, prevTerm, prevArr)(tx, ByteArraySerializer)
       // if there is an existing map, simply add the new value to it
       case Some(EntryMap(m)) =>
-        m.add(term, arr)
+        m.add(term, arr)(tx)
       // if there is no previous entry...
       case _ =>
         // we may write a single entry if and only if the value can be seen
@@ -163,7 +163,7 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
         // re-written in the tree root, hence path.suffix == <term, term>)
         val indexTerm = index.term
         if (term == indexTerm) {
-          putPartials(key, index)
+          putPartials(key, index)(tx)
           putFullSingle[Array[Byte]](key, index, term, arr)(tx, ByteArraySerializer)
           // otherwise, we must read the root value for the entity, and then
           // construct a new map containing that root value along with the
@@ -171,7 +171,7 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
         } else {
           val prevAccI  = path.index
           val prevAcc   = prevAccI :+ prevAccI.last   // path where term is replaced by index-term (tree root)
-          val prevOpt   = get[A](key, prevAcc)
+          val prevOpt   = get[A](key, tx)(prevAcc, ser)
           // println(s"prev value for new full tree, input = $prevAcc; path = $path; prev = $prevOpt")
           prevOpt match {
             case Some(prevValue) =>
@@ -179,11 +179,11 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
               arrOut.reset()
               ser.write(prevValue, arrOut)
               val prevArr = arrOut.toByteArray
-              putPartials(key, index)
+              putPartials(key, index)(tx)
               putFullMap   [Array[Byte]](key, index, term, arr, indexTerm, prevArr)(tx, ByteArraySerializer)
 
             case _ =>
-              putPartials(key, index)
+              putPartials(key, index)(tx)
               putFullSingle[Array[Byte]](key, index, term, arr                    )(tx, ByteArraySerializer)
           }
         }
@@ -191,11 +191,11 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
   }
 
   private[this] def putFullMap[A](key: K, index: Access[T], term: Long, value: A, prevTerm: Long, prevValue: A)
-                                 (implicit tx: T, ser: ImmutableSerializer[A]): Unit = {
+                                 (implicit tx: T, ser: NewImmutSerializer[A]): Unit = {
     //         require( prevTerm != term, "Duplicate flush within same transaction? " + term.toInt )
     //         require( prevTerm == index.term, "Expected initial assignment term " + index.term.toInt + ", but found " + prevTerm.toInt )
     // create new map with previous value
-    val m = handler.newIndexMap[A](index, prevTerm, prevValue)
+    val m = handler.newIndexMap[A](tx, prevTerm, prevValue)(index, ser)
     // store the full value at the full hash (path.sum)
     store.put { out =>
       writeKey(key, out) // out.writeInt( key )
@@ -208,22 +208,23 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
     m.add(term, value)
   }
 
-  def remove(key: K, index: Access[T])(implicit tx: T): Boolean = {
+  def remove(key: K, tx: T)(implicit index: tx.Acc): Boolean = {
     Hashing.foreachPrefix(index, hash => {
-      store.contains { out =>
+      store.contains({ out =>
         writeKey(key, out)
         out.writeLong(hash)
-      }
+      })(tx)
     }) {
-      case (hash, _) => store.remove { out =>
-        writeKey(key, out)
-        out.writeLong(hash)
-      }
+      case (hash, _) =>
+        store.remove({ out =>
+          writeKey(key, out)
+          out.writeLong(hash)
+        })(tx)
     }
-    store.remove { out =>
+    store.remove({ out =>
       writeKey(key, out)
       out.writeLong(index.sum)
-    }
+    })(tx)
   }
 
   // stores the prefixes
@@ -247,7 +248,7 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
 
   // store the full value at the full hash (path.sum)
   private[this] def putFullSingle[A](key: K, index: Access[T], term: Long, value: A)
-                                    (implicit tx: T, ser: ImmutableSerializer[A]): Unit =
+                                    (implicit tx: T, ser: NewImmutSerializer[A]): Unit =
     store.put { out =>
       writeKey(key, out)
       out.writeLong(index.sum)
@@ -257,13 +258,13 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
       ser.write(value, out)
     }
 
-  final def getImmutable[A](key: K, path: Access[T])(implicit tx: T, ser: ImmutableSerializer[A]): Option[A] = {
+  final def getImmutable[A](key: K, tx: T)(implicit path: tx.Acc, ser: NewImmutSerializer[A]): Option[A] = {
     if (path.isEmpty) return None
     val (maxIndex, maxTerm) = path.splitIndex
-    getWithPrefixLen[A](key, maxIndex, maxTerm).map(_.value)
+    getWithPrefixLen[A](key, maxIndex, maxTerm)(tx, ser).map(_.value)
   }
 
-  final def get[A](key: K, path: Access[T])(implicit tx: T, ser: Serializer[T, Access[T], A]): Option[A] = {
+  final def get[A](key: K, tx: T)(implicit path: tx.Acc, ser: TSerializer[T, A]): Option[A] = {
     if (path.isEmpty) return None
     val (maxIndex, maxTerm) = path.splitIndex
     val opt = getWithPrefixLen[Array[Byte]](key, maxIndex, maxTerm)(tx, ByteArraySerializer)
@@ -271,12 +272,12 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
       //            (path.dropAndReplaceHead( preLen, writeTerm ), value)
       val access  = wp.term +: path.drop(wp.len)
       val in      = DataInput(wp.value)
-      ser.read(in, access)
+      ser.read(in, tx)(???) // (access)
     }
   }
 
   private[this] def getWithPrefixLen[A](key: K, maxIndex: Access[T], maxTerm: Long)
-                                       (implicit tx: T, ser: ImmutableSerializer[A]): Option[WithPrefix[A]] = {
+                                       (implicit tx: T, ser: NewImmutSerializer[A]): Option[WithPrefix[A]] = {
     val preLen = Hashing.maxPrefixLength(maxIndex, hash => store.contains { out =>
       writeKey(key, out)
       out.writeLong(hash)
@@ -332,7 +333,7 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
           }
 
         case 2 =>
-          val m = handler.readIndexMap[A](in, index)
+          val m = handler.readIndexMap[A](in, tx)(index, ser)
           if (isOblivious) {
             m.nearestOption(term).map {
               case (term2, value) => new WithPrefix(preLen, term2, value)

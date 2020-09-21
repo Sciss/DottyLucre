@@ -13,7 +13,7 @@
 
 package de.sciss.lucre.confluent
 
-import de.sciss.lucre.{DataStore, DurableLike, InMemoryLike, TSerializer, TSource, TxnLike, confluent, stm, Sys => LSys}
+import de.sciss.lucre.{DataStore, DurableLike, InMemoryLike, TSerializer, TSource, TxnLike, confluent, Sys => LSys}
 import de.sciss.serial
 import de.sciss.serial.DataInput
 
@@ -29,7 +29,7 @@ trait Sys /*[S <: Sys[S]]*/ extends LSys /*[S]*/ {
   type I <: InMemoryLike.Txn[I]
 
   type T               <: confluent.Txn[T]
-  final type Id         = confluent.Identifier[T]
+  final type Id         = confluent.Ident[T]
   final type Acc        = confluent.Access[T]
   final type Var[A]     = confluent.Var[/*T,*/ A]
   // final type Entry[A]   = Sys.Entry[T, A]

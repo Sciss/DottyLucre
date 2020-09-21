@@ -14,7 +14,7 @@
 package de.sciss.lucre.confluent
 
 import de.sciss.lucre.NewImmutSerializer
-import de.sciss.serial.{DataInput, ImmutableSerializer}
+import de.sciss.serial.DataInput
 
 trait PartialMapHandler[-T] {
   def getIndexTreeTerm(term: Long)(implicit tx: T): Long
