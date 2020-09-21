@@ -13,10 +13,10 @@
 
 package de.sciss.lucre.geom
 
-import collection.immutable.{IndexedSeq => Vec}
-import IntSpace.NDim
 import de.sciss.lucre.NewImmutSerializer
-import de.sciss.serial.ImmutableSerializer
+import de.sciss.lucre.geom.IntSpace.NDim
+
+import scala.collection.immutable.{IndexedSeq => Vec}
 
 trait IntPointNLike {
   def components: Vec[Int]

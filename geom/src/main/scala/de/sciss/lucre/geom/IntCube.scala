@@ -14,8 +14,7 @@
 package de.sciss.lucre
 package geom
 
-import IntSpace.ThreeDim
-import de.sciss.serial.ImmutableSerializer
+import de.sciss.lucre.geom.IntSpace.ThreeDim
 
 /**
  * A three dimensional cube.
@@ -50,8 +49,8 @@ import de.sciss.serial.ImmutableSerializer
  * - 7 (binary 111) - right-bottom-back
  */
 trait IntCubeLike extends HyperCube[IntPoint3DLike, IntCube] with QueryShape[BigInt, IntPoint3DLike, IntCube] {
-  import ThreeDim.{HyperCube => Cube3D, _}
   import Space.bigZero
+  import ThreeDim.{HyperCube => Cube3D, _}
 
   /**
    * X coordinate of the cube's center

@@ -14,8 +14,6 @@
 package de.sciss.lucre
 package geom
 
-import de.sciss.serial.ImmutableSerializer
-
 trait LongSquareLike 
   extends HyperCube[LongPoint2DLike, LongSquare] with QueryShape[BigInt, LongPoint2DLike, LongSquare] {
   

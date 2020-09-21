@@ -15,10 +15,10 @@ package de.sciss.lucre.data
 
 import java.io.PrintStream
 
-import de.sciss.lucre.{Base, Disposable, Exec, Ident, Identified, Mutable, TSerializer, Var}
 import de.sciss.lucre.geom.{DistanceMeasure, HyperCube, QueryShape, Space}
+import de.sciss.lucre.{Disposable, Exec, Ident, Identified, Mutable, TSerializer, Var}
 import de.sciss.serial.impl.ByteArrayOutputStream
-import de.sciss.serial.{DataInput, DataOutput, Serializer, Writable}
+import de.sciss.serial.{DataInput, DataOutput, Writable}
 
 import scala.annotation.{elidable, switch, tailrec}
 import scala.collection.immutable.{IndexedSeq => Vec}
@@ -75,10 +75,49 @@ object DetSkipOctree {
                                             keySerializer: TSerializer[T, A]): DetSkipOctree[T, PL, P, H, A] =
     new ImplNew[T, PL, P, H, A](skipGap, tx.newId(), hyperCube, view, tx)
 
-  def read[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](in: DataInput, tx: T)(implicit access: tx.Acc, view: (A /*, T*/) => PL,
-                                                            space: Space[PL, P, H], 
-                                                            keySerializer: TSerializer[T, A]): DetSkipOctree[T, PL, P, H, A] =
-    new ImplRead[T, PL, P, H, A](view, in, tx)
+  def read[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](in: DataInput, tx: T)(implicit access: tx.Acc,
+                                                                                pointView: (A /*, T*/) => PL,
+                                                                                space: Space[PL, P, H],
+                                                                                keySerializer: TSerializer[T, A]): DetSkipOctree[T, PL, P, H, A] = {
+    val _pointView      = pointView
+    val _keySerializer  = keySerializer
+    val _tx: tx.type    = tx
+    val _space          = space
+
+//    new ImplRead[T, PL, P, H, A](view, in, tx)
+
+//    private final class ImplRead[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](val pointView: (A /*, T*/) => PL,
+//                                                                                in: DataInput,
+//                                                                                val tx: T)
+//                                                                               (implicit access: tx.Acc, val space: Space[PL, P, H],
+//                                                                                val keySerializer: TSerializer[T, A])
+
+    new Impl[T, PL, P, H, A] {
+      val pointView: (A /*, T*/) => PL      = _pointView
+      val keySerializer: TSerializer[T, A]  = _keySerializer
+      val tx: T                             = _tx
+      val space: Space[PL, P, H]            = _space
+
+      {
+        val version = in.readByte()
+        require(version == SER_VERSION,
+          s"Incompatible serialized version (found $version, required $SER_VERSION).")
+      }
+
+      val id: Ident[T] = _tx.readId(in)
+      val hyperCube: H = space.hyperCubeSerializer.read(in) // (in, tx)
+      val skipList: HASkipList.Set[T, this.Leaf] = {
+        implicit val ord: scala.Ordering[this.Leaf] = LeafOrdering
+        implicit val r1: TSerializer[T, this.Leaf] = LeafSerializer
+        HASkipList.Set.serializer[T, this.Leaf](KeyObserver).read(in, _tx)
+      }
+      val headTree: this.LeftTopBranch = LeftTopBranchSerializer.read(in, _tx)
+      val lastTreeRef: Var[this.TopBranch] = {
+        implicit val r4: TSerializer[T, this.TopBranch] = TopBranchSerializer
+        id.readVar[this.TopBranch](in)
+      }
+    }
+  }
 
   implicit def serializer[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A /*, T*/) => PL, space: Space[PL, P, H],
                                                      keySerializer: TSerializer[T, A]): TSerializer[T, DetSkipOctree[T, PL, P, H, A]] =
@@ -89,40 +128,12 @@ object DetSkipOctree {
                                                                   keySerializer: TSerializer[T, A])
     extends TSerializer[T, DetSkipOctree[T, PL, P, H, A]] {
 
-    def read(in: DataInput, tx: T)(implicit access: tx.Acc): DetSkipOctree[T, PL, P, H, A] = {
-      new ImplRead[T, PL, P, H, A](view, in, tx)
-    }
+    def read(in: DataInput, tx: T)(implicit access: tx.Acc): DetSkipOctree[T, PL, P, H, A] =
+      DetSkipOctree.read[T, PL, P, H, A](in, tx)
 
     override def toString = "DetSkipOctree.serializer"
 
     def write(v: DetSkipOctree[T, PL, P, H, A], out: DataOutput): Unit = v.write(out)
-  }
-
-  private final class ImplRead[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](val pointView: (A /*, T*/) => PL,
-                                                                              in: DataInput,
-                                                          val tx: T)
-                                                         (implicit access: tx.Acc, val space: Space[PL, P, H],
-                                                          val keySerializer: TSerializer[T, A])
-    extends Impl[T, PL, P, H, A] {
-
-    {
-      val version = in.readByte()
-      require(version == SER_VERSION,
-        s"Incompatible serialized version (found $version, required $SER_VERSION).")
-    }
-
-    val id: Ident[T] = tx.readId(in)
-    val hyperCube: H = space.hyperCubeSerializer.read(in) // (in, tx)
-    val skipList: HASkipList.Set[T, this.Leaf] = {
-      implicit val ord: scala.Ordering[this.Leaf] = LeafOrdering
-      implicit val r1: TSerializer[T, this.Leaf] = LeafSerializer
-      HASkipList.Set.serializer[T, this.Leaf](KeyObserver).read(in, tx)
-    }
-    val headTree: this.LeftTopBranch = LeftTopBranchSerializer.read(in, tx)
-    val lastTreeRef: Var[this.TopBranch] = {
-      implicit val r4: TSerializer[T, this.TopBranch] = TopBranchSerializer
-      id.readVar[this.TopBranch](in)
-    }
   }
 
   private final class ImplNew[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](skipGap: Int,
@@ -483,8 +494,7 @@ object DetSkipOctree {
      */
     private[DetSkipOctree] def newLeaf(qIdx: Int, value: A): Leaf[T, PL, P, H, A] = {
       val leafId    = octree.tx.newId()
-      import octree.BranchSerializer
-      val parentRef = leafId.newVar[Branch[T, PL, P, H, A]](this)
+      val parentRef = leafId.newVar[Branch[T, PL, P, H, A]](this)(octree.BranchSerializer)
       val l         = new LeafImpl[T, PL, P, H, A](octree, leafId, value, parentRef)
       updateChild(qIdx, l)
       l
@@ -511,8 +521,7 @@ object DetSkipOctree {
         ch(i) = cid.newVar[LeftChild[T, PL, P, H, A]](Empty)(octree.LeftChildSerializer)
         i += 1
       }
-      import octree.LeftBranchSerializer
-      val parentRef   = cid.newVar[LeftBranch[T, PL, P, H, A]](this)
+      val parentRef   = cid.newVar[LeftBranch[T, PL, P, H, A]](this)(octree.LeftBranchSerializer)
       val rightRef    = cid.newVar[Next[T, PL, P, H, A]](Empty)(octree.RightOptionReader)
       val n           = new LeftChildBranchImpl[T, PL, P, H, A](
         octree, cid, parentRef, iq, children = ch, nextRef = rightRef
@@ -738,8 +747,7 @@ object DetSkipOctree {
         ch(i) = cid.newVar[RightChild[T, PL, P, H, A]](Empty)
         i += 1
       }
-      import octree.RightBranchSerializer
-      val parentRef = cid.newVar[RightBranch[T, PL, P, H, A]](this)
+      val parentRef = cid.newVar[RightBranch[T, PL, P, H, A]](this)(octree.RightBranchSerializer)
       val rightRef  = cid.newVar[Next[T, PL, P, H, A]](Empty)(octree.RightOptionReader)
       val n         = new RightChildBranchImpl[T, PL, P, H, A](octree, cid, parentRef, prev, iq, ch, rightRef)
       prev.next     = n
@@ -958,44 +966,44 @@ object DetSkipOctree {
     }
   }
 
-  private sealed trait TopBranchImpl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], _A] {
-    protected val octree: Impl[T, PL, P, H, _A]
+  private sealed trait TopBranchImpl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A] {
+    protected val octree: Impl[T, PL, P, H, A]
     
     final def hyperCube: H = octree.hyperCube
   }
 
   // cf. https://github.com/lampepfl/dotty/issues/9844
-  private abstract class Impl[_T <: Exec[_T], _PL, P, _H <: HyperCube[_PL, _H], _A]
-    extends DetSkipOctree[_T, _PL, P, _H, _A] {
+  private abstract class Impl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A]
+    extends DetSkipOctree[T, PL, P, H, A] {
     octree =>
 
-    final type Child              = DetSkipOctree.Child             [_T, _PL, P, _H, _A]
-    final type Branch             = DetSkipOctree.Branch            [_T, _PL, P, _H, _A]
-    final type Leaf               = DetSkipOctree.Leaf              [_T, _PL, P, _H, _A]
-    final type LeftBranch         = DetSkipOctree.LeftBranch        [_T, _PL, P, _H, _A]
-    final type RightBranch        = DetSkipOctree.RightBranch       [_T, _PL, P, _H, _A]
-    final type LeftChild          = DetSkipOctree.LeftChild         [_T, _PL, P, _H, _A]
-    final type RightChild         = DetSkipOctree.RightChild        [_T, _PL, P, _H, _A]
-    final type Next               = DetSkipOctree.Next              [_T, _PL, P, _H, _A]
-    final type ChildBranch        = DetSkipOctree.ChildBranch       [_T, _PL, P, _H, _A]
-    final type LeftChildBranch    = DetSkipOctree.LeftChildBranch   [_T, _PL, P, _H, _A]
-    final type RightChildBranch   = DetSkipOctree.RightChildBranch  [_T, _PL, P, _H, _A]
-    final type NonEmptyChild      = DetSkipOctree.NonEmptyChild     [_T, _PL, P, _H, _A]
-    final type LeafOrEmpty        = DetSkipOctree.LeafOrEmpty       [_T, _PL, P, _H, _A]
-    final type LeftNonEmptyChild  = DetSkipOctree.LeftNonEmptyChild [_T, _PL, P, _H, _A]
-    final type RightNonEmptyChild = DetSkipOctree.RightNonEmptyChild[_T, _PL, P, _H, _A]
-    final type TopBranch          = DetSkipOctree.TopBranch         [_T, _PL, P, _H, _A]
-    final type LeftTopBranch      = DetSkipOctree.LeftTopBranch     [_T, _PL, P, _H, _A]
-    final type RightTopBranch     = DetSkipOctree.RightTopBranch    [_T, _PL, P, _H, _A]
+    final type Child              = DetSkipOctree.Child             [T, PL, P, H, A]
+    final type Branch             = DetSkipOctree.Branch            [T, PL, P, H, A]
+    final type Leaf               = DetSkipOctree.Leaf              [T, PL, P, H, A]
+    final type LeftBranch         = DetSkipOctree.LeftBranch        [T, PL, P, H, A]
+    final type RightBranch        = DetSkipOctree.RightBranch       [T, PL, P, H, A]
+    final type LeftChild          = DetSkipOctree.LeftChild         [T, PL, P, H, A]
+    final type RightChild         = DetSkipOctree.RightChild        [T, PL, P, H, A]
+    final type Next               = DetSkipOctree.Next              [T, PL, P, H, A]
+    final type ChildBranch        = DetSkipOctree.ChildBranch       [T, PL, P, H, A]
+    final type LeftChildBranch    = DetSkipOctree.LeftChildBranch   [T, PL, P, H, A]
+    final type RightChildBranch   = DetSkipOctree.RightChildBranch  [T, PL, P, H, A]
+    final type NonEmptyChild      = DetSkipOctree.NonEmptyChild     [T, PL, P, H, A]
+    final type LeafOrEmpty        = DetSkipOctree.LeafOrEmpty       [T, PL, P, H, A]
+    final type LeftNonEmptyChild  = DetSkipOctree.LeftNonEmptyChild [T, PL, P, H, A]
+    final type RightNonEmptyChild = DetSkipOctree.RightNonEmptyChild[T, PL, P, H, A]
+    final type TopBranch          = DetSkipOctree.TopBranch         [T, PL, P, H, A]
+    final type LeftTopBranch      = DetSkipOctree.LeftTopBranch     [T, PL, P, H, A]
+    final type RightTopBranch     = DetSkipOctree.RightTopBranch    [T, PL, P, H, A]
 
     // ---- abstract types and methods ----
     
-    def tx: _T
+    def tx: T
 
-    implicit def space: Space[_PL, P, _H]
-    implicit def keySerializer: TSerializer[_T, _A]
+    implicit def space: Space[PL, P, H]
+    implicit def keySerializer: TSerializer[T, A]
 
-    protected def skipList: HASkipList.Set[_T, Leaf]
+    protected def skipList: HASkipList.Set[T, Leaf]
     protected def lastTreeRef: Var[TopBranch]
 
     // ----
@@ -1016,8 +1024,8 @@ object DetSkipOctree {
       }
     }
 
-    implicit object RightBranchSerializer extends TSerializer[_T, RightBranch] {
-      def read(in: DataInput, tx: _T)(implicit access: tx.Acc): RightBranch = {
+    implicit object RightBranchSerializer extends TSerializer[T, RightBranch] {
+      def read(in: DataInput, tx: T)(implicit access: tx.Acc): RightBranch = {
         val cookie = in.readByte()
         val id = tx.readId(in)
         (cookie: @switch) match {
@@ -1030,8 +1038,8 @@ object DetSkipOctree {
       def write(v: RightBranch, out: DataOutput): Unit = v.write(out)
     }
 
-    implicit object BranchSerializer extends TSerializer[_T, Branch] {
-      def read(in: DataInput, tx: _T)(implicit access: tx.Acc): Branch = {
+    implicit object BranchSerializer extends TSerializer[T, Branch] {
+      def read(in: DataInput, tx: T)(implicit access: tx.Acc): Branch = {
         val cookie = in.readByte()
         val id = tx.readId(in)
         (cookie: @switch) match {
@@ -1046,8 +1054,8 @@ object DetSkipOctree {
       def write(v: Branch, out: DataOutput): Unit = v.write(out)
     }
 
-    protected object TopBranchSerializer extends TSerializer[_T, TopBranch] {
-      def read(in: DataInput, tx: _T)(implicit access: tx.Acc): TopBranch = {
+    protected object TopBranchSerializer extends TSerializer[T, TopBranch] {
+      def read(in: DataInput, tx: T)(implicit access: tx.Acc): TopBranch = {
         val cookie = in.readByte()
         val id = tx.readId(in)
         (cookie: @switch) match {
@@ -1060,8 +1068,8 @@ object DetSkipOctree {
       def write(v: TopBranch, out: DataOutput): Unit = v.write(out)
     }
 
-    object LeftChildSerializer extends TSerializer[_T, LeftChild] {
-      def read(in: DataInput, tx: _T)(implicit access: tx.Acc): LeftChild = {
+    object LeftChildSerializer extends TSerializer[T, LeftChild] {
+      def read(in: DataInput, tx: T)(implicit access: tx.Acc): LeftChild = {
         val cookie = in.readByte()
         if (cookie == 0) return Empty
         val id = tx.readId(in)
@@ -1075,8 +1083,8 @@ object DetSkipOctree {
       def write(v: LeftChild, out: DataOutput): Unit = v.write(out)
     }
 
-    implicit object LeftBranchSerializer extends TSerializer[_T, LeftBranch] {
-      def read(in: DataInput, tx: _T)(implicit access: tx.Acc): LeftBranch = {
+    implicit object LeftBranchSerializer extends TSerializer[T, LeftBranch] {
+      def read(in: DataInput, tx: T)(implicit access: tx.Acc): LeftBranch = {
         val cookie = in.readByte()
         val id = tx.readId(in)
         (cookie: @switch) match {
@@ -1089,8 +1097,8 @@ object DetSkipOctree {
       def write(v: LeftBranch, out: DataOutput): Unit = v.write(out)
     }
 
-    implicit object RightChildSerializer extends TSerializer[_T, RightChild] {
-      def read(in: DataInput, tx: _T)(implicit access: tx.Acc): RightChild = {
+    implicit object RightChildSerializer extends TSerializer[T, RightChild] {
+      def read(in: DataInput, tx: T)(implicit access: tx.Acc): RightChild = {
         val cookie = in.readByte()
         if (cookie == 0) return Empty
         val id = tx.readId(in)
@@ -1104,8 +1112,8 @@ object DetSkipOctree {
       def write(v: RightChild, out: DataOutput): Unit = v.write(out)
     }
 
-    implicit object LeftTopBranchSerializer extends TSerializer[_T, LeftTopBranch] {
-      def read(in: DataInput, tx: _T)(implicit access: tx.Acc): LeftTopBranch = {
+    implicit object LeftTopBranchSerializer extends TSerializer[T, LeftTopBranch] {
+      def read(in: DataInput, tx: T)(implicit access: tx.Acc): LeftTopBranch = {
         val cookie = in.readByte()
         if (cookie != 2) sys.error(s"Unexpected cookie $cookie")
         val id = tx.readId(in)
@@ -1115,8 +1123,8 @@ object DetSkipOctree {
       def write(v: LeftTopBranch, out: DataOutput): Unit = v.write(out)
     }
 
-    object RightOptionReader extends TSerializer[_T, Next] {
-      def read(in: DataInput, tx: _T)(implicit access: tx.Acc): Next = {
+    object RightOptionReader extends TSerializer[T, Next] {
+      def read(in: DataInput, tx: T)(implicit access: tx.Acc): Next = {
         val cookie = in.readByte()
         if (cookie == 0) return Empty
         val id = tx.readId(in)
@@ -1130,8 +1138,8 @@ object DetSkipOctree {
       def write(v: Next, out: DataOutput): Unit = v.write(out)
     }
 
-    protected object LeafSerializer extends TSerializer[_T, Leaf] {
-      def read(in: DataInput, tx: _T)(implicit access: tx.Acc): Leaf = {
+    protected object LeafSerializer extends TSerializer[T, Leaf] {
+      def read(in: DataInput, tx: T)(implicit access: tx.Acc): Leaf = {
         val cookie = in.readByte()
         if (cookie != 1) sys.error(s"Unexpected cookie $cookie")
         val id = tx.readId(in)
@@ -1141,8 +1149,8 @@ object DetSkipOctree {
       def write(l: Leaf, out: DataOutput): Unit = l.write(out)
     }
 
-    implicit protected object KeyObserver extends SkipList.KeyObserver[_T, Leaf] {
-      def keyUp(l: Leaf)(implicit tx: _T): Unit = {
+    implicit protected object KeyObserver extends SkipList.KeyObserver[T, Leaf] {
+      def keyUp(l: Leaf)(implicit tx: T): Unit = {
         //println( "up : " + l )
         // "To insert x into Qi+1 we go from xi to pi(x) in Qi,
         //  then traverse upwards in Qi until we find the lowest
@@ -1187,7 +1195,7 @@ object DetSkipOctree {
         pNext.insert(pointView(l.value /*, tx*/), l)
       }
 
-      def keyDown(l: Leaf)(implicit tx: _T): Unit = {
+      def keyDown(l: Leaf)(implicit tx: T): Unit = {
         //println( "down : " + l )
         // "To delete x from Qi we go from xi to the smallest interesting
         //  square pi(x) containing x in Qi following the pointers. Then
@@ -1252,28 +1260,28 @@ object DetSkipOctree {
 
     final def size: Int = skipList.size
 
-    final def add(elem: _A): Boolean =
+    final def add(elem: A): Boolean =
       insertLeaf(elem) match {
         case Empty          => true
         case oldLeaf: Leaf  => oldLeaf.value != elem
       }
 
-    final def update(elem: _A): Option[_A] =
+    final def update(elem: A): Option[A] =
       insertLeaf(elem) match {
         case Empty          => None
         case oldLeaf: Leaf  => Some(oldLeaf.value)
       }
 
-    final def remove(elem: _A): Boolean =
+    final def remove(elem: A): Boolean =
       removeLeafAt(pointView(elem /*, tx*/)) != Empty
 
-    final def removeAt(point: _PL): Option[_A] =
+    final def removeAt(point: PL): Option[A] =
       removeLeafAt(point) match {
         case Empty          => None
         case oldLeaf: Leaf  => Some(oldLeaf.value)
       }
 
-    final def contains(elem: _A): Boolean = {
+    final def contains(elem: A): Boolean = {
       val point = pointView(elem /*, tx*/)
       if (!hyperCube.containsP(point)) return false
       findAt(point) match {
@@ -1282,12 +1290,12 @@ object DetSkipOctree {
       }
     }
 
-    final def isDefinedAt(point: _PL): Boolean = {
+    final def isDefinedAt(point: PL): Boolean = {
       if (!hyperCube.containsP(point)) return false
       findAt(point) != Empty
     }
 
-    final def get(point: _PL): Option[_A] = {
+    final def get(point: PL): Option[A] = {
       if (!hyperCube.containsP(point)) return None
       findAt(point) match {
         case l: Leaf  => Some(l.value)
@@ -1295,7 +1303,7 @@ object DetSkipOctree {
       }
     }
 
-    final def nearestNeighbor[M](point: _PL, metric: DistanceMeasure[M, _PL, _H]): _A = {
+    final def nearestNeighbor[M](point: PL, metric: DistanceMeasure[M, PL, H]): A = {
       val nn = new NN(point, metric).find()
       stat_report()
       nn match {
@@ -1304,7 +1312,7 @@ object DetSkipOctree {
       }
     }
 
-    final def nearestNeighborOption[M](point: _PL, metric: DistanceMeasure[M, _PL, _H]): Option[_A] = {
+    final def nearestNeighborOption[M](point: PL, metric: DistanceMeasure[M, PL, H]): Option[A] = {
       val nn = new NN(point, metric).find()
       stat_report()
       nn match {
@@ -1334,7 +1342,7 @@ object DetSkipOctree {
       step(headTree, 1)
     }
 
-    final def +=(elem: _A): this.type = {
+    final def +=(elem: A): this.type = {
       insertLeaf(elem)
       //      match {
       //         case oldLeaf: Leaf => oldLeaf.dispose()
@@ -1343,7 +1351,7 @@ object DetSkipOctree {
       this
     }
 
-    final def -=(elem: _A): this.type = {
+    final def -=(elem: A): this.type = {
       removeLeafAt(pointView(elem /*, tx*/))
       //      match {
       //         case oldLeaf: Leaf => oldLeaf.dispose()
@@ -1352,21 +1360,21 @@ object DetSkipOctree {
       this
     }
 
-    final def rangeQuery[Area](qs: QueryShape[Area, _PL, _H]): Iterator[_A] = {
+    final def rangeQuery[Area](qs: QueryShape[Area, PL, H]): Iterator[A] = {
       val q = new RangeQuery(qs)
       q.findNextValue()
       q
     }
 
-    final def toIndexedSeq: Vec[_A] = iterator.toIndexedSeq
-    final def toList: List[_A] = iterator.toList
+    final def toIndexedSeq: Vec[A] = iterator.toIndexedSeq
+    final def toList: List[A] = iterator.toList
 
     // note that `iterator.toSeq` produces a `Stream` !!
-    final def toSeq: Seq[_A] = iterator.toIndexedSeq
+    final def toSeq: Seq[A] = iterator.toIndexedSeq
 
-    final def toSet: Set[_A] = iterator.toSet
+    final def toSet: Set[A] = iterator.toSet
 
-    private[this] def findAt(point: _PL): LeafOrEmpty = {
+    private[this] def findAt(point: PL): LeafOrEmpty = {
       val p0 = findP0(point) // lastTreeImpl.findP0( point )
       findLeafInP0(p0, point) // p0.findImmediateLeaf( point )
     }
@@ -1375,7 +1383,7 @@ object DetSkipOctree {
     //
     // (( WARNING: if the returned oldLeaf is defined, the caller is
     // responsible for disposing it (after extracting useful information such as its value) ))
-    private[this] def insertLeaf(elem: _A): LeafOrEmpty = {
+    private[this] def insertLeaf(elem: A): LeafOrEmpty = {
       val point = pointView(elem /*, tx*/)
       if (!hyperCube.containsP(point)) sys.error(s"$point lies out of root hyper-cube $hyperCube")
 
@@ -1402,7 +1410,7 @@ object DetSkipOctree {
 
     // WARNING: if the returned oldLeaf is defined, the caller is
     // responsible for disposing it (after extracting useful information such as its value)
-    private[this] def removeLeafAt(point: _PL): LeafOrEmpty = {
+    private[this] def removeLeafAt(point: PL): LeafOrEmpty = {
       if (!hyperCube.containsP(point)) return Empty
 
       // "To insert or delete a point y into or from S, we first search the
@@ -1422,7 +1430,7 @@ object DetSkipOctree {
       res
     }
 
-    def transformAt(point: _PL)(fun: Option[_A] => Option[_A]): Option[_A] = {
+    def transformAt(point: PL)(fun: Option[A] => Option[A]): Option[A] = {
       require(hyperCube.containsP(point), s"$point lies out of root hyper-cube $hyperCube")
 
       val p0 = findP0(point)
@@ -1459,7 +1467,7 @@ object DetSkipOctree {
      * @return  the `Leaf` child in this node associated with the given
      *          `point`, or `empty` if no such leaf exists.
      */
-    private[this] def findLeafInP0(b: LeftBranch, point: _PL): LeafOrEmpty = {
+    private[this] def findLeafInP0(b: LeftBranch, point: PL): LeafOrEmpty = {
       val qIdx = b.hyperCube.indexOfP(point)
       b.child(qIdx) match {
         case l: Leaf if pointView(l.value /*, tx*/) == point => l
@@ -1477,7 +1485,7 @@ object DetSkipOctree {
      * @return  the node defined by the given search `point`, or `empty`
      *          if no such node exists.
      */
-    private[this] def findP0(point: _PL): LeftBranch = {
+    private[this] def findP0(point: PL): LeftBranch = {
       @tailrec def stepLeft(lb: LeftBranch): LeftBranch = {
         val qIdx = lb.hyperCube.indexOfP(point)
         lb.child(qIdx) match {
@@ -1501,7 +1509,7 @@ object DetSkipOctree {
       step(lastTree)
     }
 
-    private[this] def removeLeaf(point: _PL, l: Leaf): Unit = {
+    private[this] def removeLeaf(point: PL, l: Leaf): Unit = {
       // this will trigger removals from upper levels
       val skipOk = skipList.remove(l)
       assert(skipOk, s"Leaf $l with point $point was not found in skip list")
@@ -1509,11 +1517,11 @@ object DetSkipOctree {
       l.parent.demoteLeaf(point /* pointView( l.value ) */ , l)
     }
 
-    final def iterator: Iterator[_A] = skipList.iterator.map(_.value)
+    final def iterator: Iterator[A] = skipList.iterator.map(_.value)
 
     private[this] final class NNIteration[M](val bestLeaf: LeafOrEmpty, val bestDist: M, val rMax: M)
 
-    private[this] final class NN[M](point: _PL, metric: DistanceMeasure[M, _PL, _H])
+    private[this] final class NN[M](point: PL, metric: DistanceMeasure[M, PL, H])
       extends scala.math.Ordering[VisitedNode[M]] {
 
       stat_reset()
@@ -1645,12 +1653,12 @@ object DetSkipOctree {
     }
 
     // note: Iterator is not specialized, hence we can safe use the effort to specialize in A anyway
-    private[this] final class RangeQuery[Area](qs: QueryShape[Area, _PL, _H]) extends Iterator[_A] {
+    private[this] final class RangeQuery[Area](qs: QueryShape[Area, PL, H]) extends Iterator[A] {
       val sz: Int = numOrthants
       val stabbing: MQueue[(Branch, Area)] = MQueue.empty
       // Tuple2 is specialized for Long, too!
       val in: MQueue[NonEmptyChild] = MQueue.empty
-      var current: _A  = _
+      var current: A  = _
       // overwritten by initial run of `findNextValue`
       var hasNextVar  = true // eventually set to `false` by `findNextValue`
 
@@ -1715,7 +1723,7 @@ object DetSkipOctree {
         }
       }
 
-      def next(): _A = {
+      def next(): A = {
         if (!hasNextVar) throw new java.util.NoSuchElementException("next on empty iterator")
         val res = current
         findNextValue()
@@ -1784,7 +1792,7 @@ object DetSkipOctree {
     /*
      * Serialization-id: 1
      */
-    private[this] def readLeaf(in: DataInput, tx: _T, id: Ident[_T])(implicit access: tx.Acc): Leaf = {
+    private[this] def readLeaf(in: DataInput, tx: T, id: Ident[T])(implicit access: tx.Acc): Leaf = {
       val value     = keySerializer.read(in, tx)
       val parentRef = id.readVar[Branch](in)
       new LeafImpl(octree, id, value, parentRef)
@@ -1793,7 +1801,7 @@ object DetSkipOctree {
     /*
      * Serialization-id: 2
      */
-    private[this] def readLeftTopBranch(in: DataInput, tx: _T, id: Ident[_T])(implicit access: tx.Acc): LeftTopBranch = {
+    private[this] def readLeftTopBranch(in: DataInput, tx: T, id: Ident[T])(implicit access: tx.Acc): LeftTopBranch = {
       val sz  = numOrthants
 //      val ch  = tx.newVarArray[LeftChild](sz)
       val ch  = new Array[Var[LeftChild]](sz)
@@ -1809,7 +1817,7 @@ object DetSkipOctree {
     /*
      * Serialization-id: 3
      */
-    private[this] def readLeftChildBranch(in: DataInput, tx: _T, id: Ident[_T])
+    private[this] def readLeftChildBranch(in: DataInput, tx: T, id: Ident[T])
                                          (implicit access: tx.Acc): LeftChildBranch = {
       val parentRef   = id.readVar[LeftBranch](in)
       val hc          = space.hyperCubeSerializer.read(in)
@@ -1828,7 +1836,7 @@ object DetSkipOctree {
     /*
       * Serialization-id: 4
       */
-    private[this] def readRightTopBranch(in: DataInput, tx: _T, id: Ident[_T])
+    private[this] def readRightTopBranch(in: DataInput, tx: T, id: Ident[T])
                                         (implicit access: tx.Acc): RightTopBranch = {
       val prev  = TopBranchSerializer.read(in, tx)
       val sz    = numOrthants
@@ -1846,7 +1854,7 @@ object DetSkipOctree {
     /*
       * Serialization-id: 5
       */
-    private[this] def readRightChildBranch(in: DataInput, tx: _T, id: Ident[_T])
+    private[this] def readRightChildBranch(in: DataInput, tx: T, id: Ident[T])
                                           (implicit access: tx.Acc): RightChildBranch = {
       val parentRef = id.readVar[RightBranch](in)
       val prev      = BranchSerializer.read(in, tx)
@@ -1918,7 +1926,7 @@ object DetSkipOctree {
       val q                   = hyperCube
       var level               = numLevels
       var h: Branch           = lastTree
-      var currUnlinkedOcs     = Set.empty[_H]
+      var currUnlinkedOcs     = Set.empty[H]
       var currPoints          = Set.empty[Leaf]
       var errors              = Vec.empty[String]
       val repair              = !reportOnly
@@ -1998,7 +2006,7 @@ object DetSkipOctree {
           if (repair && level == 1) {
             assert(h.prevOption.isEmpty)
 
-            def newNode(b: LeftBranch, qIdx: Int, iq: _H): LeftChildBranch = {
+            def newNode(b: LeftBranch, qIdx: Int, iq: H): LeftChildBranch = {
               val sz  = numOrthants // b.children.length
 //              val ch  = tx.newVarArray[LeftChild](sz)
               val ch  = new Array[Var[LeftChild]](sz)
@@ -2017,7 +2025,7 @@ object DetSkipOctree {
               n
             }
 
-            def insert(b: LeftBranch, point: _PL, leaf: Leaf): Unit = {
+            def insert(b: LeftBranch, point: PL, leaf: Leaf): Unit = {
               val qIdx = b.hyperCube.indexOfP(point)
               b.child(qIdx) match {
                 case Empty =>

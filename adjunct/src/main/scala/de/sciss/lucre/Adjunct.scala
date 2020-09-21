@@ -11,10 +11,9 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre.adjunct
+package de.sciss.lucre
 
-import de.sciss.lucre.TRandom
-import de.sciss.lucre.adjunct.impl.{ScalarEqImpl, ScalarToNumImpl, SeqLikeEq, SeqLikeNum, SeqLikeNumDouble, SeqLikeNumFrac, SeqLikeToNum}
+import de.sciss.lucre.impl.{ScalarEqImpl, ScalarToNumImpl, SeqLikeEq, SeqLikeNum, SeqLikeNumDouble, SeqLikeNumFrac, SeqLikeToNum}
 import de.sciss.numbers.{DoubleFunctions => rd, IntFunctions => ri, IntFunctions2 => ri2, LongFunctions => rl, LongFunctions2 => rl2}
 import de.sciss.serial.{DataInput, DataOutput, Writable}
 
@@ -923,6 +922,10 @@ object Adjunct {
 
   sealed trait Primitive extends Adjunct
 
+  trait Context[T <: Exec[T]] {
+    //  /** Creates a new pseudo-random number generator. */
+    //  def mkRandom(ref: AnyRef /* seed: Long = -1L */)(implicit tx: S#Tx): TxnRandom[S]
+  }
 }
 /* sealed */ trait Adjunct extends Writable {
   def id: Int

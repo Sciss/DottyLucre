@@ -14,7 +14,6 @@
 package de.sciss.lucre.geom
 
 import de.sciss.lucre.NewImmutSerializer
-import de.sciss.serial.ImmutableSerializer
 
 import scala.collection.immutable.{IndexedSeq => Vec}
 

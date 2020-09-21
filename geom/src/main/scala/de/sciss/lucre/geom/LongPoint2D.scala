@@ -14,8 +14,6 @@
 package de.sciss.lucre
 package geom
 
-import de.sciss.serial.ImmutableSerializer
-
 trait LongPoint2DLike {
   def x: Long
   def y: Long

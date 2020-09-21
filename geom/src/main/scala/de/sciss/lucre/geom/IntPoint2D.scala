@@ -14,8 +14,6 @@
 package de.sciss.lucre
 package geom
 
-import de.sciss.serial.ImmutableSerializer
-
 trait IntPoint2DLike /* extends PointLike[ Space.IntTwoDim ] */ {
   def x: Int
   def y: Int

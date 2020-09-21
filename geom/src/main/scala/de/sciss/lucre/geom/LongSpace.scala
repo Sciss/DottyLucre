@@ -14,7 +14,7 @@
 package de.sciss.lucre
 package geom
 
-import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer}
+import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.annotation.tailrec
 

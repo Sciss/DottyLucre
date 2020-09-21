@@ -14,8 +14,6 @@
 package de.sciss.lucre
 package geom
 
-import de.sciss.serial.ImmutableSerializer
-
 trait IntPoint3DLike {
   import IntSpace.ThreeDim._
 

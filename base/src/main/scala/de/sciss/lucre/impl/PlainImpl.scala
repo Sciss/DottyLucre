@@ -156,12 +156,12 @@ object PlainImpl {
     //    def newInMemoryMap[K, V]: RefMap[S, K, V] = new PlainInMemoryMap[K, V]
     //    def newInMemorySet[A]   : RefSet[S, A]    = new PlainInMemorySet[A]
 
-    def readVar[A](id: Id, in: DataInput)(implicit serializer: TSerializer[Tx,/* Acc,*/ A]): Var[A] =
-      opNotSupported("readVar")
-
-    def readBooleanVar(id: Id, in: DataInput): Var[Boolean]  = opNotSupported("readBooleanVar")
-    def readIntVar    (id: Id, in: DataInput): Var[Int]      = opNotSupported("readIntVar")
-    def readLongVar   (id: Id, in: DataInput): Var[Long]     = opNotSupported("readLongVar")
+//    def readVar[A](id: Id, in: DataInput)(implicit serializer: TSerializer[Tx,/* Acc,*/ A]): Var[A] =
+//      opNotSupported("readVar")
+//
+//    def readBooleanVar(id: Id, in: DataInput): Var[Boolean]  = opNotSupported("readBooleanVar")
+//    def readIntVar    (id: Id, in: DataInput): Var[Int]      = opNotSupported("readIntVar")
+//    def readLongVar   (id: Id, in: DataInput): Var[Long]     = opNotSupported("readLongVar")
 
     def newHandle[A](value: A)(implicit serializer: TSerializer[Tx,/* Acc,*/ A]): TSource[Tx, A] =
       new EphemeralTSource(value)

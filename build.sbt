@@ -36,7 +36,7 @@ lazy val commonSettings = Seq(
   organization        := "de.sciss",
   description         := "Extension of Scala-STM, adding optional durability layer, and providing API for confluent and reactive event layers",
   homepage            := Some(url(s"https://git.iem.at/sciss/$baseName")),
-  scalaVersion        := "0.27.0-RC1",  // "2.13.3",
+  scalaVersion        := "2.13.3",  // "0.27.0-RC1",
   crossScalaVersions  := Seq("0.27.0-RC1", "2.13.3"), // "2.12.12",
   scalacOptions      ++= Seq(
     "-Xlint", "-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xsource:2.13"

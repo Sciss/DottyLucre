@@ -11,11 +11,10 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre.adjunct
+package de.sciss.lucre
 package impl
 
-import de.sciss.lucre.adjunct.Adjunct.{Eq, HasDefault, Num, NumDouble, NumFrac, Ord, Scalar, ScalarEq, ScalarNum, ScalarNumDouble, ScalarNumFrac, ScalarOrd, ScalarToNum, ToNum}
-import de.sciss.lucre.TRandom
+import de.sciss.lucre.Adjunct._
 
 trait SeqLike[A] extends HasDefault[Seq[A]] {
   final type Boolean  = Seq[scala.Boolean ]

@@ -1,6 +1,6 @@
 package de.sciss.lucre.adjunct
 
-import de.sciss.lucre.adjunct.Adjunct.{FromAny, HasDefault}
+import de.sciss.lucre.Adjunct.{FromAny, HasDefault}
 
 trait TypeClassesLookup {
   implicitly[FromAny[Int]]
