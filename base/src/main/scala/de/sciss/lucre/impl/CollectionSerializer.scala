@@ -1,8 +1,7 @@
 package de.sciss.lucre.impl
 
 import de.sciss.lucre.{Exec, TSerializer}
-import de.sciss.serial.impl.CollectionSerializer
-import de.sciss.serial.{DataInput, DataOutput, Serializer}
+import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.collection.mutable
 

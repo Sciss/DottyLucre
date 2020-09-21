@@ -13,9 +13,8 @@
 
 package de.sciss.lucre
 
-import de.sciss.lucre.{Base, Exec, Ident, Var}
-import de.sciss.lucre.impl.PlainImpl
 import de.sciss.lucre
+import de.sciss.lucre.impl.PlainImpl
 
 object Plain {
   implicit val instance: Plain = PlainImpl()

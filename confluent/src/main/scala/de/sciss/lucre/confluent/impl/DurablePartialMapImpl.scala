@@ -14,33 +14,33 @@
 package de.sciss.lucre.confluent
 package impl
 
-import de.sciss.lucre.stm.DataStore
+import de.sciss.lucre.{DataStore, TSerializer}
 import de.sciss.serial
-import de.sciss.serial.{DataInput, Serializer, DataOutput, ImmutableSerializer}
+import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer, Serializer}
 
 import scala.annotation.switch
 
 object DurablePartialMapImpl {
-  private sealed trait Entry[S <: Sys[S], A]
-  private final case class EntryPre   [S <: Sys[S], A](hash: Long)        extends Entry[S, A]
+  private sealed trait Entry[T <: Txn[T], A]
+  private final case class EntryPre   [T <: Txn[T], A](hash: Long)        extends Entry[T, A]
   // XXX TODO: `term` is unused ??
-  private final case class EntrySingle[S <: Sys[S], A](term: Long, v: A)  extends Entry[S, A]
-  private final case class EntryMap   [S <: Sys[S], A](m: IndexMap[S, A]) extends Entry[S, A]
+  private final case class EntrySingle[T <: Txn[T], A](term: Long, v: A)  extends Entry[T, A]
+  private final case class EntryMap   [T <: Txn[T], A](m: IndexMap[T, A]) extends Entry[T, A]
 }
 
-sealed trait DurablePartialMapImpl[S <: Sys[S], K] extends DurablePersistentMap[S, K] {
+sealed trait DurablePartialMapImpl[T <: Txn[T], K] extends DurablePersistentMap[T, K] {
   import DurablePartialMapImpl._
 
   protected def store: DataStore
 
-  protected def handler: PartialMapHandler[S]
+  protected def handler: PartialMapHandler[T]
 
   protected def writeKey(key: K, out: DataOutput): Unit
 
-  final def isFresh(key: K, conPath: S#Acc)(implicit tx: S#Tx): Boolean = true // III
+  final def isFresh(key: K, conPath: Access[T])(implicit tx: T): Boolean = true // III
 
-  final def putImmutable[A](key: K, conPath: S#Acc, value: A)
-                                          (implicit tx: S#Tx, ser: ImmutableSerializer[A]): Unit = {
+  final def putImmutable[A](key: K, conPath: Access[T], value: A)
+                                          (implicit tx: T, ser: ImmutableSerializer[A]): Unit = {
     //      val path = conPath.partial
     // val (index, term) = conPath.splitIndex
     val term = conPath.term
@@ -120,12 +120,12 @@ sealed trait DurablePartialMapImpl[S <: Sys[S], K] extends DurablePersistentMap[
   }
 
 
-  final def put[A](key: K, conPath: S#Acc, value: A)(implicit tx: S#Tx, ser: Serializer[S#Tx, S#Acc, A]): Unit = {
+  final def put[A](key: K, conPath: Access[T], value: A)(implicit tx: T, ser: TSerializer[T, A]): Unit = {
     ???
   }
 
-  private def putFullMap[/* @spec(ValueSpec) */ A](key: K, /* conIndex: S#Acc, */ term: Long, value: A, /* prevTerm: Long, */
-                                             prevValue: A)(implicit tx: S#Tx, ser: ImmutableSerializer[A]): Unit = {
+  private def putFullMap[/* @spec(ValueSpec) */ A](key: K, /* conIndex: Access[T], */ term: Long, value: A, /* prevTerm: Long, */
+                                             prevValue: A)(implicit tx: T, ser: ImmutableSerializer[A]): Unit = {
     //         require( prevTerm != term, "Duplicate flush within same transaction? " + term.toInt )
     //         require( prevTerm == index.term, "Expected initial assignment term " + index.term.toInt + ", but found " + prevTerm.toInt )
     // create new map with previous value
@@ -149,7 +149,7 @@ sealed trait DurablePartialMapImpl[S <: Sys[S], K] extends DurablePersistentMap[
   }
 
   // stores the prefixes
-//   private def putPartials( key: K, conIndex: S#Acc )( implicit tx: S#Tx ) {
+//   private def putPartials( key: K, conIndex: Access[T] )( implicit tx: T ) {
 //      val index = conIndex.partial
 //
 //      Hashing.foreachPrefix( index, hash => {
@@ -177,8 +177,8 @@ sealed trait DurablePartialMapImpl[S <: Sys[S], K] extends DurablePersistentMap[
 //   }
 
   // store the full value at the full hash (path.sum)
-  private def putFullSingle[/* @spec(ValueSpec) */ A](key: K, /* conIndex: S#Acc, */ term: Long, value: A)
-                                               (implicit tx: S#Tx, ser: serial.Serializer[S#Tx, S#Acc, A]): Unit =
+  private def putFullSingle[/* @spec(ValueSpec) */ A](key: K, /* conIndex: Access[T], */ term: Long, value: A)
+                                               (implicit tx: T, ser: TSerializer[T, A]): Unit =
     store.put { out =>
       out.writeByte(2)
       writeKey(key, out) // out.writeInt( key )
@@ -192,19 +192,19 @@ sealed trait DurablePartialMapImpl[S <: Sys[S], K] extends DurablePersistentMap[
       ser.write(value, out)
     }
 
-  def remove(key: K, path: S#Acc)(implicit tx: S#Tx): Boolean = {
+  def remove(key: K, path: Access[T])(implicit tx: T): Boolean = {
     println("Durable partial map : remove not yet implemented")
     true
   }
 
-  final def getImmutable[A](key: K, conPath: S#Acc)(implicit tx: S#Tx, ser: ImmutableSerializer[A]): Option[A] = {
+  final def getImmutable[A](key: K, conPath: Access[T])(implicit tx: T, ser: ImmutableSerializer[A]): Option[A] = {
     if (conPath.isEmpty) return None
     val (maxIndex, maxTerm) = conPath.splitIndex
     //      val maxTerm = conPath.term
     getWithPrefixLen[A, A](key, maxIndex, maxTerm)((/* _, */ _, value) => value)
   }
 
-  final def get[A](key: K, conPath: S#Acc)(implicit tx: S#Tx, ser: Serializer[S#Tx, S#Acc, A]): Option[A] = {
+  final def get[A](key: K, conPath: Access[T])(implicit tx: T, ser: TSerializer[T, A]): Option[A] = {
     if (conPath.isEmpty) return None
     val (maxIndex, maxTerm) = conPath.splitIndex
     //      val maxTerm = conPath.term
@@ -223,14 +223,14 @@ sealed trait DurablePartialMapImpl[S <: Sys[S], K] extends DurablePersistentMap[
         }
         val access  = writeTerm +: suffix
         val in      = DataInput(arr)
-        ser.read(in, access)
+        ser.read(in, tx)
     } (tx, ByteArraySerializer)
   }
 
   // XXX boom! specialized
-  private def getWithPrefixLen[ /* @spec(ValueSpec) */ A, B](key: K, maxConIndex: S#Acc, maxTerm: Long)
+  private def getWithPrefixLen[ /* @spec(ValueSpec) */ A, B](key: K, maxConIndex: Access[T], maxTerm: Long)
                                                             (fun: ( /* Int, */ Long, A) => B)
-                                                            (implicit tx: S#Tx, ser: ImmutableSerializer[A]): Option[B] = {
+                                                            (implicit tx: T, ser: ImmutableSerializer[A]): Option[B] = {
     //      val maxIndex = maxConIndex.partial
 
     //      val preLen = Hashing.maxPrefixLength( maxIndex, hash => store.contains { out =>
@@ -312,14 +312,14 @@ sealed trait DurablePartialMapImpl[S <: Sys[S], K] extends DurablePersistentMap[
   }
 }
 
-final class PartialIntMapImpl[S <: Sys[S]](protected val store: DataStore, protected val handler: PartialMapHandler[S])
-  extends DurablePartialMapImpl[S, Int] {
+final class PartialIntMapImpl[T <: Txn[T]](protected val store: DataStore, protected val handler: PartialMapHandler[T])
+  extends DurablePartialMapImpl[T, Int] {
 
   protected def writeKey(key: Int, out: DataOutput): Unit = out.writeInt(key)
 }
 
-final class PartialLongMapImpl[S <: Sys[S]](protected val store: DataStore, protected val handler: PartialMapHandler[S])
-  extends DurablePartialMapImpl[S, Long] {
+final class PartialLongMapImpl[T <: Txn[T]](protected val store: DataStore, protected val handler: PartialMapHandler[T])
+  extends DurablePartialMapImpl[T, Long] {
 
   protected def writeKey(key: Long, out: DataOutput): Unit = out.writeLong(key)
 }

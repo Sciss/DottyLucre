@@ -19,7 +19,8 @@ import de.sciss.lucre.confluent.impl.{PathImpl => Path}
 import de.sciss.lucre.data.Ancestor
 import de.sciss.lucre.{DataStore, IdentMap, Observe, Ident, TxnLike}
 import de.sciss.lucre.{event => evt}
-import de.sciss.lucre.stm.impl.RandomImpl
+import de.sciss.lucre.impl.RandomImpl
+import de.sciss.lucre.impl.ReactionMapImpl
 import de.sciss.serial
 import de.sciss.lucre.confluent.Log.log
 import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer, Serializer}

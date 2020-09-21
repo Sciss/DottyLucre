@@ -24,7 +24,7 @@ object Confluent {
 
 trait Confluent extends Sys /*[Confluent]*/ {
   final protected type S = Confluent
-  final type D  = Durable
-  final type I  = InMemory
-  final type Tx = confluent.Txn[S]
+  final type D = Durable
+  final type I = InMemory
+  final type T = confluent.Txn[S]
 }

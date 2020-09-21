@@ -14,8 +14,6 @@
 package de.sciss.lucre
 package geom
 
-import de.sciss.lucre.geom.IntSpace.NDim
-
 import scala.collection.immutable.{IndexedSeq => Vec}
 
 /** An n-dimensional rectangular query shape. */

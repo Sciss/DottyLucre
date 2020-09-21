@@ -14,7 +14,7 @@
 package de.sciss.lucre
 
 import de.sciss.lucre
-import de.sciss.serial.{DataInput, Serializer}
+import de.sciss.serial.DataInput
 
 trait Exec[T <: Exec[T]] {
   //  type S <: Base[T]

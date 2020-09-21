@@ -22,7 +22,7 @@ class PlainSpec extends AnyFlatSpec with Matchers {
     val id2 = tx.newId()
     assert(id !== id2)
 
-    def alwaysFindsTx()(implicit tx: S#Tx): Unit = implicitly[S#Tx]
+    def alwaysFindsTx()(implicit tx: S): Unit = implicitly[S]
 
     alwaysFindsTx()
   }

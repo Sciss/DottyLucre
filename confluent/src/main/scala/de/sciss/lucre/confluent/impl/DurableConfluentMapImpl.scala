@@ -14,30 +14,30 @@
 package de.sciss.lucre.confluent
 package impl
 
-import de.sciss.lucre.stm.DataStore
+import de.sciss.lucre.DataStore
 import de.sciss.serial.{DataInput, Serializer, DataOutput, ImmutableSerializer}
 
 import scala.annotation.switch
 
 object DurableConfluentMapImpl {
-  private sealed trait     Entry      [S <: Sys[S], A]
-  private final case class EntryPre   [S <: Sys[S], A](hash: Long) extends Entry[S, A]
-  private final case class EntrySingle[S <: Sys[S], A](term: Long, v: A) extends Entry[S, A]
-  private final case class EntryMap   [S <: Sys[S], A](m: IndexMap[S, A]) extends Entry[S, A]
+  private sealed trait     Entry      [T <: Txn[T], A]
+  private final case class EntryPre   [T <: Txn[T], A](hash: Long) extends Entry[T, A]
+  private final case class EntrySingle[T <: Txn[T], A](term: Long, v: A) extends Entry[T, A]
+  private final case class EntryMap   [T <: Txn[T], A](m: IndexMap[T, A]) extends Entry[T, A]
 
   private final class WithPrefix[A](val len: Int, val term: Long, val value: A)
 }
 
-sealed trait DurableConfluentMapImpl[S <: Sys[S], K] extends DurablePersistentMap[S, K] {
+sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMap[T, K] {
   import DurableConfluentMapImpl._
 
   protected def store: DataStore
-  protected def handler: IndexMapHandler[S]
+  protected def handler: IndexMapHandler[T]
   protected def isOblivious: Boolean
 
   protected def writeKey(key: K, out: DataOutput): Unit
 
-  final def isFresh(key: K, path: S#Acc)(implicit tx: S#Tx): Boolean = {
+  final def isFresh(key: K, path: Access[T])(implicit tx: T): Boolean = {
     store.get { out =>
       writeKey(key, out)
       out.writeLong(path.indexSum)
@@ -50,8 +50,8 @@ sealed trait DurableConfluentMapImpl[S <: Sys[S], K] extends DurablePersistentMa
     } getOrElse false
   }
 
-  final def putImmutable[A](key: K, path: S#Acc, value: A)
-                                          (implicit tx: S#Tx, ser: ImmutableSerializer[A]): Unit = {
+  final def putImmutable[A](key: K, path: Access[T], value: A)
+                           (implicit tx: T, ser: ImmutableSerializer[A]): Unit = {
     val (index, term) = path.splitIndex
     // first we need to see if anything has already been written to the index of the write path
     store.flatGet { out =>
@@ -123,7 +123,7 @@ sealed trait DurableConfluentMapImpl[S <: Sys[S], K] extends DurablePersistentMa
     }
   }
 
-  final def put[A](key: K, path: S#Acc, value: A)(implicit tx: S#Tx, ser: Serializer[S#Tx, S#Acc, A]): Unit = {
+  final def put[A](key: K, path: Access[T], value: A)(implicit tx: T, ser: Serializer[T, Access[T], A]): Unit = {
     val (index, term) = path.splitIndex
     val arrOut  = DataOutput()
     ser.write(value, arrOut)
@@ -190,8 +190,8 @@ sealed trait DurableConfluentMapImpl[S <: Sys[S], K] extends DurablePersistentMa
     }
   }
 
-  private[this] def putFullMap[A](key: K, index: S#Acc, term: Long, value: A, prevTerm: Long, prevValue: A)
-                                 (implicit tx: S#Tx, ser: ImmutableSerializer[A]): Unit = {
+  private[this] def putFullMap[A](key: K, index: Access[T], term: Long, value: A, prevTerm: Long, prevValue: A)
+                                 (implicit tx: T, ser: ImmutableSerializer[A]): Unit = {
     //         require( prevTerm != term, "Duplicate flush within same transaction? " + term.toInt )
     //         require( prevTerm == index.term, "Expected initial assignment term " + index.term.toInt + ", but found " + prevTerm.toInt )
     // create new map with previous value
@@ -208,7 +208,7 @@ sealed trait DurableConfluentMapImpl[S <: Sys[S], K] extends DurablePersistentMa
     m.add(term, value)
   }
 
-  def remove(key: K, index: S#Acc)(implicit tx: S#Tx): Boolean = {
+  def remove(key: K, index: Access[T])(implicit tx: T): Boolean = {
     Hashing.foreachPrefix(index, hash => {
       store.contains { out =>
         writeKey(key, out)
@@ -227,7 +227,7 @@ sealed trait DurableConfluentMapImpl[S <: Sys[S], K] extends DurablePersistentMa
   }
 
   // stores the prefixes
-  private[this] def putPartials(key: K, index: S#Acc)(implicit tx: S#Tx): Unit =
+  private[this] def putPartials(key: K, index: Access[T])(implicit tx: T): Unit =
     Hashing.foreachPrefix(index, hash => {
       val res = store.contains { out =>
         writeKey(key, out)
@@ -246,8 +246,8 @@ sealed trait DurableConfluentMapImpl[S <: Sys[S], K] extends DurablePersistentMa
     }
 
   // store the full value at the full hash (path.sum)
-  private[this] def putFullSingle[A](key: K, index: S#Acc, term: Long, value: A)
-                                    (implicit tx: S#Tx, ser: ImmutableSerializer[A]): Unit =
+  private[this] def putFullSingle[A](key: K, index: Access[T], term: Long, value: A)
+                                    (implicit tx: T, ser: ImmutableSerializer[A]): Unit =
     store.put { out =>
       writeKey(key, out)
       out.writeLong(index.sum)
@@ -257,13 +257,13 @@ sealed trait DurableConfluentMapImpl[S <: Sys[S], K] extends DurablePersistentMa
       ser.write(value, out)
     }
 
-  final def getImmutable[A](key: K, path: S#Acc)(implicit tx: S#Tx, ser: ImmutableSerializer[A]): Option[A] = {
+  final def getImmutable[A](key: K, path: Access[T])(implicit tx: T, ser: ImmutableSerializer[A]): Option[A] = {
     if (path.isEmpty) return None
     val (maxIndex, maxTerm) = path.splitIndex
     getWithPrefixLen[A](key, maxIndex, maxTerm).map(_.value)
   }
 
-  final def get[A](key: K, path: S#Acc)(implicit tx: S#Tx, ser: Serializer[S#Tx, S#Acc, A]): Option[A] = {
+  final def get[A](key: K, path: Access[T])(implicit tx: T, ser: Serializer[T, Access[T], A]): Option[A] = {
     if (path.isEmpty) return None
     val (maxIndex, maxTerm) = path.splitIndex
     val opt = getWithPrefixLen[Array[Byte]](key, maxIndex, maxTerm)(tx, ByteArraySerializer)
@@ -275,8 +275,8 @@ sealed trait DurableConfluentMapImpl[S <: Sys[S], K] extends DurablePersistentMa
     }
   }
 
-  private[this] def getWithPrefixLen[A](key: K, maxIndex: S#Acc, maxTerm: Long)
-                                       (implicit tx: S#Tx, ser: ImmutableSerializer[A]): Option[WithPrefix[A]] = {
+  private[this] def getWithPrefixLen[A](key: K, maxIndex: Access[T], maxTerm: Long)
+                                       (implicit tx: T, ser: ImmutableSerializer[A]): Option[WithPrefix[A]] = {
     val preLen = Hashing.maxPrefixLength(maxIndex, hash => store.contains { out =>
       writeKey(key, out)
       out.writeLong(hash)
@@ -347,16 +347,16 @@ sealed trait DurableConfluentMapImpl[S <: Sys[S], K] extends DurablePersistentMa
   }
 }
 
-final class ConfluentIntMapImpl[S <: Sys[S]](protected val store: DataStore, protected val handler: IndexMapHandler[S],
+final class ConfluentIntMapImpl[T <: Txn[T]](protected val store: DataStore, protected val handler: IndexMapHandler[T],
                                              protected val isOblivious: Boolean)
-  extends DurableConfluentMapImpl[S, Int] {
+  extends DurableConfluentMapImpl[T, Int] {
 
   protected def writeKey(key: Int, out: DataOutput): Unit = out.writeInt(key)
 }
 
-final class ConfluentLongMapImpl[S <: Sys[S]](protected val store: DataStore, protected val handler: IndexMapHandler[S],
+final class ConfluentLongMapImpl[T <: Txn[T]](protected val store: DataStore, protected val handler: IndexMapHandler[T],
                                               protected val isOblivious: Boolean)
-  extends DurableConfluentMapImpl[S, Long] {
+  extends DurableConfluentMapImpl[T, Long] {
 
   protected def writeKey(key: Long, out: DataOutput): Unit = out.writeLong(key)
 }

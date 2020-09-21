@@ -1,5 +1,6 @@
 package de.sciss.lucre
 
+import de.sciss.lucre.store.BerkeleyDB
 import org.scalatest.Outcome
 import org.scalatest.flatspec.FixtureAnyFlatSpec
 import org.scalatest.matchers.should.Matchers

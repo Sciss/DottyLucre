@@ -15,8 +15,7 @@ package de.sciss.lucre
 package impl
 
 import de.sciss.lucre.Plain.Id
-import de.sciss.lucre.{TSource, Ident, IdentMap, Plain, TSerializer, Var}
-import de.sciss.serial.{DataInput, DataOutput, Serializer}
+import de.sciss.serial.{DataInput, DataOutput}
 
 object PlainImpl {
   def apply(): Plain = new SysImpl

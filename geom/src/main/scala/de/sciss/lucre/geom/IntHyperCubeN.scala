@@ -13,9 +13,9 @@
 
 package de.sciss.lucre.geom
 
-import collection.immutable.{IndexedSeq => Vec}
-import IntSpace.NDim
 import de.sciss.serial.ImmutableSerializer
+
+import scala.collection.immutable.{IndexedSeq => Vec}
 
 sealed trait IntHyperCubeNLike 
   extends HyperCube[IntPointNLike, IntHyperCubeN] with QueryShape[BigInt, IntPointNLike, IntHyperCubeN] {

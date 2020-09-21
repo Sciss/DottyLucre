@@ -19,10 +19,10 @@ import scala.concurrent.stm.{InTxn, TMap}
 
 object InMemoryConfluentMapImpl {
   private trait Entry[+A]
-  private final case class EntryPre                     (hash: Long)       extends Entry[Nothing]
-  private final case class EntryFull[/* @spec(ValueSpec) */ A](term: Long, v: A) extends Entry[A]
+  private final case class EntryPre    (hash: Long)       extends Entry[Nothing]
+  private final case class EntryFull[A](term: Long, v: A) extends Entry[A]
 }
-final class InMemoryConfluentMapImpl[S <: Sys[S], /* @spec(KeySpec) */ K] extends InMemoryConfluentMap[S, K] {
+final class InMemoryConfluentMapImpl[T <: Txn[T], K] extends InMemoryConfluentMap[T, K] {
   import InMemoryConfluentMapImpl._
 
   private type Entries = Map[Long, Entry[Any]]
@@ -30,7 +30,7 @@ final class InMemoryConfluentMapImpl[S <: Sys[S], /* @spec(KeySpec) */ K] extend
 
   override def toString = s"InMemoryConfluentMap($store)"
 
-  def put[/* @spec(ValueSpec) */ A](key: K, path: S#Acc, value: A)(implicit tx: S#Tx): Unit = {
+  def put[A](key: K, path: Access[T], value: A)(implicit tx: T): Unit = {
     implicit val itx: InTxn = tx.peer
     val (index, term) = path.splitIndex
 
@@ -44,7 +44,7 @@ final class InMemoryConfluentMapImpl[S <: Sys[S], /* @spec(KeySpec) */ K] extend
     store.put(key, entries)
   }
 
-  def remove(key: K, path: S#Acc)(implicit tx: S#Tx): Boolean = {
+  def remove(key: K, path: Access[T])(implicit tx: T): Boolean = {
     implicit val itx: InTxn = tx.peer
     store.get(key) match {
       case Some(entries) =>
@@ -67,7 +67,7 @@ final class InMemoryConfluentMapImpl[S <: Sys[S], /* @spec(KeySpec) */ K] extend
     }
   }
 
-  def get[A](key: K, path: S#Acc)(implicit tx: S#Tx): Option[A] = {
+  def get[A](key: K, path: Access[T])(implicit tx: T): Option[A] = {
     if (path.isEmpty) return None
     store.get(key)(tx.peer).flatMap { entries =>
       val (maxIndex, maxTerm) = path.splitIndex
@@ -75,17 +75,17 @@ final class InMemoryConfluentMapImpl[S <: Sys[S], /* @spec(KeySpec) */ K] extend
     }
   }
 
-  def getWithSuffix[A](key: K, path: S#Acc)(implicit tx: S#Tx): Option[(S#Acc, A)] = {
+  def getWithSuffix[A](key: K, path: Access[T])(implicit tx: T): Option[(Access[T], A)] = {
     if (path.isEmpty) return None
     store.get(key)(tx.peer).flatMap { entries =>
       val (maxIndex, maxTerm) = path.splitIndex
-      getWithPrefixLen[A, (S#Acc, A)](maxIndex, maxTerm, entries)((preLen, writeTerm, value) =>
+      getWithPrefixLen[A, (Access[T], A)](maxIndex, maxTerm, entries)((preLen, writeTerm, value) =>
         (writeTerm +: path.drop(preLen), value)
       )
     }
   }
 
-  private def getWithPrefixLen[A, B](maxIndex: S#Acc, maxTerm: Long, entries: Entries)
+  private def getWithPrefixLen[A, B](maxIndex: Access[T], maxTerm: Long, entries: Entries)
                                     (fun: (Int, Long, A) => B): Option[B] = {
 
     val preLen  = Hashing.maxPrefixLength(maxIndex, entries.contains)

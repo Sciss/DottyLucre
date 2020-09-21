@@ -1,8 +1,7 @@
 package de.sciss.lucre
 
 import de.sciss.lucre.impl.ListSerializer
-import de.sciss.lucre.{AnyExec, Exec}
-import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer, Serializer}
+import de.sciss.serial.{DataInput, DataOutput}
 
 object TSerializer {
   implicit def immutable[T <: Exec[T], A](implicit peer: NewImmutSerializer[A]): TSerializer[T, A] =

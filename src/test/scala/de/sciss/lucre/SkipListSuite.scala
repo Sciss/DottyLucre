@@ -1,5 +1,6 @@
 package de.sciss.lucre
 
+import de.sciss.lucre.store.BerkeleyDB
 import org.scalatest.GivenWhenThen
 import org.scalatest.featurespec.AnyFeatureSpec
 

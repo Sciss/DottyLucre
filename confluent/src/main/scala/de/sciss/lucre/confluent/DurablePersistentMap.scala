@@ -14,19 +14,19 @@
 package de.sciss.lucre.confluent
 
 import impl.{ConfluentIntMapImpl, ConfluentLongMapImpl, PartialIntMapImpl}
-import de.sciss.lucre.DataStore
-import de.sciss.serial.{Serializer, ImmutableSerializer}
+import de.sciss.lucre.{DataStore, TSerializer}
+import de.sciss.serial.{ImmutableSerializer, Serializer}
 
 object DurablePersistentMap {
   def newConfluentIntMap[T <: Txn[T]](store: DataStore, handler: IndexMapHandler[T],
-                                      isOblivious: Boolean): DurablePersistentMap[S, Int] =
+                                      isOblivious: Boolean): DurablePersistentMap[T, Int] =
     new ConfluentIntMapImpl[T](store, handler, isOblivious)
 
   def newConfluentLongMap[T <: Txn[T]](store: DataStore, handler: IndexMapHandler[T],
-                                       isOblivious: Boolean): DurablePersistentMap[S, Long] =
+                                       isOblivious: Boolean): DurablePersistentMap[T, Long] =
     new ConfluentLongMapImpl[T](store, handler, isOblivious)
 
-  def newPartialMap[T <: Txn[T]](store: DataStore, handler: PartialMapHandler[T]): DurablePersistentMap[S, Int] =
+  def newPartialMap[T <: Txn[T]](store: DataStore, handler: PartialMapHandler[T]): DurablePersistentMap[T, Int] =
     new PartialIntMapImpl[T](store, handler)
 }
 
@@ -54,9 +54,9 @@ trait DurablePersistentMap[T <: Txn[T], /* @spec(KeySpec) */ K] {
     * @param serializer the serializer used to store the entity's values
     * @tparam A         the type of values stored with the entity
     */
-  def putImmutable[A](key: K, path: S#Acc, value: A)(implicit tx: T, serializer: ImmutableSerializer[A]): Unit
+  def putImmutable[A](key: K, path: Access[T], value: A)(implicit tx: T, serializer: ImmutableSerializer[A]): Unit
 
-  def put[A](key: K, path: S#Acc, value: A)(implicit tx: T, serializer: TSerializer[T, A]): Unit
+  def put[A](key: K, path: Access[T], value: A)(implicit tx: T, serializer: TSerializer[T, A]): Unit
 
   /** Finds the most recent value for an entity `id` with respect to version `path`.
     *
@@ -74,7 +74,7 @@ trait DurablePersistentMap[T <: Txn[T], /* @spec(KeySpec) */ K] {
     * @tparam A         the type of values stored with the entity
     * @return           `None` if no value was found, otherwise a `Some` of that value.
     */
-  def getImmutable[A](key: K, path: S#Acc)(implicit tx: T, serializer: ImmutableSerializer[A]): Option[A]
+  def getImmutable[A](key: K, path: Access[T])(implicit tx: T, serializer: ImmutableSerializer[A]): Option[A]
 
   /** Finds the most recent value for an entity `id` with respect to version `path`. If a value is found,
     * it is return along with a suffix suitable for identifier path actualisation.
@@ -89,10 +89,10 @@ trait DurablePersistentMap[T <: Txn[T], /* @spec(KeySpec) */ K] {
     *                   value was found. However, the suffix overlaps the prefix in that it begins with the
     *                   tree entering/exiting tuple at which the value was found.
     */
-  def get[A](key: K, path: S#Acc)(implicit tx: T, serializer: Serializer[T, S#Acc, A]): Option[A]
+  def get[A](key: K, path: Access[T])(implicit tx: T, serializer: TSerializer[T, A]): Option[A]
 
   /** '''Note:''' requires that `path` is non-empty. */
-  def isFresh(key: K, path: S#Acc)(implicit tx: T): Boolean
+  def isFresh(key: K, path: Access[T])(implicit tx: T): Boolean
 
-  def remove(key: K, path: S#Acc)(implicit tx: T): Boolean
+  def remove(key: K, path: Access[T])(implicit tx: T): Boolean
 }

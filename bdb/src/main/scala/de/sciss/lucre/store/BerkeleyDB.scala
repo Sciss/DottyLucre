@@ -12,15 +12,15 @@
  */
 
 package de.sciss.lucre
+package store
 
 import java.io.{File, FileNotFoundException}
 import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
 
 import com.sleepycat.je.OperationStatus.SUCCESS
 import com.sleepycat.je.{Database, DatabaseConfig, DatabaseEntry, Environment, EnvironmentConfig, LockMode, Transaction, TransactionConfig}
-import de.sciss.serial.{DataInput, DataOutput}
 import de.sciss.lucre.Log.logTxn
-import de.sciss.lucre.{DataStore, Txn, TxnLike}
+import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.annotation.meta.field
 import scala.concurrent.duration.Duration

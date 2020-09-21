@@ -16,12 +16,12 @@ package de.sciss.lucre.confluent
 import de.sciss.lucre.confluent.impl.InMemoryConfluentMapImpl
 
 object InMemoryConfluentMap {
-  def newIntMap [S <: Sys[S]]: InMemoryConfluentMap[S, Int]  = new InMemoryConfluentMapImpl[S, Int]
-  def newLongMap[S <: Sys[S]]: InMemoryConfluentMap[S, Long] = new InMemoryConfluentMapImpl[S, Long]
+  def newIntMap [T <: Txn[T]]: InMemoryConfluentMap[T, Int]  = new InMemoryConfluentMapImpl[T, Int]
+  def newLongMap[T <: Txn[T]]: InMemoryConfluentMap[T, Long] = new InMemoryConfluentMapImpl[T, Long]
 }
 
-trait InMemoryConfluentMap[S <: Sys[S], K] {
-  def put[A](key: K, path: S#Acc, value: A)(implicit tx: S#Tx): Unit
+trait InMemoryConfluentMap[T <: Txn[T], K] {
+  def put[A](key: K, path: Access[T], value: A)(implicit tx: T): Unit
 
   /** Finds the most recent value for an entity `id` with respect to version `path`.
     *
@@ -31,7 +31,7 @@ trait InMemoryConfluentMap[S <: Sys[S], K] {
     * @tparam A         the type of values stored with the entity
     * @return           `None` if no value was found, otherwise a `Some` of that value.
     */
-  def get[A](key: K, path: S#Acc)(implicit tx: S#Tx): Option[A]
+  def get[A](key: K, path: Access[T])(implicit tx: T): Option[A]
 
   /** Finds the most recent value for an entity `id` with respect to version `path`. If a value is found,
     * it is return along with a suffix suitable for identifier path actualisation.
@@ -45,7 +45,7 @@ trait InMemoryConfluentMap[S <: Sys[S], K] {
     *                   value was found. However, the suffix overlaps the prefix in that it begins with the
     *                   tree entering/exiting tuple at which the value was found.
     */
-  def getWithSuffix[A](key: K, path: S#Acc)(implicit tx: S#Tx): Option[(S#Acc, A)]
+  def getWithSuffix[A](key: K, path: Access[T])(implicit tx: T): Option[(Access[T], A)]
 
-  def remove(key: K, path: S#Acc)(implicit tx: S#Tx): Boolean
+  def remove(key: K, path: Access[T])(implicit tx: T): Boolean
 }

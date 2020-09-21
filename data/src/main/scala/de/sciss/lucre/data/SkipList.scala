@@ -12,9 +12,9 @@
  */
 
 package de.sciss.lucre
+package data
 
-import de.sciss.lucre.{Exec, NewImmutSerializer, TSerializer}
-import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer, Serializer}
+import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.collection.immutable.{IndexedSeq => Vec}
 import scala.language.implicitConversions
@@ -45,28 +45,28 @@ object SkipList {
 
   object Set {
     def empty[T <: Exec[T], A](implicit tx: T, ord: scala.Ordering[A],
-                               keySerializer: NewImmutSerializer[A]): SkipList.Set[T, A] =
+                               keySerializer: TSerializer[T, A]): SkipList.Set[T, A] =
       HASkipList.Set.empty[T, A]
 
     def empty[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
                               (implicit tx: T, ord: scala.Ordering[/*T,*/ A],
-                               keySerializer: NewImmutSerializer[A]): SkipList.Set[T, A] =
+                               keySerializer: TSerializer[T, A]): SkipList.Set[T, A] =
       HASkipList.Set.empty[T, A](keyObserver = keyObserver)
 
     def read[T <: Exec[T], A](in: DataInput, tx: T,
                               keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
                              (implicit acc: tx.Acc, ord: scala.Ordering[/*T,*/ A],
-                              keySerializer: NewImmutSerializer[A]): SkipList.Set[T, A] =
+                              keySerializer: TSerializer[T, A]): SkipList.Set[T, A] =
       HASkipList.Set.read[T, A](in, tx, keyObserver)
 
     implicit def serializer[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
                                             (implicit ord: scala.Ordering[/*T,*/ A],
-                                             keySerializer: NewImmutSerializer[A]): TSerializer[T, Set[T, A]] =
+                                             keySerializer: TSerializer[T, A]): TSerializer[T, Set[T, A]] =
       new SetSer[T, A](keyObserver)
 
     private final class SetSer[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A])
                                                (implicit ord: scala.Ordering[/*T,*/ A],
-                                                keySerializer: NewImmutSerializer[A])
+                                                keySerializer: TSerializer[T, A])
       extends TSerializer[T, Set[T, A]] {
 
       override def read(in: DataInput, tx: T)(implicit acc: tx.Acc): Set[T, A] =
@@ -244,7 +244,7 @@ trait SkipList[T <: Exec[T], A, E] extends Mutable[T] {
 
   def debugPrint(): String
 
-  def keySerializer: NewImmutSerializer[/*T, S#Acc,*/ A]
+  def keySerializer: TSerializer[T, A]
 
   /** The number of levels in the skip list. */
   def height: Int

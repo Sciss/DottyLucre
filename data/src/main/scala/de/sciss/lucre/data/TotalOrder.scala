@@ -12,10 +12,10 @@
  */
 
 package de.sciss.lucre
+package data
 
 import de.sciss.lucre.impl.MutableImpl
-import de.sciss.lucre.{Base, Exec, Ident, Mutable}
-import de.sciss.serial.{DataInput, DataOutput, Serializer, Writable}
+import de.sciss.serial.{DataInput, DataOutput, Writable}
 
 import scala.annotation.{switch, tailrec}
 

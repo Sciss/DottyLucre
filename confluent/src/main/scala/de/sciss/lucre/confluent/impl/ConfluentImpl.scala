@@ -14,7 +14,7 @@
 package de.sciss.lucre.confluent
 package impl
 
-import de.sciss.lucre.stm.{DataStore, Durable}
+import de.sciss.lucre.{Confluent, DataStore, Durable}
 
 import scala.concurrent.stm.InTxn
 
@@ -30,15 +30,15 @@ object ConfluentImpl {
                              val durable: Durable)
     extends Mixin[Confluent] with Confluent {
 
-    def inMemory: I = durable.inMemory
+//    def inMemory: I = durable.inMemory
 
-    def durableTx (tx: S#Tx): D#Tx = tx.durable
-    def inMemoryTx(tx: S#Tx): I#Tx = tx.inMemory
+    def durableTx (tx: T): D = tx.durable
+    def inMemoryTx(tx: T): I = tx.inMemory
 
-    protected def wrapRegular(dtx: D#Tx, inputAccess: S#Acc, retroactive: Boolean, cursorCache: Cache[S#Tx],
-                              systemTimeNanos: Long): S#Tx =
+    protected def wrapRegular(dtx: D, inputAccess: Access[T], retroactive: Boolean, cursorCache: Cache[T],
+                              systemTimeNanos: Long): T =
       new RegularTxn(this, dtx, inputAccess, retroactive, cursorCache)
 
-    protected def wrapRoot(peer: InTxn): S#Tx = new RootTxn(this, peer)
+    protected def wrapRoot(peer: InTxn): T = new RootTxn(this, peer)
   }
 }

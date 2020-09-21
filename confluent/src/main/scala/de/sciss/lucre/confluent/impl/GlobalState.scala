@@ -16,6 +16,7 @@ package confluent
 package impl
 
 import de.sciss.lucre.{Var => LVar}
+import de.sciss.lucre.data.Ancestor
 import de.sciss.serial
 import de.sciss.serial.{DataInput, DataOutput, Serializer}
 

@@ -13,10 +13,8 @@
 
 package de.sciss.lucre
 
-//import de.sciss.lucre.stm.impl.IdentifierSerializer
-import de.sciss.lucre.Exec
 import de.sciss.serial
-import de.sciss.serial.{DataInput, Serializer}
+import de.sciss.serial.DataInput
 
 object Ident {
   //  implicit def serializer[S <: Base[S]]: Serializer[S#Tx, S#Acc, S#Id] =
