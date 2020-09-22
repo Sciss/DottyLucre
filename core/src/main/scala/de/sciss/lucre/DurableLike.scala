@@ -26,8 +26,6 @@ object DurableLike {
   trait Txn[T <: Txn[T]] extends lucre.Txn[T] {
     def system: DurableLike[T]
 
-//    final type Var[A] = DurableLike.Var[/*T,*/ A]
-    final type Acc    = Unit
     final type Id     = DurableLike.Id[T]
 
     def newCachedVar[A](  init: A    )(implicit serializer: TSerializer[T, A]): TVar[T, A]
@@ -39,12 +37,9 @@ object DurableLike {
   }
 }
 trait DurableLike[Tx <: DurableLike.Txn[Tx]] extends Sys /*[S]*/ with Cursor[Tx] {
-//  final type Var[A]      = experiment.Var[A]
-  
+
   final type Id          = DurableLike.Id[T]
 
-  //  final type Acc         = Unit
-  // final type Entry[A]    = _Var[S#Tx, A]
 //  type Tx               <: DurableLike.Txn[S]
   type T = Tx
   type I <: InMemoryLike.Txn[I]

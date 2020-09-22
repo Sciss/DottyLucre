@@ -175,7 +175,7 @@ object TotalOrder {
     override def toString = "Set.serializer"
   }
 
-//  private final class SetRead[T <: Exec[T]](in: DataInput, protected val tx: T)(implicit access: tx.Acc)
+//  private final class SetRead[T <: Exec[T]](in: DataInput, protected val tx: T)
 //    extends Set[T] with MutableImpl[T] {
 //
 //    val id: Ident[T] = tx.readId(in)
@@ -628,8 +628,7 @@ object TotalOrder {
 //  private final class MapRead[T <: Exec[T], A](protected val tx: T,
 //                                               protected val observer: Map.RelabelObserver[T, A],
 //                                               val entryView: A => Map.Entry[T, A], in: DataInput)
-//                                              (implicit access: tx.Acc,
-//                                               private[TotalOrder] val keySerializer: TSerializer[T, A])
+//                                              (implicit private[TotalOrder] val keySerializer: TSerializer[T, A])
 //    extends Map[T, A] with MutableImpl[T] {
 //
 //    val id: Ident[T] = tx.readId(in)

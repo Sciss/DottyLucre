@@ -28,7 +28,6 @@ object InMemoryLike {
     //    private[stm] def intId(id: Id): Int
 
     final type Var[A] = InMemoryLike.Var[/*T,*/ A]
-    final type Acc    = Unit
     final type Id     = InMemoryLike.Id[T]
 
     private[lucre] def getVar[A](vr: InMemoryLike.Var[/*T,*/ A]): A
@@ -40,9 +39,7 @@ object InMemoryLike {
   }
 }
 trait InMemoryLike[Tx <: InMemoryLike.Txn[Tx]] extends Sys /*[S]*/ with Cursor[Tx] {
-  //  final type Var[A]   = InMemoryLike.Var[S, A]
   final type Id       = InMemoryLike.Id[T]
-  //  final type Acc      = Unit
 
   type T = Tx // InMemoryLike.Txn[T]
 

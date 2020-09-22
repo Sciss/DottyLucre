@@ -16,21 +16,11 @@ package de.sciss.lucre
 import de.sciss.serial.DataInput
 
 trait Exec[T <: Exec[T]] {
-  //  type S <: Base[T]
-
   type Id <: Ident[T]
-  type Acc
-
-//  type Var[A] <: lucre.Var[A]
-
-  //  /** Back link to the underlying system. */
-  //  val s: S
 
   def newId(): Id
 
-  // ---- variables ----
-
-//  def newRef[A](init: A): Ref[T, A]
+  //  def newRef[A](init: A): Ref[T, A]
 
   /** Creates a new in-memory transactional map for storing and retrieving values based on a mutable's identifier
    * as key. If a system is confluently persistent, the `get` operation will find the most recent key that
@@ -46,7 +36,7 @@ trait Exec[T <: Exec[T]] {
   //  def newInMemorySet[A]    : RefSet[S, A]
   //  def newInMemoryMap[A, B] : RefMap[S, A, B]
 
-  def readId(in: DataInput) /*(implicit acc: Acc)*/: Id
+  def readId(in: DataInput): Id
 
   /** Creates a handle (in-memory) to refresh a stale version of an object, assuming that the future transaction is issued
    * from the same cursor that is used to create the handle, except for potentially having advanced.
@@ -57,7 +47,7 @@ trait Exec[T <: Exec[T]] {
    * @param serializer    used to write and freshly read the object
    * @return              the handle
    */
-  def newHandle[A](value: A)(implicit serializer: TSerializer[T, /*Acc,*/ A]): TSource[T, A]
+  def newHandle[A](value: A)(implicit serializer: TSerializer[T, A]): TSource[T, A]
 }
 
 trait AnyExec extends Exec[AnyExec]

@@ -188,7 +188,7 @@ object DurableImpl {
       res
     }
 
-    override final def readId(in: DataInput) /*(implicit acc: Acc)*/: Id = {
+    override final def readId(in: DataInput): Id = {
       val base = in./* PACKED */ readInt()
       new IdImpl[T](this)(base)
     }
@@ -200,7 +200,6 @@ object DurableImpl {
 
     def attrMap(obj: Obj[T]): Obj.AttrMap[T] = {
       implicit val tx : T   = this
-      implicit val acc: Acc = ()
       val mId = obj.id.!.id.toLong << 32
       val mapOpt: Option[Obj.AttrMap[T]] = system.tryRead(mId)(in => TMap.Modifiable.read[T, String, Obj](in))
       mapOpt.getOrElse {
@@ -212,7 +211,6 @@ object DurableImpl {
 
     override def attrMapOption(obj: Obj[T]): Option[Obj.AttrMap[T]] = {
       implicit val tx : T   = this
-      implicit val acc: Acc = ()
       val mId = obj.id.!.id.toLong << 32
       system.tryRead(mId)(TMap.Modifiable.read[T, String, Obj](_))
     }

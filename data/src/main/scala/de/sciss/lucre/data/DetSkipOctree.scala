@@ -89,7 +89,7 @@ object DetSkipOctree {
 //    private final class ImplRead[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](val pointView: (A /*, T*/) => PL,
 //                                                                                in: DataInput,
 //                                                                                val tx: T)
-//                                                                               (implicit access: tx.Acc, val space: Space[PL, P, H],
+//                                                                               (implicit val space: Space[PL, P, H],
 //                                                                                val keySerializer: TSerializer[T, A])
 
     new Impl[T, PL, P, H, A] {
@@ -107,7 +107,7 @@ object DetSkipOctree {
       val id: Ident[T] = _tx.readId(in)
       val hyperCube: H = space.hyperCubeSerializer.read(in) // (in, tx)
       val skipList: HASkipList.Set[T, this.Leaf] = {
-        implicit val ord: scala.Ordering[this.Leaf] = LeafOrdering
+        implicit val ord: Ordering[this.Leaf] = LeafOrdering
         implicit val r1: TSerializer[T, this.Leaf] = LeafSerializer
         HASkipList.Set.serializer[T, this.Leaf](KeyObserver).readT(in)(_tx)
       }
@@ -1008,7 +1008,7 @@ object DetSkipOctree {
 
     override def toString = s"Octree-${space.dim}d$id"
 
-    protected object LeafOrdering extends scala.Ordering[Leaf] {
+    protected object LeafOrdering extends Ordering[Leaf] {
       /** Leafs are ordered by the tree's in-order traversal,
        * where the quadrants I+II and III+IV can be thought
        * of as dummy nodes to make the octree binary. That is

@@ -33,6 +33,4 @@ trait Cursor[T <: Exec[T]] {
    *                           adding nano-seconds fraction).
    */
   def stepTag[A](systemTimeNanos: Long)(fun: T => A): A
-
-  def position(implicit tx: T): tx.Acc
 }

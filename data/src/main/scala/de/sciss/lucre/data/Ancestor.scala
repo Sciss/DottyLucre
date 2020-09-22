@@ -25,8 +25,8 @@ object Ancestor {
   private type TreeOrder[T <: Exec[T]] = TotalOrder.Set.Entry[T]
 
   object Vertex {
-    private[Ancestor] def toPoint[T <: Exec[T], Version](v: Vertex[T, Version] /*, tx: T*/): IntPoint3D =
-      IntPoint3D(v.pre.tag /*(tx)*/, v.post.tag /*(tx)*/, v.versionInt)
+    private[Ancestor] def toPoint[T <: Exec[T], Version](v: Vertex[T, Version]): IntPoint3D =
+      IntPoint3D(v.pre.tag, v.post.tag, v.versionInt)
   }
 
   sealed trait Vertex[T <: Exec[T], Version] extends Writable with Disposable {
@@ -190,7 +190,7 @@ object Ancestor {
   }
 
 //  private final class TreeRead[T <: Exec[T], Version](in: DataInput, tx: T)(
-//    implicit access: tx.Acc, val versionSerializer: TSerializer[T, Version], val intView: Version => Int)
+//    implicit val versionSerializer: TSerializer[T, Version], val intView: Version => Int)
 //    extends TreeImpl[T, Version] {
 //
 //    {
@@ -298,7 +298,7 @@ object Ancestor {
   }
 
   def readMap[T <: Exec[T], Version, /* @spec(ValueSpec) */ A](in: DataInput, tx: T, full: Tree[T, Version])(
-    implicit access: tx.Acc, valueSerializer: TSerializer[T, A]): Map[T, Version, A] = {
+    implicit valueSerializer: TSerializer[T, A]): Map[T, Version, A] = {
 
     val _full             = full
     val _valueSerializer  = valueSerializer
@@ -374,11 +374,11 @@ object Ancestor {
 
     override def toString = s"Ancestor.Map(tree=$full)"
 
-    protected final def preOrdering: scala.Ordering[M] = new scala.Ordering[M] {
+    protected final def preOrdering: Ordering[M] = new Ordering[M] {
       def compare(a: M, b: M): Int = a.pre compare b.pre
     }
 
-    protected final def postOrdering: scala.Ordering[M] = new scala.Ordering[M] {
+    protected final def postOrdering: Ordering[M] = new Ordering[M] {
       def compare(a: M, b: M): Int = a.post compare b.post
     }
 
@@ -592,7 +592,7 @@ object Ancestor {
     }
 
     protected val preList: SkipList.Set[T, M] = {
-      implicit val ord: scala.Ordering[M] = preOrdering
+      implicit val ord: Ordering[M] = preOrdering
       implicit val _tx: T = tx
       val res = SkipList.Set.empty[T, M]
       res.add(root)
@@ -600,7 +600,7 @@ object Ancestor {
     }
 
     protected val postList: SkipList.Set[T, M] = {
-      implicit val ord: scala.Ordering[M] = postOrdering
+      implicit val ord: Ordering[M] = postOrdering
       implicit val _tx: T = tx
       val res = SkipList.Set.empty[T, M]
       res.add(root)
@@ -611,7 +611,6 @@ object Ancestor {
 //  private final class MapRead[T <: Exec[T], Version, A](val full: Tree[T, Version], in: DataInput,
 //                                                        tx: T,
 //                                                        val valueSerializer: TSerializer[T, A])
-//                                                       (implicit access: tx.Acc)
 //    extends MapImpl[T, Version, A] {
 //    me =>
 //
@@ -628,12 +627,12 @@ object Ancestor {
 //      TotalOrder.Map.read[T, M](in, tx, me, _.post)(access, markSerializer)
 //
 //    protected val preList: SkipList.Set[T, M] = {
-//      implicit val ord: scala.Ordering[M] = preOrdering
+//      implicit val ord: Ordering[M] = preOrdering
 //      SkipList.Set.read[T, M](in, tx)
 //    }
 //
 //    protected val postList: SkipList.Set[T, M] = {
-//      implicit val ord: scala.Ordering[M] = postOrdering
+//      implicit val ord: Ordering[M] = postOrdering
 //      SkipList.Set.read[T, M](in, tx)
 //    }
 //

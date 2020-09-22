@@ -55,7 +55,7 @@ object HASkipList {
   private final val SER_VERSION = 76
 
   private final class SetSer[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A])
-                                             (implicit ordering: scala.Ordering[A],
+                                             (implicit ordering: Ordering[A],
                                               keySerializer: TSerializer[T, A])
     extends TSerializer[T, HASkipList.Set[T, A]] {
 
@@ -68,7 +68,7 @@ object HASkipList {
   }
 
   private final class MapSer[T <: Exec[T], A, B](keyObserver: SkipList.KeyObserver[T, A])
-                                                (implicit ordering: scala.Ordering[A],
+                                                (implicit ordering: Ordering[A],
                                                  keySerializer: TSerializer[T, A],
                                                  valueSerializer: TSerializer[T, B])
     extends WritableSerializer[T, HASkipList.Map[T, A, B]] {
@@ -110,7 +110,7 @@ object HASkipList {
   private final class SetImpl[T <: Exec[T], A](tx: T)(id: Ident[T] /*tx.Id*/, val minGap: Int,
                                                protected val keyObserver: SkipList.KeyObserver[T, A],
                                                _downNode: SetImpl[T, A] => Var[Node[T, A, A]])
-                                              (implicit val ordering: scala.Ordering[A],
+                                              (implicit val ordering: Ordering[A],
                                                val keySerializer: TSerializer[T, A])
     extends Impl[T, A, A](tx)(id) with HASkipList.Set[T, A] {
 
@@ -149,7 +149,7 @@ object HASkipList {
   private final class MapImpl[T <: Exec[T], A, B](tx: T)(id: Ident[T] /*tx.Id*/, val minGap: Int,
                                                   protected val keyObserver: SkipList.KeyObserver[T, A],
                                                   _downNode: MapImpl[T, A, B] => Var[Map.Node[T, A, B]])
-                                                 (implicit val ordering : scala.Ordering[A],
+                                                 (implicit val ordering : Ordering[A],
                                                   val keySerializer     : TSerializer[T, A],
                                                   val valueSerializer   : TSerializer[T, B])
     extends Impl[T, A, (A, B)](tx)(id) with HASkipList.Map[T, A, B] {
@@ -934,7 +934,7 @@ object HASkipList {
       i
     }
 
-    // ---- Serializer[ T, S#Acc, Node[ S, A ]] ----
+    // ---- TSerializer[T, Node[S, A]] ----
     override def write(v: Node[T, A, E], out: DataOutput): Unit =
       if (v eq null) {
         out.writeByte(0) // Bottom
@@ -1379,7 +1379,7 @@ object HASkipList {
      *                      for specialized versions and transactional restrictions.
      * @param   keySerializer      the serializer for the elements, in case a persistent STM is used.
      */
-    def empty[T <: Exec[T], A](implicit tx: T, ord: scala.Ordering[A],
+    def empty[T <: Exec[T], A](implicit tx: T, ord: Ordering[A],
                                keySerializer: TSerializer[T, A]): HASkipList.Set[T, A] =
       empty()
 
@@ -1398,7 +1398,7 @@ object HASkipList {
      */
     def empty[T <: Exec[T], A](minGap: Int = 2,
                                keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
-                              (implicit tx: T, ord: scala.Ordering[A],
+                              (implicit tx: T, ord: Ordering[A],
                                keySerializer: TSerializer[T, A]): HASkipList.Set[T, A] = {
 
       // 255 <= arrMaxSz = (minGap + 1) << 1
@@ -1413,7 +1413,7 @@ object HASkipList {
     }
 
     def read[T <: Exec[T], A](in: DataInput, keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
-                             (implicit tx: T, ordering: scala.Ordering[A],
+                             (implicit tx: T, ordering: Ordering[A],
                               keySerializer: TSerializer[T, A]): HASkipList.Set[T, A] = {
 
       val id      = tx.readId(in)
@@ -1426,7 +1426,7 @@ object HASkipList {
     }
 
     def serializer[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
-                                   (implicit ordering: scala.Ordering[A],
+                                   (implicit ordering: Ordering[A],
                                     keySerializer: TSerializer[T, A]): TSerializer[T, HASkipList.Set[T, A]] =
       new SetSer[T, A](keyObserver)
   }
@@ -1447,7 +1447,7 @@ object HASkipList {
      *                      for specialized versions and transactional restrictions.
      * @param   keySerializer      the serializer for the elements, in case a persistent STM is used.
      */
-    def empty[T <: Exec[T], A, B](implicit tx: T, ord: scala.Ordering[A],
+    def empty[T <: Exec[T], A, B](implicit tx: T, ord: Ordering[A],
                                   keySerializer: TSerializer[T, A],
                                   valueSerializer: TSerializer[T, B]): HASkipList.Map[T, A, B] =
       empty()
@@ -1467,7 +1467,7 @@ object HASkipList {
      */
     def empty[T <: Exec[T], A, B](minGap: Int = 2,
                                   keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
-                                 (implicit tx: T, ord: scala.Ordering[A],
+                                 (implicit tx: T, ord: Ordering[A],
                                   keySerializer: TSerializer[T, A],
                                   valueSerializer: TSerializer[T, B]): HASkipList.Map[T, A, B] = {
 
@@ -1483,7 +1483,7 @@ object HASkipList {
     }
 
     def read[T <: Exec[T], A, B](in: DataInput, keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
-                                (implicit tx: T, ordering: scala.Ordering[A],
+                                (implicit tx: T, ordering: Ordering[A],
                                  keySerializer: TSerializer[T, A],
                                  valueSerializer: TSerializer[T, B]): HASkipList.Map[T, A, B] = {
 
@@ -1496,7 +1496,7 @@ object HASkipList {
     }
 
     def serializer[T <: Exec[T], A, B](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
-                                      (implicit ordering: scala.Ordering[A],
+                                      (implicit ordering: Ordering[A],
                                        keySerializer: TSerializer[T, A],
                                        valueSerializer: TSerializer[T, B]): TSerializer[T, HASkipList.Map[T, A, B]] =
       new MapSer[T, A, B](keyObserver)

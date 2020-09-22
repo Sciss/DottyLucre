@@ -128,8 +128,6 @@ object PlainImpl {
 
     def stepTag[A](systemTimeNanos: Long)(fun: Tx => A): A = fun(this)
 
-    def position(implicit tx: Tx): Acc = ()
-
     // ---- Executor ----
 
     val system: S = this
@@ -138,11 +136,11 @@ object PlainImpl {
 
     def newId(): Id = new IdImpl
 
-    def readId(in: DataInput) /*(implicit acc: Acc)*/: Id = opNotSupported("readId")
+    def readId(in: DataInput): Id = opNotSupported("readId")
 
 //    def newRef[A](init: A): Ref[Tx, A] = new VarImpl(init)
 
-//    def newVar[A](id: Id, init: A)(implicit serializer: TxSerializer[Tx, /*Acc,*/ A]): Var[A] =
+//    def newVar[A](id: Id, init: A)(implicit serializer: TxSerializer[Tx, A]): Var[A] =
 //      new VarImpl(init)
 //
 //    def newBooleanVar (id: Id, init: Boolean ): Var[Boolean] = new BooleanVarImpl (init)
@@ -156,14 +154,14 @@ object PlainImpl {
     //    def newInMemoryMap[K, V]: RefMap[S, K, V] = new PlainInMemoryMap[K, V]
     //    def newInMemorySet[A]   : RefSet[S, A]    = new PlainInMemorySet[A]
 
-//    def readVar[A](id: Id, in: DataInput)(implicit serializer: TSerializer[Tx,/* Acc,*/ A]): Var[A] =
+//    def readVar[A](id: Id, in: DataInput)(implicit serializer: TSerializer[Tx, A]): Var[A] =
 //      opNotSupported("readVar")
 //
 //    def readBooleanVar(id: Id, in: DataInput): Var[Boolean]  = opNotSupported("readBooleanVar")
 //    def readIntVar    (id: Id, in: DataInput): Var[Int]      = opNotSupported("readIntVar")
 //    def readLongVar   (id: Id, in: DataInput): Var[Long]     = opNotSupported("readLongVar")
 
-    def newHandle[A](value: A)(implicit serializer: TSerializer[Tx,/* Acc,*/ A]): TSource[Tx, A] =
+    def newHandle[A](value: A)(implicit serializer: TSerializer[Tx, A]): TSource[Tx, A] =
       new EphemeralTSource(value)
   }
 }

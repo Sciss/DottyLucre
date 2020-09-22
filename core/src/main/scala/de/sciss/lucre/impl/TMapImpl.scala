@@ -88,8 +88,8 @@ object TMapImpl {
       res
     }
 
-    implicit object keyOrdering extends scala.Ordering[K] /*Ordering[T, K]*/ {
-      override def compare(a: K, b: K) /*(implicit tx: T)*/: Int = {
+    implicit object keyOrdering extends Ordering[K] {
+      override def compare(a: K, b: K): Int = {
         val ah = a.hashCode() // ##
         val bh = b.hashCode() // ##
         if (ah < bh) -1 else if (ah > bh) 1 else 0

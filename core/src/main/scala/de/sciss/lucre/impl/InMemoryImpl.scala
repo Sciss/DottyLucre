@@ -147,45 +147,14 @@ object InMemoryImpl {
       vr.peer.set(value)(peer)
     }
 
-//    final def newVar[A](id: Id, init: A)(implicit ser: TxSerializer[T, A]): Var[A] = {
-//      val peer = ScalaRef(init)
-//      new SysInMemoryRef[T, A](peer)
-//    }
-//
-//    final def newIntVar(id: Id, init: Int): Var[Int] = {
-//      val peer = ScalaRef(init)
-//      new SysInMemoryRef[T, Int](peer)
-//    }
-//
-//    final def newBooleanVar(id: Id, init: Boolean): Var[Boolean] = {
-//      val peer = ScalaRef(init)
-//      new SysInMemoryRef[T, Boolean](peer)
-//    }
-//
-//    final def newLongVar(id: Id, init: Long): Var[Long] = {
-//      val peer = ScalaRef(init)
-//      new SysInMemoryRef[T, Long](peer)
-//    }
-
     final def newVarArray[A](size: Int) = new Array[Var[A]](size)
 
     final def newIdentMap[A]: IdentMap[Ident[T] /*Id*/, T, A] =
       IdentMapImpl[Ident[T], T, A] { implicit tx => id => id.!.id }
 
-//    def readVar[A](id: Id, in: DataInput)(implicit ser: TxSerializer[T, A]): Var[A] =
-//      opNotSupported("readVar")
-//
-//    def readBooleanVar(id: Id, in: DataInput): Var[Boolean] = opNotSupported("readBooleanVar")
-//    def readIntVar    (id: Id, in: DataInput): Var[Int    ] = opNotSupported("readIntVar"    )
-//    def readLongVar   (id: Id, in: DataInput): Var[Long   ] = opNotSupported("readLongVar"   )
-
-    override def readId(in: DataInput)/*(implicit acc: Acc)*/: Id = opNotSupported("readId")
+    override def readId(in: DataInput): Id = opNotSupported("readId")
 
     private[lucre] final def reactionMap: ReactionMap[T] = system.reactionMap
-
-    // ---- context ----
-
-    // def newContext(): S#Context = new ContextImpl[S]
 
     // ---- attributes ----
 

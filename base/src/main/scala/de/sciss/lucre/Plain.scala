@@ -21,12 +21,9 @@ object Plain {
 
   type Id = Ident[Plain]
 }
-trait Plain extends Base /*[Plain]*/ with Cursor[Plain] with Exec[Plain] {
+trait Plain extends Base with Cursor[Plain] with Exec[Plain] {
   type Tx     = Plain
-  type Acc    = Unit
-
   type Var[A] = lucre.Var[A]
   type Id     = Plain.Id
-
   type I      = Plain
 }
