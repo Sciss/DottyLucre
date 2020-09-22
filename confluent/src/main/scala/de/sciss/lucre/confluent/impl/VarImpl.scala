@@ -132,30 +132,6 @@ private[impl] final class VarImpl[T <: Txn[T], A](protected val tx: T, protected
   override def toString = s"Var($id)"
 }
 
-//private[impl] final class PartialVarTxImpl[T <: Txn[T], A](protected val id: Ident[T])
-//                                                    (implicit ser: serial.Serializer[S#Tx, Access[T], A])
-//  extends BasicVar[T, A] {
-//
-//  def meld(from: Access[T]): A = ...
-//
-//  def update(v: A): Unit = {
-//    logPartial(s"$this set $v")
-//    tx.putPartial(id, v)
-//  }
-//
-//  def apply(): A = {
-//    logPartial(s"$this get")
-//    tx.getPartial(id)
-//  }
-//
-//  def setInit(v: A): Unit = {
-//    logPartial(s"$this ini $v")
-//    tx.putPartial(id, v)
-//  }
-//
-//  override def toString = s"PartialVar($id)"
-//}
-
 private[impl] final class VarTxImpl[T <: Txn[T], A](protected val tx: T, protected val id: Ident[T])
                                                    (implicit ser: TSerializer[T, A])
   extends BasicVar[T, A] {
@@ -199,17 +175,17 @@ private final class RootVar[T <: Txn[T], A](id1: Int, name: String)
     log(s"$this meld $from")
     val idm = new ConfluentId[T](tx, id1, from)
     tx.addInputVersion(from)
-    tx.getTxn(idm)
+    tx.getTxn(idm)(ser)
   }
 
   def update(v: A)(implicit tx: T): Unit = {
     log(s"$this set $v")
-    tx.putTxn(id, v)
+    tx.putTxn(id, v)(ser)
   }
 
   def apply()(implicit tx: T): A = {
     log(s"$this get")
-    tx.getTxn(id)
+    tx.getTxn(id)(ser)
   }
 
 //  def swap(v: A)(implicit tx: T): A = {

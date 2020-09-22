@@ -226,7 +226,7 @@ trait DurableCacheMapImpl[T <: Txn[T], K]
     // val ref_? = rc.get(kp)
     // val v2_?  = if (ref_? == null) null else ref_?.asInstanceOf[WeakReference[_]].get()
     // if (v2_? == null) {
-      /* val v3Opt = */ store.get[A](key, tx)
+      /* val v3Opt = */ store.get[A](key, tx)(path, serializer)
     // if (v3Opt.isDefined) rc.put(kp, new WeakReference(v3Opt.get))
     //   v3Opt
     // } else {
