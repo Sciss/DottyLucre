@@ -13,32 +13,29 @@
 
 package de.sciss.lucre.confluent
 
-import de.sciss.lucre.{ConstantSerializer, TSerializer, Txn => LTxn}
+import de.sciss.lucre.{ConstantSerializer, TSerializer}
 
 object CacheMap {
-  trait InMemory[T <: LTxn[T], K, +Store] extends CacheMap[T, K, Store] {
+  trait InMemory[T <: Txn[T], K, +Store] extends CacheMap[T, K, Store] {
     def putCache[A](key: K, value: A, tx: T)(implicit path: tx.Acc): Unit
-    def getCache[A](key: K, tx: T)(implicit path: tx.Acc): Option[A]
+    def getCache[A](key: K          , tx: T)(implicit path: tx.Acc): Option[A]
   }
 
-  trait Durable[T <: LTxn[T], K, +Store] extends CacheMap[T, K, Store] {
-    def putCacheTxn[A](key: K, value: A, tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Unit
-
+  trait Durable[T <: Txn[T], K, +Store] extends CacheMap[T, K, Store] {
+    def putCacheTxn   [A](key: K, value: A, tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Unit
     def putCacheNonTxn[A](key: K, value: A, tx: T)(implicit path: tx.Acc, serializer: ConstantSerializer[A]): Unit
 
-    def getCacheTxn[A](key: K, tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Option[A]
-
+    def getCacheTxn   [A](key: K, tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Option[A]
     def getCacheNonTxn[A](key: K, tx: T)(implicit path: tx.Acc, serializer: ConstantSerializer[A]): Option[A]
   }
 
-  trait Partial[T <: LTxn[T], K, +Store] extends CacheMap[T, K, Store] {
+  trait Partial[T <: Txn[T], K, +Store] extends CacheMap[T, K, Store] {
     def putPartial[A](key: K, value: A, tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Unit
-
-    def getPartial[A](key: K, tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Option[A]
+    def getPartial[A](key: K          , tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Option[A]
   }
 }
 
-trait CacheMap[T <: LTxn[T], /* @spec(KeySpec) */ K, +Store] extends Cache[T] {
+trait CacheMap[T <: Txn[T], K, +Store] extends Cache[T] {
   // ---- abstract ----
 
   /**
@@ -48,9 +45,9 @@ trait CacheMap[T <: LTxn[T], /* @spec(KeySpec) */ K, +Store] extends Cache[T] {
 
   // ---- implementation ----
 
-  def getCacheOnly[A](key: K, tx: T)(implicit path: tx.Acc): Option[A]
+  def getCacheOnly[A] (key: K, tx: T)(implicit path: tx.Acc): Option[A]
 
-  def cacheContains(key: K, tx: T)(implicit path: tx.Acc): Boolean
+  def cacheContains   (key: K, tx: T)(implicit path: tx.Acc): Boolean
 
   /**
    * Removes an entry from the cache, and only the cache. This will not affect any

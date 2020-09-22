@@ -14,7 +14,7 @@
 package de.sciss.lucre.confluent
 package impl
 
-import de.sciss.lucre.TSerializer
+import de.sciss.lucre.{ConstantSerializer, TSerializer}
 import de.sciss.lucre.confluent.Log.log
 import de.sciss.serial.{DataInput, DataOutput}
 
@@ -68,10 +68,9 @@ private abstract class IdImpl[T <: Txn[T]] extends Ident[T] {
   }
 
   private def makeVar[A](id: Id)(implicit ser: TSerializer[T, A]): BasicVar[T, A ] = {
-    // XXX TODO
     ser match {
-//      case plain: NewImmutSerializer[_] =>
-//        new VarImpl[T, A](this, id, plain.asInstanceOf[NewImmutSerializer[A]])
+      case plain: ConstantSerializer[A] =>
+        new VarImpl  [T, A](tx, id, plain)
       case _ =>
         new VarTxImpl[T, A](tx, id)
     }
