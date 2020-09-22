@@ -79,7 +79,7 @@ trait IntPoint2DLike /* extends PointLike[ Space.IntTwoDim ] */ {
 }
 
 object IntPoint2D {
-  implicit def serializer: NewImmutSerializer[IntPoint2D] = IntSpace.TwoDim.pointSerializer
+  implicit def serializer: ConstantSerializer[IntPoint2D] = IntSpace.TwoDim.pointSerializer
 }
 final case class IntPoint2D(x: Int, y: Int) extends IntPoint2DLike {
   def +(p: IntPoint2D) = IntPoint2D(x + p.x, y + p.y)

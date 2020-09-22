@@ -1,16 +1,16 @@
 package de.sciss.lucre.impl
 
-import de.sciss.lucre.{Exec, TSerializer}
+import de.sciss.lucre.TSerializer
 import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.collection.immutable.{IndexedSeq => Vec}
 import scala.collection.mutable
 
-abstract class CollectionSerializer[T <: Exec[T], A, That <: Traversable[A]] extends TSerializer[T, That] {
-  def newBuilder: mutable.Builder[A, That]
-  def empty     : That
+abstract class CollectionSerializer[-T, A, That <: Traversable[A]] extends TSerializer[T, That] {
+  protected def newBuilder: mutable.Builder[A, That]
+  protected def empty     : That
 
-  def peer      : TSerializer[T, A]
+  def peer: TSerializer[T, A]
 
   final def write(coll: That, out: DataOutput): Unit = {
     out.writeInt(coll.size)
@@ -18,7 +18,7 @@ abstract class CollectionSerializer[T <: Exec[T], A, That <: Traversable[A]] ext
     coll.foreach(ser.write(_, out))
   }
 
-  final override def read(in: DataInput, tx: T)(implicit acc: tx.Acc): That = {
+  final override def readT(in: DataInput)(implicit tx: T): That = {
     val sz = in.readInt()
     if (sz == 0) empty
     else {
@@ -27,7 +27,7 @@ abstract class CollectionSerializer[T <: Exec[T], A, That <: Traversable[A]] ext
       val ser = peer
       var rem = sz
       while (rem > 0) {
-        b += ser.read(in, tx)
+        b += ser.readT(in)
         rem -= 1
       }
       b.result()
@@ -35,14 +35,18 @@ abstract class CollectionSerializer[T <: Exec[T], A, That <: Traversable[A]] ext
   }
 }
 
-final class ListSerializer[T <: Exec[T], A](val peer: TSerializer[T, A])
+final class ListSerializer[-T, A](val peer: TSerializer[T, A])
   extends CollectionSerializer[T, A, List[A]] {
-  def newBuilder: mutable.Builder[A, List[A]] = List.newBuilder[A]
-  def empty: List[A] = Nil
+
+  protected def newBuilder: mutable.Builder[A, List[A]] = List.newBuilder[A]
+
+  protected def empty: List[A] = Nil
 }
 
-final class VecSerializer[T <: Exec[T], A](val peer: TSerializer[T, A])
+final class VecSerializer[-T, A](val peer: TSerializer[T, A])
   extends CollectionSerializer[T, A, Vec[A]] {
-  def newBuilder: mutable.Builder[A, Vec[A]] = Vec.newBuilder[A]
-  def empty: Vec[A] = Vector.empty
+
+  protected def newBuilder: mutable.Builder[A, Vec[A]] = Vector.newBuilder[A]
+
+  protected def empty: Vec[A] = Vector.empty
 }

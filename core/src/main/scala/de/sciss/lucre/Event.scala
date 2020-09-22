@@ -50,16 +50,15 @@ object Event {
 
   private val anySer = new Ser[AnyTxn]
 
-  private[lucre] def read[T <: Txn[T]](in: DataInput, tx: T)(implicit acc: tx.Acc): Event[T, Any] = {
+  private[lucre] def read[T <: Txn[T]](in: DataInput)(implicit tx: T): Event[T, Any] = {
     val slot  = in.readByte().toInt
-    val node  = Elem.read[T](in, tx)
+    val node  = Elem.read[T](in)
     node.event(slot)
   }
 
-  private final class Ser[T <: Txn[T]] extends TSerializer[T, Event[T, Any]] {
-    def read(in: DataInput, tx: T)(implicit acc: tx.Acc): Event[T, Any] = Event.read(in, tx)
-    
-    def write(e: Event[T, Any], out: DataOutput): Unit = e.write(out)
+  private final class Ser[T <: Txn[T]] extends WritableSerializer[T, Event[T, Any]] {
+    override def readT(in: DataInput)(implicit tx: T): Event[T, Any] =
+      Event.read(in)
   }
 
   private type Children[T <: Txn[T]] = Vec[(Byte, Event[T, Any])]
@@ -73,7 +72,7 @@ object Event {
     private val anyChildrenSer = new ChildrenSer[AnyTxn]
 
     private final class ChildrenSer[T <: Txn[T]] extends TSerializer[T, Children[T]] {
-      def write(v: Children[T], out: DataOutput): Unit = {
+      override def write(v: Children[T], out: DataOutput): Unit = {
         out./* PACKED */ writeInt(v.size)
         v.foreach { tup =>
           out.writeByte(tup._1)
@@ -81,11 +80,11 @@ object Event {
         }
       }
 
-      def read(in: DataInput, tx: T)(implicit acc: tx.Acc): Children[T] = {
+      override def readT(in: DataInput)(implicit tx: T): Children[T] = {
         val sz = in./* PACKED */ readInt()
         if (sz === 0) Vector.empty else Vector.fill(sz) {
           val slot  = in.readByte()
-          val event = Event.read(in, tx)
+          val event = Event.read(in)
           (slot, event)
         }
       }
@@ -97,14 +96,14 @@ object Event {
       new Impl[T](0, id, children)
     }
 
-    def read[T <: Txn[T]](in: DataInput, tx: T)(implicit acc: tx.Acc): Targets[T] = {
+    def read[T <: Txn[T]](in: DataInput)(implicit tx: T): Targets[T] = {
       (in.readByte(): @switch) match {
-        case 0      => readIdentified(in, tx)
+        case 0      => readIdentified(in)
         case cookie => sys.error(s"Unexpected cookie $cookie")
       }
     }
 
-    /* private[lucre] */ def readIdentified[T <: Txn[T]](in: DataInput, tx: T)(implicit acc: tx.Acc): Targets[T] = {
+    /* private[lucre] */ def readIdentified[T <: Txn[T]](in: DataInput)(implicit tx: T): Targets[T] = {
       val id = tx.readId(in)
       val children = id.readVar /* readEventVar */[Children[T]](in)
       new Impl[T](0, id, children)
@@ -119,7 +118,7 @@ object Event {
         childrenVar.write(out)
       }
 
-      def dispose(): Unit = {
+      override def dispose(): Unit = {
         if (children.nonEmpty) throw new IllegalStateException("Disposing a event reactor which is still being observed")
         id         .dispose()
         childrenVar.dispose()
@@ -157,7 +156,7 @@ object Event {
       def isEmpty : Boolean = children.isEmpty   // XXX TODO this is expensive
       def nonEmpty: Boolean = children.nonEmpty  // XXX TODO this is expensive
 
-      private[lucre] def _targets: Targets[T] = this
+//      private[lucre] def _targets: Targets[T] = this
     }
   }
 

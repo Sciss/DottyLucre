@@ -3,7 +3,7 @@ package de.sciss.lucre.data
 import de.sciss.lucre.data.TotalOrder.Map
 import de.sciss.lucre.geom.{IntCube, IntDistanceMeasure3D, IntPoint3D, IntPoint3DLike, IntSpace}
 import de.sciss.lucre.store.BerkeleyDB
-import de.sciss.lucre.{Cursor, Durable, InMemory, Sys, TReader, TSerializer, TestUtil, Txn}
+import de.sciss.lucre.{Cursor, Durable, InMemory, Sys, TReader, TSerializer, TestUtil, Txn, WritableSerializer}
 import de.sciss.serial.{DataInput, DataOutput, Writable}
 import org.scalatest.GivenWhenThen
 import org.scalatest.featurespec.AnyFeatureSpec
@@ -74,14 +74,13 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
       new SerImpl[T](vertexReader)
 
     private final class SerImpl[T <: Txn[T]](vertexReader: TReader[T, FullVertex[T]])
-      extends TSerializer[T, FullVertexPre[T]] {
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): FullVertexPre[T] = {
+      extends WritableSerializer[T, FullVertexPre[T]] {
+
+      override def readT(in: DataInput)(implicit tx: T): FullVertexPre[T] = {
         val id  = in.readByte()
-        val v   = vertexReader.read(in, tx)
+        val v   = vertexReader.readT(in)
         if (id == 0) v.preHeadKey else v.preTailKey
       }
-
-      def write(v: FullVertexPre[T], out: DataOutput): Unit = v.write(out)
     }
   }
 
@@ -138,15 +137,14 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
         val orderObserver = new RelabelObserver[ T, FullVertex[ T ]]( "full", t )
         val preOrder : TotalOrder.Map[T, FullVertexPre[T]] = TotalOrder.Map.empty(orderObserver, _.order, 0)
         val postOrder: TotalOrder.Map[T, FullVertex   [T]] = TotalOrder.Map.empty(orderObserver, _.post, Int.MaxValue /* - 1 */)
-        implicit lazy val vertexSer: TSerializer[T, FullVertex[T]] = new TSerializer[T, FullVertex[T]] {
-          def write(v: FullVertex[T], out: DataOutput): Unit = v.write(out)
 
-          def read(in: DataInput, tx: T)(implicit access: tx.Acc): FullVertex[T] = {
+        implicit object vertexSer extends WritableSerializer[T, FullVertex[T]] {
+          override def readT(in: DataInput)(implicit tx: T): FullVertex[T] = {
             new FullVertex[T] {
               val version: Int = in.readInt()
-              val pre     : TotalOrder.Map.Entry[T, FullVertexPre[T]] = preOrder  .readEntry(in, tx)
-              val post    : TotalOrder.Map.Entry[T, FullVertex   [T]] = postOrder .readEntry(in, tx)
-              val preTail : TotalOrder.Map.Entry[T, FullVertexPre[T]] = preOrder  .readEntry(in, tx)
+              val pre     : TotalOrder.Map.Entry[T, FullVertexPre[T]] = preOrder  .readEntry(in)
+              val post    : TotalOrder.Map.Entry[T, FullVertex   [T]] = postOrder .readEntry(in)
+              val preTail : TotalOrder.Map.Entry[T, FullVertexPre[T]] = preOrder  .readEntry(in)
             }
           }
         }
@@ -433,15 +431,15 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
   object MarkTree {
     def apply[T <: Txn[T]](ft: FullTree[T])(implicit tx: T): MarkTree[T] = {
       implicit val pointView: (MarkVertex[T] /*, T*/) => IntPoint3D = (p /*, tx*/) => p.toPoint // (tx)
-      lazy val orderObserver = new RelabelObserver[T, MarkVertex[T]]("mark", t)
-      lazy val _vertexSer: TSerializer[T, MarkVertex[T]] = new TSerializer[T, MarkVertex[T]] {
-        def write(v: MarkVertex[T], out: DataOutput): Unit = v.write(out)
 
-        def read(in: DataInput, tx: T)(implicit access: tx.Acc): MarkVertex[T] = {
+      lazy val orderObserver = new RelabelObserver[T, MarkVertex[T]]("mark", t)
+
+      lazy val _vertexSer: TSerializer[T, MarkVertex[T]] = new WritableSerializer[T, MarkVertex[T]] {
+        override def readT(in: DataInput)(implicit tx: T): MarkVertex[T] = {
           new MarkVertex[T] {
-            val full: FullVertex[T] = ft.vertexSer.read(in, tx)
-            val pre : TotalOrder.Map.Entry[T, MarkVertex[T]] = root.preOrder .readEntry(in, tx)
-            val post: TotalOrder.Map.Entry[T, MarkVertex[T]] = root.postOrder.readEntry(in, tx)
+            val full: FullVertex[T] = ft.vertexSer.readT(in)
+            val pre : TotalOrder.Map.Entry[T, MarkVertex[T]] = root.preOrder .readEntry(in)
+            val post: TotalOrder.Map.Entry[T, MarkVertex[T]] = root.postOrder.readEntry(in)
           }
         }
       }

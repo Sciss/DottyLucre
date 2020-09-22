@@ -286,6 +286,6 @@ trait LongSquareLike
 }
 
 object LongSquare {
-  implicit def serializer: NewImmutSerializer[LongSquare] = LongSpace.TwoDim.hyperCubeSerializer
+  implicit def serializer: ConstantSerializer[LongSquare] = LongSpace.TwoDim.hyperCubeSerializer
 }
 final case class LongSquare(cx: Long, cy: Long, extent: Long) extends LongSquareLike

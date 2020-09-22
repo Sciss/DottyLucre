@@ -15,7 +15,7 @@ package de.sciss.lucre.confluent
 package impl
 
 import de.sciss.lucre.confluent.Log.log
-import de.sciss.lucre.{NewImmutSerializer, TSerializer}
+import de.sciss.lucre.{ConstantSerializer, TSerializer}
 
 import scala.concurrent.stm.{InTxn, TxnLocal}
 
@@ -135,7 +135,7 @@ object DurableCacheMapImpl {
     }
 
   private final class NonTxnEntry[T <: Txn[T], K, A](val path: Access[T], val value: A)
-                                                    (implicit serializer: NewImmutSerializer[A])
+                                                    (implicit serializer: ConstantSerializer[A])
     extends Entry[T, K, Store[T, K]] {
     override def toString = s"NonTxnEntry($value)"
 
@@ -200,7 +200,7 @@ trait DurableCacheMapImpl[T <: Txn[T], K]
     * @tparam A         the type of value stored
     */
   override final def putCacheNonTxn[A](key: K, value: A, tx: T)
-                             (implicit path: tx.Acc, serializer: NewImmutSerializer[A]): Unit =
+                             (implicit path: tx.Acc, serializer: ConstantSerializer[A]): Unit =
     putCacheOnly(key, new NonTxnEntry[T, K, A](path, value))(tx)
 
   /** Retrieves a value from the cache _or_ the underlying store (if not found in the cache), where 'only'
@@ -248,7 +248,7 @@ trait DurableCacheMapImpl[T <: Txn[T], K]
     *                   neither in the cache nor in the persistent store.
     */
   override final def getCacheNonTxn[A](key: K, tx: T)
-                             (implicit path: tx.Acc, serializer: NewImmutSerializer[A]): Option[A] = {
+                             (implicit path: tx.Acc, serializer: ConstantSerializer[A]): Option[A] = {
     val v1Opt = getCacheOnly(key, tx)
     if (v1Opt.isDefined) return v1Opt
 

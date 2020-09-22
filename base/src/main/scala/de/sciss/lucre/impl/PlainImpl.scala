@@ -45,8 +45,8 @@ object PlainImpl {
     def readLongVar   (in: DataInput): Var[Long   ] = opNotSupported("readLongVar"    )
   }
 
-  private abstract class AbstractVar /*extends Disposable[Plain#Tx]*/ {
-    final def dispose()/*(implicit tx: Plain#Tx)*/: Unit = ()
+  private abstract class AbstractVar /*extends Disposable[Plain]*/ {
+    final def dispose()/*(implicit tx: Plain)*/: Unit = ()
 
     final def write(out: DataOutput): Unit = opNotSupported("Plain.Var.write")
   }
@@ -120,15 +120,15 @@ object PlainImpl {
 
     def inMemory: I = this
 
-    def inMemoryTx(tx: S#Tx): I#Tx = tx
+    def inMemoryTx(tx: Tx): Tx = tx
 
     // ---- Cursor ----
 
     def step[A](fun: Tx => A): A = fun(this)
 
-    def stepTag[A](systemTimeNanos: Long)(fun: S#Tx => A): A = fun(this)
+    def stepTag[A](systemTimeNanos: Long)(fun: Tx => A): A = fun(this)
 
-    def position(implicit tx: S#Tx): Acc = ()
+    def position(implicit tx: Tx): Acc = ()
 
     // ---- Executor ----
 
@@ -138,7 +138,7 @@ object PlainImpl {
 
     def newId(): Id = new IdImpl
 
-    def readId(in: DataInput)(implicit acc: Acc): Id = opNotSupported("readId")
+    def readId(in: DataInput) /*(implicit acc: Acc)*/: Id = opNotSupported("readId")
 
 //    def newRef[A](init: A): Ref[Tx, A] = new VarImpl(init)
 
@@ -149,7 +149,7 @@ object PlainImpl {
 //    def newIntVar     (id: Id, init: Int     ): Var[Int]     = new IntVarImpl     (init)
 //    def newLongVar    (id: Id, init: Long    ): Var[Long]    = new LongVarImpl    (init)
 //
-//    def newVarArray[A](size: Int): Array[Var[A]] = new Array[S#Var[A]](size)
+//    def newVarArray[A](size: Int): Array[Var[A]] = new Array[Var[A]](size)
 
     def newIdentMap[A]: IdentMap[Id, Tx, A] = new PlainIdentMap[A]
 

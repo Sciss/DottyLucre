@@ -14,7 +14,7 @@
 package de.sciss.lucre.confluent
 package impl
 
-import de.sciss.lucre.{DataStore, NewImmutSerializer, TSerializer}
+import de.sciss.lucre.{DataStore, ConstantSerializer, TSerializer}
 import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.annotation.switch
@@ -51,7 +51,7 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
   }
 
   final def putImmutable[A](key: K, value: A, tx: T)
-                           (implicit path: tx.Acc, ser: NewImmutSerializer[A]): Unit = {
+                           (implicit path: tx.Acc, ser: ConstantSerializer[A]): Unit = {
     val (index, term) = path.splitIndex
     // first we need to see if anything has already been written to the index of the write path
     val eOpt: Option[Entry[T, A]] = store.flatGet[Entry[T, A]]({ out =>
@@ -62,7 +62,7 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
         case 1 =>
           // a single 'root' value is found. extract it for successive re-write.
           val term2 = in.readLong()
-          val prev = ser.read(in)
+          val prev  = ser.read(in)
           Some(EntrySingle(term2, prev))
         case 2 =>
           // there is already a map found
@@ -193,7 +193,7 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
   }
 
   private[this] def putFullMap[A](key: K, index: Access[T], term: Long, value: A, prevTerm: Long, prevValue: A)
-                                 (implicit tx: T, ser: NewImmutSerializer[A]): Unit = {
+                                 (implicit tx: T, ser: ConstantSerializer[A]): Unit = {
     //         require( prevTerm != term, "Duplicate flush within same transaction? " + term.toInt )
     //         require( prevTerm == index.term, "Expected initial assignment term " + index.term.toInt + ", but found " + prevTerm.toInt )
     // create new map with previous value
@@ -250,7 +250,7 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
 
   // store the full value at the full hash (path.sum)
   private[this] def putFullSingle[A](key: K, index: Access[T], term: Long, value: A)
-                                    (implicit tx: T, ser: NewImmutSerializer[A]): Unit =
+                                    (implicit tx: T, ser: ConstantSerializer[A]): Unit =
     store.put { out =>
       writeKey(key, out)
       out.writeLong(index.sum)
@@ -260,7 +260,7 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
       ser.write(value, out)
     }
 
-  final def getImmutable[A](key: K, tx: T)(implicit path: tx.Acc, ser: NewImmutSerializer[A]): Option[A] = {
+  final def getImmutable[A](key: K, tx: T)(implicit path: tx.Acc, ser: ConstantSerializer[A]): Option[A] = {
     if (path.isEmpty) return None
     val (maxIndex, maxTerm) = path.splitIndex
     getWithPrefixLen[A](key, maxIndex, maxTerm)(tx, ser).map(_.value)
@@ -274,12 +274,12 @@ sealed trait DurableConfluentMapImpl[T <: Txn[T], K] extends DurablePersistentMa
       //            (path.dropAndReplaceHead( preLen, writeTerm ), value)
       val access  = wp.term +: path.drop(wp.len)
       val in      = DataInput(wp.value)
-      ser.read(in, tx)(access)
+      tx.withReadAccess(access)(ser.readT(in)(tx))
     }
   }
 
   private[this] def getWithPrefixLen[A](key: K, maxIndex: Access[T], maxTerm: Long)
-                                       (implicit tx: T, ser: NewImmutSerializer[A]): Option[WithPrefix[A]] = {
+                                       (implicit tx: T, ser: ConstantSerializer[A]): Option[WithPrefix[A]] = {
     val preLen = Hashing.maxPrefixLength(maxIndex, hash => store.contains { out =>
       writeKey(key, out)
       out.writeLong(hash)

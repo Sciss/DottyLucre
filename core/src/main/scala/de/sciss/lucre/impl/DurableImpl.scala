@@ -188,7 +188,7 @@ object DurableImpl {
       res
     }
 
-    final def readId(in: DataInput)(implicit acc: Acc): Id = {
+    override final def readId(in: DataInput) /*(implicit acc: Acc)*/: Id = {
       val base = in./* PACKED */ readInt()
       new IdImpl[T](this)(base)
     }
@@ -202,7 +202,7 @@ object DurableImpl {
       implicit val tx : T   = this
       implicit val acc: Acc = ()
       val mId = obj.id.!.id.toLong << 32
-      val mapOpt: Option[Obj.AttrMap[T]] = system.tryRead(mId)(TMap.Modifiable.read[T, String, Obj](_, tx))
+      val mapOpt: Option[Obj.AttrMap[T]] = system.tryRead(mId)(in => TMap.Modifiable.read[T, String, Obj](in))
       mapOpt.getOrElse {
         val map = TMap.Modifiable[T, String, Obj]()
         system.write(mId)(map.write)
@@ -214,7 +214,7 @@ object DurableImpl {
       implicit val tx : T   = this
       implicit val acc: Acc = ()
       val mId = obj.id.!.id.toLong << 32
-      system.tryRead(mId)(TMap.Modifiable.read[T, String, Obj](_, tx))
+      system.tryRead(mId)(TMap.Modifiable.read[T, String, Obj](_))
     }
   }
 
@@ -311,7 +311,7 @@ object DurableImpl {
     extends BasicVar[T, A](tx) {
 
     def apply(): A =
-      tx.system.read[A](id)(ser.read(_, tx)(()))(tx)
+      tx.system.read[A](id)(ser.readT(_)(tx))(tx)
 
     def setInit(v: A): Unit =
       tx.system.write(id)(ser.write(v, _))(tx)
@@ -335,7 +335,7 @@ object DurableImpl {
     extends BasicTVar[T, A] {
 
     def apply()(implicit tx: T): A =
-      tx.system.read[A](id)(ser.read(_, tx)(()))(tx)
+      tx.system.read[A](id)(ser.readT(_)(tx))(tx)
 
     def setInit(v: A)(implicit tx: T): Unit =
       tx.system.write(id)(ser.write(v, _))(tx)
@@ -363,7 +363,7 @@ object DurableImpl {
       tx.system.write(id)(ser.write(this(), _))(tx)
 
     def readInit()(implicit tx: T): Unit =
-      peer.set(tx.system.read(id)(ser.read(_, tx)(()))(tx))(tx.peer)
+      peer.set(tx.system.read(id)(ser.readT(_)(tx))(tx))(tx.peer)
 
 //    def swap(v: A): A = {
 //      val res = peer.swap(v)(tx.peer)

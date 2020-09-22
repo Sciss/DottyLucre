@@ -17,7 +17,7 @@ package impl
 import de.sciss.lucre.confluent.Log.log
 import de.sciss.lucre.confluent.impl.{PathImpl => Path}
 import de.sciss.lucre.impl.BasicTxnImpl
-import de.sciss.lucre.{Confluent, Durable, DurableLike, IdentMap, InMemory, NewImmutSerializer, Obj, ReactionMap, TMap, TSerializer, Ident => LIdent}
+import de.sciss.lucre.{Confluent, Durable, DurableLike, IdentMap, InMemory, ConstantSerializer, Obj, ReactionMap, TMap, TSerializer, Ident => LIdent}
 import de.sciss.serial.DataInput
 
 import scala.collection.immutable.{IndexedSeq => Vec, Queue => IQueue}
@@ -123,6 +123,22 @@ trait TxnMixin[Tx <: Txn[Tx]]
     res
   }
 
+  // ---- access ----
+
+  private[this] var _readAccess: Acc = _  // could be initialized as `inputAccess`, but that's a `val`
+
+  private[confluent] override final def withReadAccess[A](path: Access[Tx])(body: => A): A = {
+    val oldPath = _readAccess
+    _readAccess = path
+    try {
+      body
+    } finally {
+      _readAccess = oldPath
+    }
+  }
+
+  private[confluent] def readAccess = _readAccess
+
   // ---- context ----
 
   // def newContext(): S#Context = ...
@@ -187,7 +203,7 @@ trait TxnMixin[Tx <: Txn[Tx]]
   final def newHandleM[A](value: A)(implicit serializer: TSerializer[T, A]): TSource[T, A] =
     newHandle(value)
 
-  final def getNonTxn[A](id: Id)(implicit ser: NewImmutSerializer[A]): A = {
+  final def getNonTxn[A](id: Id)(implicit ser: ConstantSerializer[A]): A = {
     log(s"txn get $id")
     fullCache.getCacheNonTxn[A](id.base, this)(id.path, ser).getOrElse(sys.error(s"No value for $id"))
   }
@@ -202,7 +218,7 @@ trait TxnMixin[Tx <: Txn[Tx]]
     markDirty()
   }
 
-  final def putNonTxn[A](id: Id, value: A)(implicit ser: NewImmutSerializer[A]): Unit = {
+  final def putNonTxn[A](id: Id, value: A)(implicit ser: ConstantSerializer[A]): Unit = {
     fullCache.putCacheNonTxn[A](id.base, value, this)(id.path, ser)
     markDirty()
   }
@@ -256,9 +272,9 @@ trait TxnMixin[Tx <: Txn[Tx]]
     new InMemoryIdMapImpl[T, A](map)
   }
 
-  override final def readId(in: DataInput)(implicit acc: Acc): Id = {
+  override final def readId(in: DataInput)/*(implicit acc: Acc)*/: Id = {
     val base  = in./* PACKED */ readInt()
-    val res   = new ConfluentId(this, base, Path.readAndAppend[T](in, acc)(this))
+    val res   = new ConfluentId(this, base, Path.readAndAppend[T](in, readAccess)(this))
     log(s"txn readId $res")
     res
   }

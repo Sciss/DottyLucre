@@ -74,9 +74,9 @@ object Ancestor {
     new TreeNew[T, Version](rootVersion, tx)
   }
 
-  def readTree[T <: Exec[T], Version](in: DataInput, tx: T)(
-    implicit access: tx.Acc, versionSerializer: TSerializer[T, Version],
-    intView: Version => Int): Tree[T, Version] = {
+  def readTree[T <: Exec[T], Version](in: DataInput)
+                                     (implicit tx: T, versionSerializer: TSerializer[T, Version],
+                                      intView: Version => Int): Tree[T, Version] = {
 
     val _versionSerializer  = versionSerializer
     val _intView            = intView
@@ -92,19 +92,17 @@ object Ancestor {
           sys.error(s"Incompatible serialized version (found $serVer, required $SER_VERSION).")
       }
 
-      protected val order: TotalOrder.Set[T] = TotalOrder.Set.read(in, tx)
-      val root: K = VertexSerializer.read(in, tx)
+      protected val order: TotalOrder.Set[T] = TotalOrder.Set.read(in)
+      val root: K = VertexSerializer.readT(in)
     }
   }
 
   private final class TreeSer[T <: Exec[T], Version](implicit versionSerializer: TSerializer[T, Version],
                                                      versionView: Version => Int)
-    extends TSerializer[T, Tree[T, Version]] {
+    extends WritableSerializer[T, Tree[T, Version]] {
 
-    def write(t: Tree[T, Version], out: DataOutput): Unit = t.write(out)
-
-    def read(in: DataInput, tx: T)(implicit access: tx.Acc): Tree[T, Version] =
-      readTree(in, tx)
+    override def readT(in: DataInput)(implicit tx: T): Tree[T, Version] =
+      readTree(in)
 
     override def toString = "Ancestor.treeSerializer"
   }
@@ -120,15 +118,13 @@ object Ancestor {
 
     override def toString = s"Ancestor.Tree(root=$root)"
 
-    implicit protected object VertexSerializer extends TSerializer[T, K] {
-      def write(v: K, out: DataOutput): Unit = v.write(out)
-
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): K = new K {
+    implicit protected object VertexSerializer extends WritableSerializer[T, K] {
+      override def readT(in: DataInput)(implicit tx: T): K = new K {
         def tree: Tree[T, Version] = me
 
-        val version : Version                 = versionSerializer.read(in, tx)
-        val pre     : TotalOrder.Set.Entry[T] = order       .readEntry(in, tx)
-        val post    : TotalOrder.Set.Entry[T] = order       .readEntry(in, tx)
+        val version : Version                 = versionSerializer.readT(in)
+        val pre     : TotalOrder.Set.Entry[T] = order       .readEntry(in)
+        val post    : TotalOrder.Set.Entry[T] = order       .readEntry(in)
       }
     }
 
@@ -320,25 +316,15 @@ object Ancestor {
           sys.error(s"Incompatible serialized version (found $serVer, required $SER_VERSION).")
       }
 
-      protected val preOrder: TotalOrder.Map[T, M] =
-        TotalOrder.Map.read[T, M](in, tx, me, _.pre)(access, markSerializer)
+      protected val preOrder : TotalOrder.Map[T, M] = TotalOrder.Map.read[T, M](in, me, _.pre )(tx, markSerializer)
+      protected val postOrder: TotalOrder.Map[T, M] = TotalOrder.Map.read[T, M](in, me, _.post)(tx, markSerializer)
 
-      protected val postOrder: TotalOrder.Map[T, M] =
-        TotalOrder.Map.read[T, M](in, tx, me, _.post)(access, markSerializer)
-
-      protected val preList: SkipList.Set[T, M] = {
-        implicit val ord: scala.Ordering[M] = preOrdering
-        SkipList.Set.read[T, M](in, tx)
-      }
-
-      protected val postList: SkipList.Set[T, M] = {
-        implicit val ord: scala.Ordering[M] = postOrdering
-        SkipList.Set.read[T, M](in, tx)
-      }
+      protected val preList  : SkipList  .Set[T, M] = SkipList  .Set.read[T, M](in)(tx, preOrdering , markSerializer)
+      protected val postList : SkipList  .Set[T, M] = SkipList  .Set.read[T, M](in)(tx, postOrdering, markSerializer)
 
       private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, M] = {
         val pointView = (p: M /*, tx: T*/) => p.toPoint // (tx)
-        SkipOctree.read[T, IntPoint3DLike, IntPoint3D, IntCube, M](in, tx)(access, pointView, IntSpace.ThreeDim, markSerializer)
+        SkipOctree.read[T, IntPoint3DLike, IntPoint3D, IntCube, M](in)(tx, pointView, IntSpace.ThreeDim, markSerializer)
       }
     }
   }
@@ -396,16 +382,14 @@ object Ancestor {
       def compare(a: M, b: M): Int = a.post compare b.post
     }
 
-    protected implicit object markSerializer extends TSerializer[T, M] {
-      def write(v: M, out: DataOutput): Unit = v.write(out)
-
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): M = new M {
+    protected implicit object markSerializer extends WritableSerializer[T, M] {
+      override def readT(in: DataInput)(implicit tx: T): M = new M {
         def map: MapImpl[T, Version, A] = me
 
-        val fullVertex: Vertex[T, Version]        = full.vertexSerializer.read(in, tx)
-        val pre       : MarkOrder[T, Version, A]  = preOrder        .readEntry(in, tx)
-        val post      : MarkOrder[T, Version, A]  = postOrder       .readEntry(in, tx)
-        val value     : A                         = valueSerializer .read     (in, tx)
+        val fullVertex: Vertex[T, Version]        = full.vertexSerializer.readT (in)
+        val pre       : MarkOrder[T, Version, A]  = preOrder        .readEntry  (in)
+        val post      : MarkOrder[T, Version, A]  = postOrder       .readEntry  (in)
+        val value     : A                         = valueSerializer .readT      (in)
       }
     }
 

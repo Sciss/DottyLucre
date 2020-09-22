@@ -2,7 +2,7 @@ package de.sciss.lucre.data
 
 import de.sciss.lucre.data.TotalOrder.Map.RelabelObserver
 import de.sciss.lucre.store.BerkeleyDB
-import de.sciss.lucre.{Cursor, Durable, InMemory, Sys, TSerializer, TestUtil, Txn}
+import de.sciss.lucre.{Cursor, Durable, InMemory, Sys, TSerializer, TestUtil, Txn, WritableSerializer}
 import de.sciss.serial.{DataInput, DataOutput, Writable}
 import org.scalatest.GivenWhenThen
 import org.scalatest.featurespec.AnyFeatureSpec
@@ -19,15 +19,13 @@ import scala.collection.immutable.{Vector => Vec}
 object TotalOrderSuite {
   object MapHolder {
     final class Serializer[T <: Txn[T]](observer: RelabelObserver[T, MapHolder[T]], tx0: T)
-      extends TSerializer[T, MapHolder[T]] {
+      extends WritableSerializer[T, MapHolder[T]] {
 
       val map: TotalOrder.Map[T, MapHolder[T]] = TotalOrder.Map.empty[T, MapHolder[T]](observer, _.entry)(tx0, this)
 
-      def write(v: MapHolder[T], out: DataOutput): Unit = v.write(out)
-
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): MapHolder[T] = {
+      override def readT(in: DataInput)(implicit tx: T): MapHolder[T] = {
         val num = in.readInt()
-        val e = map.readEntry(in, tx)
+        val e = map.readEntry(in)
         new MapHolder(num, e)
       }
     }

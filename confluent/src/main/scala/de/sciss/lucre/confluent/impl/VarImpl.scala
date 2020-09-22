@@ -15,7 +15,7 @@ package de.sciss.lucre.confluent
 package impl
 
 import de.sciss.lucre.confluent.Log.log
-import de.sciss.lucre.{NewImmutSerializer, TSerializer}
+import de.sciss.lucre.{ConstantSerializer, TSerializer}
 import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.collection.immutable.LongMap
@@ -69,7 +69,8 @@ private[impl] final class HandleImpl[T <: Txn[T], A](stale: A, writeIndex: Acces
       if (hash == 0L) {
         // full entry
         val suffix = writeTerm +: readPath.drop(preLen)
-        return serializer.read(in, tx)(suffix)
+        val res = tx.withReadAccess(suffix)(serializer.readT(in)(tx))
+        return res
       } else {
         // partial hash
         val (fullIndex, fullTerm) = maxIndex.splitAtSum(hash)
@@ -104,7 +105,7 @@ private[impl] abstract class BasicVar[T <: Txn[T], A] extends Var[A] {
 }
 
 private[impl] final class VarImpl[T <: Txn[T], A](protected val tx: T, protected val id: Ident[T],
-                                                  protected val ser: NewImmutSerializer[A])
+                                                  protected val ser: ConstantSerializer[A])
   extends BasicVar[T, A] {
 
   def meld(from: Access[T]): A = {
@@ -201,7 +202,7 @@ private final class RootVar[T <: Txn[T], A](id1: Int, name: String)
 }
 
 private[impl] final class BooleanVar[T <: Txn[T]](protected val tx: T, protected val id: Ident[T])
-  extends BasicVar[T, Boolean] with NewImmutSerializer[Boolean] {
+  extends BasicVar[T, Boolean] with ConstantSerializer[Boolean] {
 
   def meld(from: Access[T]): Boolean = {
     log(s"$this meld $from")
@@ -234,7 +235,7 @@ private[impl] final class BooleanVar[T <: Txn[T]](protected val tx: T, protected
 }
 
 private[impl] final class IntVar[T <: Txn[T]](protected val tx: T, protected val id: Ident[T])
-  extends BasicVar[T, Int] with NewImmutSerializer[Int] {
+  extends BasicVar[T, Int] with ConstantSerializer[Int] {
 
   def meld(from: Access[T]): Int = {
     log(s"$this meld $from")
@@ -267,7 +268,7 @@ private[impl] final class IntVar[T <: Txn[T]](protected val tx: T, protected val
 }
 
 private[impl] final class LongVar[T <: Txn[T]](protected val tx: T, protected val id: Ident[T])
-  extends BasicVar[T, Long] with NewImmutSerializer[Long] {
+  extends BasicVar[T, Long] with ConstantSerializer[Long] {
 
   def meld(from: Access[T]): Long = {
     log(s"$this meld $from")

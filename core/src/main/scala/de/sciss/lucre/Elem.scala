@@ -18,7 +18,7 @@ import de.sciss.lucre.impl.ElemImpl
 import de.sciss.serial.{DataInput, Writable}
 
 object Elem {
-  def read[T <: Txn[T]](in: DataInput, tx: T)(implicit acc: tx.Acc): Elem[T] = ElemImpl.read(in, tx)
+  def read[T <: Txn[T]](in: DataInput)(implicit tx: T): Elem[T] = ElemImpl.read(in)
 
   implicit def serializer[T <: Txn[T]]: TSerializer[T, Elem[T]] = ElemImpl.serializer
 
@@ -29,13 +29,13 @@ object Elem {
 
     def init(): Unit = _init
 
-    def readObj[T <: Txn[T]](in: DataInput, tx: T)(implicit acc: tx.Acc): Elem[T] = {
+    def readObj[T <: Txn[T]](in: DataInput)(implicit tx: T): Elem[T] = {
       val tpe = in.readInt()
       if (tpe !== typeId) sys.error(s"Type mismatch, expected $typeId but found $tpe")
-      readIdentifiedObj(in, tx)
+      readIdentifiedObj(in)
     }
 
-    def readIdentifiedObj[T <: Txn[T]](in: DataInput, tx: T)(implicit acc: tx.Acc): Elem[T]
+    def readIdentifiedObj[T <: Txn[T]](in: DataInput)(implicit tx: T): Elem[T]
   }
 
   def addType(tpe: Type): Unit      = ElemImpl.addType(tpe)

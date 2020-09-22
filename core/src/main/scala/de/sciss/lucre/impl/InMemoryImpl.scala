@@ -179,7 +179,7 @@ object InMemoryImpl {
 //    def readIntVar    (id: Id, in: DataInput): Var[Int    ] = opNotSupported("readIntVar"    )
 //    def readLongVar   (id: Id, in: DataInput): Var[Long   ] = opNotSupported("readLongVar"   )
 
-    def readId(in: DataInput)(implicit acc: Acc): Id = opNotSupported("readId")
+    override def readId(in: DataInput)/*(implicit acc: Acc)*/: Id = opNotSupported("readId")
 
     private[lucre] final def reactionMap: ReactionMap[T] = system.reactionMap
 

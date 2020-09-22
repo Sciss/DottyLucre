@@ -16,7 +16,7 @@ package de.sciss.lucre.data
 import java.io.PrintStream
 
 import de.sciss.lucre.geom.{DistanceMeasure, HyperCube, QueryShape, Space}
-import de.sciss.lucre.{Disposable, Exec, Ident, Identified, Mutable, TSerializer, Var}
+import de.sciss.lucre.{Disposable, Exec, Ident, Identified, Mutable, TSerializer, Var, WritableSerializer}
 import de.sciss.serial.impl.ByteArrayOutputStream
 import de.sciss.serial.{DataInput, DataOutput, Writable}
 
@@ -75,10 +75,10 @@ object DetSkipOctree {
                                             keySerializer: TSerializer[T, A]): DetSkipOctree[T, PL, P, H, A] =
     new ImplNew[T, PL, P, H, A](skipGap, tx.newId(), hyperCube, view, tx)
 
-  def read[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](in: DataInput, tx: T)(implicit access: tx.Acc,
-                                                                                pointView: (A /*, T*/) => PL,
-                                                                                space: Space[PL, P, H],
-                                                                                keySerializer: TSerializer[T, A]): DetSkipOctree[T, PL, P, H, A] = {
+  def read[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](in: DataInput)(implicit tx: T,
+                                                                         pointView: (A /*, T*/) => PL,
+                                                                         space: Space[PL, P, H],
+                                                                         keySerializer: TSerializer[T, A]): DetSkipOctree[T, PL, P, H, A] = {
     val _pointView      = pointView
     val _keySerializer  = keySerializer
     val _tx: tx.type    = tx
@@ -109,9 +109,9 @@ object DetSkipOctree {
       val skipList: HASkipList.Set[T, this.Leaf] = {
         implicit val ord: scala.Ordering[this.Leaf] = LeafOrdering
         implicit val r1: TSerializer[T, this.Leaf] = LeafSerializer
-        HASkipList.Set.serializer[T, this.Leaf](KeyObserver).read(in, _tx)
+        HASkipList.Set.serializer[T, this.Leaf](KeyObserver).readT(in)(_tx)
       }
-      val headTree: this.LeftTopBranch = LeftTopBranchSerializer.read(in, _tx)
+      val headTree: this.LeftTopBranch = LeftTopBranchSerializer.readT(in)(_tx)
       val lastTreeRef: Var[this.TopBranch] = {
         implicit val r4: TSerializer[T, this.TopBranch] = TopBranchSerializer
         id.readVar[this.TopBranch](in)
@@ -126,14 +126,12 @@ object DetSkipOctree {
   private final class OctreeSerializer[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A /*, T*/) => PL, 
                                                                   space: Space[PL, P, H], 
                                                                   keySerializer: TSerializer[T, A])
-    extends TSerializer[T, DetSkipOctree[T, PL, P, H, A]] {
+    extends WritableSerializer[T, DetSkipOctree[T, PL, P, H, A]] {
 
-    def read(in: DataInput, tx: T)(implicit access: tx.Acc): DetSkipOctree[T, PL, P, H, A] =
-      DetSkipOctree.read[T, PL, P, H, A](in, tx)
+    override def readT(in: DataInput)(implicit tx: T): DetSkipOctree[T, PL, P, H, A] =
+      DetSkipOctree.read[T, PL, P, H, A](in)
 
     override def toString = "DetSkipOctree.serializer"
-
-    def write(v: DetSkipOctree[T, PL, P, H, A], out: DataOutput): Unit = v.write(out)
   }
 
   private final class ImplNew[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](skipGap: Int,
@@ -1024,129 +1022,111 @@ object DetSkipOctree {
       }
     }
 
-    implicit object RightBranchSerializer extends TSerializer[T, RightBranch] {
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): RightBranch = {
+    implicit object RightBranchSerializer extends WritableSerializer[T, RightBranch] {
+      override def readT(in: DataInput)(implicit tx: T): RightBranch = {
         val cookie = in.readByte()
         val id = tx.readId(in)
         (cookie: @switch) match {
-          case 4 => readRightTopBranch  (in, tx, id)
-          case 5 => readRightChildBranch(in, tx, id)
+          case 4 => readRightTopBranch  (in, id)
+          case 5 => readRightChildBranch(in, id)
           case _ => sys.error(s"Unexpected cookie $cookie")
         }
       }
-
-      def write(v: RightBranch, out: DataOutput): Unit = v.write(out)
     }
 
-    implicit object BranchSerializer extends TSerializer[T, Branch] {
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): Branch = {
+    implicit object BranchSerializer extends WritableSerializer[T, Branch] {
+      override def readT(in: DataInput)(implicit tx: T): Branch = {
         val cookie = in.readByte()
         val id = tx.readId(in)
         (cookie: @switch) match {
-          case 2 => readLeftTopBranch   (in, tx, id)
-          case 3 => readLeftChildBranch (in, tx, id)
-          case 4 => readRightTopBranch  (in, tx, id)
-          case 5 => readRightChildBranch(in, tx, id)
+          case 2 => readLeftTopBranch   (in, id)
+          case 3 => readLeftChildBranch (in, id)
+          case 4 => readRightTopBranch  (in, id)
+          case 5 => readRightChildBranch(in, id)
           case _ => sys.error(s"Unexpected cookie $cookie")
         }
       }
-
-      def write(v: Branch, out: DataOutput): Unit = v.write(out)
     }
 
-    protected object TopBranchSerializer extends TSerializer[T, TopBranch] {
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): TopBranch = {
+    protected object TopBranchSerializer extends WritableSerializer[T, TopBranch] {
+      override def readT(in: DataInput)(implicit tx: T): TopBranch = {
         val cookie = in.readByte()
         val id = tx.readId(in)
         (cookie: @switch) match {
-          case 2 => readLeftTopBranch (in, tx, id)
-          case 4 => readRightTopBranch(in, tx, id)
+          case 2 => readLeftTopBranch (in, id)
+          case 4 => readRightTopBranch(in, id)
           case _ => sys.error(s"Unexpected cookie $cookie")
         }
       }
-
-      def write(v: TopBranch, out: DataOutput): Unit = v.write(out)
     }
 
-    object LeftChildSerializer extends TSerializer[T, LeftChild] {
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): LeftChild = {
+    object LeftChildSerializer extends WritableSerializer[T, LeftChild] {
+      override def readT(in: DataInput)(implicit tx: T): LeftChild = {
         val cookie = in.readByte()
         if (cookie == 0) return Empty
         val id = tx.readId(in)
         (cookie: @switch) match {
-          case 1 => readLeaf(in, tx, id)
-          case 3 => readLeftChildBranch(in, tx, id)
+          case 1 => readLeaf(in, id)
+          case 3 => readLeftChildBranch(in, id)
           case _ => sys.error(s"Unexpected cookie $cookie")
         }
       }
-
-      def write(v: LeftChild, out: DataOutput): Unit = v.write(out)
     }
 
-    implicit object LeftBranchSerializer extends TSerializer[T, LeftBranch] {
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): LeftBranch = {
+    implicit object LeftBranchSerializer extends WritableSerializer[T, LeftBranch] {
+      override def readT(in: DataInput)(implicit tx: T): LeftBranch = {
         val cookie = in.readByte()
         val id = tx.readId(in)
         (cookie: @switch) match {
-          case 2 => readLeftTopBranch  (in, tx, id)
-          case 3 => readLeftChildBranch(in, tx, id)
+          case 2 => readLeftTopBranch  (in, id)
+          case 3 => readLeftChildBranch(in, id)
           case _ => sys.error(s"Unexpected cookie $cookie")
         }
       }
-
-      def write(v: LeftBranch, out: DataOutput): Unit = v.write(out)
     }
 
-    implicit object RightChildSerializer extends TSerializer[T, RightChild] {
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): RightChild = {
+    implicit object RightChildSerializer extends WritableSerializer[T, RightChild] {
+      override def readT(in: DataInput)(implicit tx: T): RightChild = {
         val cookie = in.readByte()
         if (cookie == 0) return Empty
         val id = tx.readId(in)
         (cookie: @switch) match {
-          case 1 => readLeaf(in, tx, id)
-          case 5 => readRightChildBranch(in, tx, id)
+          case 1 => readLeaf(in, id)
+          case 5 => readRightChildBranch(in, id)
           case _ => sys.error(s"Unexpected cookie $cookie")
         }
       }
-
-      def write(v: RightChild, out: DataOutput): Unit = v.write(out)
     }
 
-    implicit object LeftTopBranchSerializer extends TSerializer[T, LeftTopBranch] {
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): LeftTopBranch = {
+    implicit object LeftTopBranchSerializer extends WritableSerializer[T, LeftTopBranch] {
+      override def readT(in: DataInput)(implicit tx: T): LeftTopBranch = {
         val cookie = in.readByte()
         if (cookie != 2) sys.error(s"Unexpected cookie $cookie")
         val id = tx.readId(in)
-        readLeftTopBranch(in, tx, id)
+        readLeftTopBranch(in, id)
       }
-
-      def write(v: LeftTopBranch, out: DataOutput): Unit = v.write(out)
     }
 
-    object RightOptionReader extends TSerializer[T, Next] {
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): Next = {
+    object RightOptionReader extends WritableSerializer[T, Next] {
+      override def readT(in: DataInput)(implicit tx: T): Next = {
         val cookie = in.readByte()
         if (cookie == 0) return Empty
         val id = tx.readId(in)
         (cookie: @switch) match {
-          case 4 => readRightTopBranch  (in, tx, id)
-          case 5 => readRightChildBranch(in, tx, id)
+          case 4 => readRightTopBranch  (in, id)
+          case 5 => readRightChildBranch(in, id)
           case _ => sys.error(s"Unexpected cookie $cookie")
         }
       }
-
-      def write(v: Next, out: DataOutput): Unit = v.write(out)
     }
 
-    protected object LeafSerializer extends TSerializer[T, Leaf] {
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): Leaf = {
+    protected object LeafSerializer extends WritableSerializer[T, Leaf] {
+      override def readT(in: DataInput)(implicit tx: T): Leaf = {
         val cookie = in.readByte()
         if (cookie != 1) sys.error(s"Unexpected cookie $cookie")
         val id = tx.readId(in)
-        readLeaf(in, tx, id)
+        readLeaf(in, id)
       }
-
-      def write(l: Leaf, out: DataOutput): Unit = l.write(out)
     }
 
     implicit protected object KeyObserver extends SkipList.KeyObserver[T, Leaf] {
@@ -1792,8 +1772,8 @@ object DetSkipOctree {
     /*
      * Serialization-id: 1
      */
-    private[this] def readLeaf(in: DataInput, tx: T, id: Ident[T])(implicit access: tx.Acc): Leaf = {
-      val value     = keySerializer.read(in, tx)
+    private[this] def readLeaf(in: DataInput, id: Ident[T])(implicit tx: T): Leaf = {
+      val value     = keySerializer.readT(in)
       val parentRef = id.readVar[Branch](in)
       new LeafImpl(octree, id, value, parentRef)
     }
@@ -1801,7 +1781,7 @@ object DetSkipOctree {
     /*
      * Serialization-id: 2
      */
-    private[this] def readLeftTopBranch(in: DataInput, tx: T, id: Ident[T])(implicit access: tx.Acc): LeftTopBranch = {
+    private[this] def readLeftTopBranch(in: DataInput, id: Ident[T])(implicit tx: T): LeftTopBranch = {
       val sz  = numOrthants
 //      val ch  = tx.newVarArray[LeftChild](sz)
       val ch  = new Array[Var[LeftChild]](sz)
@@ -1817,8 +1797,8 @@ object DetSkipOctree {
     /*
      * Serialization-id: 3
      */
-    private[this] def readLeftChildBranch(in: DataInput, tx: T, id: Ident[T])
-                                         (implicit access: tx.Acc): LeftChildBranch = {
+    private[this] def readLeftChildBranch(in: DataInput, id: Ident[T])
+                                         (implicit tx: T): LeftChildBranch = {
       val parentRef   = id.readVar[LeftBranch](in)
       val hc          = space.hyperCubeSerializer.read(in)
       val sz          = numOrthants
@@ -1836,9 +1816,9 @@ object DetSkipOctree {
     /*
       * Serialization-id: 4
       */
-    private[this] def readRightTopBranch(in: DataInput, tx: T, id: Ident[T])
-                                        (implicit access: tx.Acc): RightTopBranch = {
-      val prev  = TopBranchSerializer.read(in, tx)
+    private[this] def readRightTopBranch(in: DataInput, id: Ident[T])
+                                        (implicit tx: T): RightTopBranch = {
+      val prev  = TopBranchSerializer.readT(in)
       val sz    = numOrthants
 //      val ch    = tx.newVarArray[RightChild](sz)
       val ch    = new Array[Var[RightChild]](sz)
@@ -1854,10 +1834,10 @@ object DetSkipOctree {
     /*
       * Serialization-id: 5
       */
-    private[this] def readRightChildBranch(in: DataInput, tx: T, id: Ident[T])
-                                          (implicit access: tx.Acc): RightChildBranch = {
+    private[this] def readRightChildBranch(in: DataInput, id: Ident[T])
+                                          (implicit tx: T): RightChildBranch = {
       val parentRef = id.readVar[RightBranch](in)
-      val prev      = BranchSerializer.read(in, tx)
+      val prev      = BranchSerializer.readT(in)
       val hc        = space.hyperCubeSerializer.read(in)
       val sz        = numOrthants
 //      val ch        = tx.newVarArray[RightChild](sz)

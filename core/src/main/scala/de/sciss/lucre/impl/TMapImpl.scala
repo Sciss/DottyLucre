@@ -49,18 +49,18 @@ object TMapImpl {
     def tpe: Obj.Type = TMap
   }
 
-  def readIdentifiedObj[T <: Txn[T]](in: DataInput, tx: T)(implicit acc: tx.Acc): Obj[T] = {
-    val targets   = Event.Targets.read(in, tx)
+  def readIdentifiedObj[T <: Txn[T]](in: DataInput)(implicit tx: T): Obj[T] = {
+    val targets   = Event.Targets.read(in)
     val keyTypeId = in.readInt()
     val keyType   = Key(keyTypeId) // Obj.getType(keyTypeId).asInstanceOf[Key[_]]
-    mkRead(in, tx, targets)(acc, keyType)
+    mkRead(in, targets)(tx, keyType)
   }
 
-  private def mkRead[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]](in: DataInput, tx: T, targets: Event.Targets[T])
-                                                                  (implicit acc: tx.Acc, keyType: Key[K]): Impl[T, K, Repr] =
+  private def mkRead[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]](in: DataInput, targets: Event.Targets[T])
+                                                                  (implicit tx: T, keyType: Key[K]): Impl[T, K, Repr] =
     new Impl[T, K, Repr](tx)(targets) { self =>
       val peer: SkipList.Map[T, K, List[Entry[K, V]]] =
-        SkipList.Map.read[T, K, List[Entry[K, V]]](in, tx)(acc, keyOrdering, self.keyType.serializer,
+        SkipList.Map.read[T, K, List[Entry[K, V]]](in)(tx, keyOrdering, self.keyType.serializer,
           TSerializer.list(entrySerializer))
     }
 
@@ -89,7 +89,7 @@ object TMapImpl {
     }
 
     implicit object keyOrdering extends scala.Ordering[K] /*Ordering[T, K]*/ {
-      def compare(a: K, b: K) /*(implicit tx: T)*/: Int = {
+      override def compare(a: K, b: K) /*(implicit tx: T)*/: Int = {
         val ah = a.hashCode() // ##
         val bh = b.hashCode() // ##
         if (ah < bh) -1 else if (ah > bh) 1 else 0
@@ -97,13 +97,13 @@ object TMapImpl {
     }
 
     object entrySerializer extends TSerializer[T, Entry[K, V]] {
-      def read(in: DataInput, tx: T)(implicit acc: tx.Acc): Entry[K, V] = {
+      override def readT(in: DataInput)(implicit tx: T): Entry[K, V] = {
         val key   = keyType.serializer.read(in)
-        val value = Elem.read(in, tx).asInstanceOf[V]
+        val value = Elem.read[T](in).asInstanceOf[V]
         new Entry[K, V](key, value)
       }
 
-      def write(entry: Entry[K, V], out: DataOutput): Unit = {
+      override def write(entry: Entry[K, V], out: DataOutput): Unit = {
         keyType.serializer.write(entry.key, out)
         entry.value.write(out)
       }

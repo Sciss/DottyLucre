@@ -52,12 +52,12 @@ object Expr {
 
     // ---- abstract ----
 
-    def read[T <: Txn[T]](in: DataInput, tx: T)(implicit access: tx.Acc): Repr[T]
+    def read[T <: Txn[T]](in: DataInput)(implicit tx: T): Repr[T]
 
     implicit def serializer   [T <: Txn[T]]: TSerializer[T, Repr[T]]
     implicit def varSerializer[T <: Txn[T]]: TSerializer[T, Var [T]]
 
-    implicit def valueSerializer: ImmutableSerializer[A]
+    implicit def valueSerializer: ConstantSerializer[A]
 
     // ---- public ----
 
@@ -74,8 +74,8 @@ object Expr {
     implicit def newConst [T <: Txn[T]](value: A     )(implicit tx: T): Const[T]
     def newVar            [T <: Txn[T]](init: Repr[T])(implicit tx: T): Var  [T]
 
-    def readConst[T <: Txn[T]](in: DataInput, tx: T)(implicit access: tx.Acc): Const[T]
-    def readVar  [T <: Txn[T]](in: DataInput, tx: T)(implicit access: tx.Acc): Var  [T]
+    def readConst[T <: Txn[T]](in: DataInput)(implicit tx: T): Const[T]
+    def readVar  [T <: Txn[T]](in: DataInput)(implicit tx: T): Var  [T]
 
     def tryParse(value: Any): Option[A]
   }

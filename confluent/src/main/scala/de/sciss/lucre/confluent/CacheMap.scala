@@ -13,7 +13,7 @@
 
 package de.sciss.lucre.confluent
 
-import de.sciss.lucre.{NewImmutSerializer, TSerializer, Txn => LTxn}
+import de.sciss.lucre.{ConstantSerializer, TSerializer, Txn => LTxn}
 
 object CacheMap {
   trait InMemory[T <: LTxn[T], K, +Store] extends CacheMap[T, K, Store] {
@@ -24,11 +24,11 @@ object CacheMap {
   trait Durable[T <: LTxn[T], K, +Store] extends CacheMap[T, K, Store] {
     def putCacheTxn[A](key: K, value: A, tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Unit
 
-    def putCacheNonTxn[A](key: K, value: A, tx: T)(implicit path: tx.Acc, serializer: NewImmutSerializer[A]): Unit
+    def putCacheNonTxn[A](key: K, value: A, tx: T)(implicit path: tx.Acc, serializer: ConstantSerializer[A]): Unit
 
     def getCacheTxn[A](key: K, tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Option[A]
 
-    def getCacheNonTxn[A](key: K, tx: T)(implicit path: tx.Acc, serializer: NewImmutSerializer[A]): Option[A]
+    def getCacheNonTxn[A](key: K, tx: T)(implicit path: tx.Acc, serializer: ConstantSerializer[A]): Option[A]
   }
 
   trait Partial[T <: LTxn[T], K, +Store] extends CacheMap[T, K, Store] {

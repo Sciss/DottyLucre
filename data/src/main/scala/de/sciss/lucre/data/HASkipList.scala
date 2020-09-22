@@ -59,8 +59,8 @@ object HASkipList {
                                               keySerializer: TSerializer[T, A])
     extends TSerializer[T, HASkipList.Set[T, A]] {
 
-    override def read(in: DataInput, tx: T)(implicit acc: tx.Acc): HASkipList.Set[T, A] =
-      HASkipList.Set.read[T, A](in, tx, keyObserver)
+    override def readT(in: DataInput)(implicit tx: T): HASkipList.Set[T, A] =
+      HASkipList.Set.read[T, A](in, keyObserver)
 
     override def write(list: HASkipList.Set[T, A], out: DataOutput): Unit = list.write(out)
 
@@ -71,12 +71,10 @@ object HASkipList {
                                                 (implicit ordering: scala.Ordering[A],
                                                  keySerializer: TSerializer[T, A],
                                                  valueSerializer: TSerializer[T, B])
-    extends TSerializer[T, HASkipList.Map[T, A, B]] {
+    extends WritableSerializer[T, HASkipList.Map[T, A, B]] {
 
-    override def read(in: DataInput, tx: T)(implicit acc: tx.Acc): HASkipList.Map[T, A, B] =
-      HASkipList.Map.read[T, A, B](in, tx, keyObserver)
-
-    override def write(list: HASkipList.Map[T, A, B], out: DataOutput): Unit = list.write(out)
+    override def readT(in: DataInput)(implicit tx: T): HASkipList.Map[T, A, B] =
+      HASkipList.Map.read[T, A, B](in, keyObserver)
 
     override def toString = "HASkipList.Map.serializer"
   }
@@ -138,12 +136,11 @@ object HASkipList {
 
     def writeEntry(key: A, out: DataOutput): Unit = keySerializer.write(key, out)
 
-    protected def readLeaf(in: DataInput, tx: T, isRight: Boolean)
-                          (implicit acc: tx.Acc): Leaf[T, A, A] = {
+    override protected def readLeaf(in: DataInput, isRight: Boolean)(implicit tx: T): Leaf[T, A, A] = {
       val sz    = in.readByte().toInt
       val szi   = if (isRight) sz - 1 else sz
       val keys  = Vector.tabulate[A](sz) { i =>
-        if (i < szi) keySerializer.read(in, tx) else null.asInstanceOf[A]
+        if (i < szi) keySerializer.readT(in) else null.asInstanceOf[A]
       }
       new SetLeaf[T, A](keys)
     }
@@ -251,14 +248,13 @@ object HASkipList {
       override def toString = "ValueIterator"
     }
 
-    protected def readLeaf(in: DataInput, tx: T, isRight: Boolean)
-                          (implicit acc: tx.Acc): Leaf[T, A, (A, B)] = {
+    override protected def readLeaf(in: DataInput, isRight: Boolean)(implicit tx: T): Leaf[T, A, (A, B)] = {
       val sz  = in.readByte().toInt
       val szi = if (isRight) sz - 1 else sz
       val en  = Vector.tabulate(sz) { i =>
         if (i < szi) {
-          val key   = keySerializer  .read(in, tx)
-          val value = valueSerializer.read(in, tx)
+          val key   = keySerializer  .readT(in)
+          val value = valueSerializer.readT(in)
           (key, value)
         } else {
           null.asInstanceOf[(A, B)]
@@ -271,8 +267,6 @@ object HASkipList {
   private abstract class Impl[T <: Exec[T], A, E](tx: T)(final val id: Ident[T]) // (_id: tx.Id)
     extends HASkipList[T, A, E] with HeadOrBranch[T, A, E] with TSerializer[T, Node[T, A, E]] with MutableImpl[T] {
     impl =>
-    
-//    final def id: Ident[T] = _id
 
     // ---- abstract ----
 
@@ -282,7 +276,7 @@ object HASkipList {
     def writeEntry(entry: E, out: DataOutput): Unit
 
     protected def newLeaf(entry: E): Leaf[T, A, E]
-    protected def readLeaf(in: DataInput, tx: T, isRight: Boolean)(implicit acc: tx.Acc): Leaf[T, A, E]
+    protected def readLeaf(in: DataInput, isRight: Boolean)(implicit tx: T): Leaf[T, A, E]
 
     // ---- impl ----
 
@@ -414,7 +408,6 @@ object HASkipList {
      * search key or the greatest key in the set smaller than the search key.
      *
      * @param key  the search key
-     * @param tx   the current transaction
      * @return     if `Some`, holds the leaf and index for the floor element (whose key is <= the search key),
      *             if `None`, there is no key smaller than or equal to the search key in the list
      */
@@ -472,7 +465,6 @@ object HASkipList {
      * search key or the smallest key in the set greater than the search key.
      *
      * @param key  the search key
-     * @param tx   the current transaction
      * @return     if `Some`, holds the leaf and index for the ceiling element (whose key is >= the search key),
      *             if `None`, there is no key greater than or equal to the search key in the list
      */
@@ -950,13 +942,13 @@ object HASkipList {
         v.write(out)(this)
       }
 
-    override def read(in: DataInput, tx: T)(implicit acc: tx.Acc): Node[T, A, E] = {
+    override def readT(in: DataInput)(implicit tx: T): Node[T, A, E] = {
       (in.readByte(): @switch) match {
         case 0 => null // .asInstanceOf[ Branch[ S, A ]]
-        case 1 => Branch.read(in, tx, isRight = false)(id)(acc, this)
-        case 2 => readLeaf   (in, tx, isRight = false)
-        case 5 => Branch.read(in, tx, isRight = true )(id)(acc, this)
-        case 6 => readLeaf   (in, tx, isRight = true )
+        case 1 => Branch.read(in, isRight = false, id = id)(tx, this)
+        case 2 => readLeaf   (in, isRight = false)
+        case 5 => Branch.read(in, isRight = true , id = id)(tx, this)
+        case 6 => readLeaf   (in, isRight = true )
       }
     }
 
@@ -1232,15 +1224,13 @@ object HASkipList {
   }
 
   object Branch {
-    private[HASkipList] def read[T <: Exec[T], A, B](in: DataInput, tx: T,
-                                                     isRight: Boolean)(id: Ident[T] /*tx.Id*/)
-                                                    (implicit acc: tx.Acc,
-                                                     list: Impl[T, A, B]): Branch[T, A, B] = {
+    private[HASkipList] def read[T <: Exec[T], A, B](in: DataInput, isRight: Boolean, id: Ident[T])
+                                                    (implicit tx: T, list: Impl[T, A, B]): Branch[T, A, B] = {
       import list.keySerializer
       val sz    = in.readByte().toInt
       val szi   = if (isRight) sz - 1 else sz
       val keys  = Vector.tabulate(sz) { i =>
-        if (i < szi) keySerializer.read(in, tx) else null.asInstanceOf[A]
+        if (i < szi) keySerializer.readT(in) else null.asInstanceOf[A]
       }
       val downs = Vector.fill(sz)(id.readVar[Node[T, A, B]](in))
       new Branch[T, A, B](keys, downs)
@@ -1422,9 +1412,8 @@ object HASkipList {
       })
     }
 
-    def read[T <: Exec[T], A](in: DataInput, tx: T,
-                              keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
-                             (implicit acc: tx.Acc, ordering: scala.Ordering[A],
+    def read[T <: Exec[T], A](in: DataInput, keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
+                             (implicit tx: T, ordering: scala.Ordering[A],
                               keySerializer: TSerializer[T, A]): HASkipList.Set[T, A] = {
 
       val id      = tx.readId(in)
@@ -1493,8 +1482,8 @@ object HASkipList {
       })
     }
 
-    def read[T <: Exec[T], A, B](in: DataInput, tx: T, keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
-                                (implicit acc: tx.Acc, ordering: scala.Ordering[A],
+    def read[T <: Exec[T], A, B](in: DataInput, keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
+                                (implicit tx: T, ordering: scala.Ordering[A],
                                  keySerializer: TSerializer[T, A],
                                  valueSerializer: TSerializer[T, B]): HASkipList.Map[T, A, B] = {
 

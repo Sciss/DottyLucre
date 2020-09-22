@@ -14,7 +14,7 @@
 package de.sciss.lucre.confluent
 
 import de.sciss.lucre
-import de.sciss.lucre.{ConfluentLike, DurableLike, NewImmutSerializer, TSerializer, confluent}
+import de.sciss.lucre.{ConfluentLike, DurableLike, ConstantSerializer, TSerializer, confluent}
 
 trait Txn[T <: Txn[T]] extends lucre.Txn[T] {
   def system: ConfluentLike[T]
@@ -29,6 +29,11 @@ trait Txn[T <: Txn[T]] extends lucre.Txn[T] {
 
   def inputAccess: Acc
 
+  private[confluent] def readAccess: Acc
+
+  /** Temporarily sets the `readAccess` while executing the body */
+  private[confluent] def withReadAccess[A](path: Acc)(body: => A): A
+
   def info: VersionInfo.Modifiable
 
   def isRetroactive: Boolean
@@ -39,11 +44,11 @@ trait Txn[T <: Txn[T]] extends lucre.Txn[T] {
   private[confluent] def readTreeVertexLevel(term: Long): Int
   private[confluent] def addInputVersion(path: Acc): Unit
 
-  private[confluent] def putTxn[A](id: Id, value: A)(implicit ser: TSerializer[T, A]): Unit
-  private[confluent] def putNonTxn[A](id: Id, value: A)(implicit ser: NewImmutSerializer[A]): Unit
+  private[confluent] def putTxn   [A](id: Id, value: A)(implicit ser: TSerializer[T, A]): Unit
+  private[confluent] def putNonTxn[A](id: Id, value: A)(implicit ser: ConstantSerializer[A]): Unit
 
-  private[confluent] def getTxn[A](id: Id)(implicit ser: TSerializer[T, A]): A
-  private[confluent] def getNonTxn[A](id: Id)(implicit ser: NewImmutSerializer[A]): A
+  private[confluent] def getTxn   [A](id: Id)(implicit ser: TSerializer[T, A]): A
+  private[confluent] def getNonTxn[A](id: Id)(implicit ser: ConstantSerializer[A]): A
 
   private[confluent] def removeFromCache(id: Id): Unit
 

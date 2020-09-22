@@ -13,7 +13,7 @@
 
 package de.sciss.lucre.geom
 
-import de.sciss.lucre.NewImmutSerializer
+import de.sciss.lucre.ConstantSerializer
 
 import scala.collection.immutable.{IndexedSeq => Vec}
 
@@ -246,7 +246,7 @@ sealed trait IntHyperCubeNLike
 }
 
 object IntHyperCubeN {
-  implicit def serializer: NewImmutSerializer[IntHyperCubeN] = IntSpace.NDim.hyperCubeSerializer
+  implicit def serializer: ConstantSerializer[IntHyperCubeN] = IntSpace.NDim.hyperCubeSerializer
 }
 final case class IntHyperCubeN(components: Vec[Int], extent: Int) extends IntHyperCubeNLike {
   def center(idx: Int): Int = components(idx)

@@ -14,7 +14,7 @@
 package de.sciss.lucre.confluent
 package impl
 
-import de.sciss.lucre.{DataStore, NewImmutSerializer, TSerializer}
+import de.sciss.lucre.{DataStore, ConstantSerializer, TSerializer}
 import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.annotation.switch
@@ -39,7 +39,7 @@ sealed trait DurablePartialMapImpl[T <: Txn[T], K] extends DurablePersistentMap[
   final def isFresh(key: K, tx: T)(implicit conPath: tx.Acc): Boolean = true // III
 
   final def putImmutable[A](key: K, value: A, tx: T)
-                           (implicit conPath: tx.Acc, ser: NewImmutSerializer[A]): Unit = {
+                           (implicit conPath: tx.Acc, ser: ConstantSerializer[A]): Unit = {
     val term = conPath.term
     // first we need to see if anything has already been written to the index of the write path
     val eOpt: Option[Entry[T, A]] = store.flatGet[Entry[T, A]]({ out =>
@@ -90,7 +90,7 @@ sealed trait DurablePartialMapImpl[T <: Txn[T], K] extends DurablePersistentMap[
   }
 
   private def putFullMap[A](key: K, /* conIndex: Access[T], */ term: Long, value: A, /* prevTerm: Long, */
-                            prevValue: A)(implicit tx: T, ser: NewImmutSerializer[A]): Unit = {
+                            prevValue: A)(implicit tx: T, ser: ConstantSerializer[A]): Unit = {
     // create new map with previous value
     val m = handler.newPartialMap[A](/* conIndex, prevTerm, */ prevValue)
 
@@ -108,7 +108,7 @@ sealed trait DurablePartialMapImpl[T <: Txn[T], K] extends DurablePersistentMap[
 
   // store the full value at the full hash (path.sum)
   private def putFullSingle[/* @spec(ValueSpec) */ A](key: K, /* conIndex: Access[T], */ term: Long, value: A)
-                                               (implicit tx: T, ser: NewImmutSerializer[A]): Unit =
+                                               (implicit tx: T, ser: ConstantSerializer[A]): Unit =
     store.put { out =>
       out.writeByte(2)
       writeKey(key, out) // out.writeInt( key )
@@ -124,7 +124,7 @@ sealed trait DurablePartialMapImpl[T <: Txn[T], K] extends DurablePersistentMap[
     true
   }
 
-  final def getImmutable[A](key: K, tx: T)(implicit conPath: tx.Acc, ser: NewImmutSerializer[A]): Option[A] = {
+  final def getImmutable[A](key: K, tx: T)(implicit conPath: tx.Acc, ser: ConstantSerializer[A]): Option[A] = {
     if (conPath.isEmpty) return None
     val (maxIndex, maxTerm) = conPath.splitIndex
     getWithPrefixLen[A, A](key, maxIndex, maxTerm)((/* _, */ _, value) => value)(tx, ser)
@@ -148,14 +148,14 @@ sealed trait DurablePartialMapImpl[T <: Txn[T], K] extends DurablePersistentMap[
         }
         val access  = writeTerm +: suffix
         val in      = DataInput(arr)
-        ser.read(in, tx)(access)
+        tx.withReadAccess(access)(ser.readT(in)(tx))
     } (tx, ByteArraySerializer)
   }
 
   // XXX boom! specialized
   private def getWithPrefixLen[A, B](key: K, maxConIndex: Access[T], maxTerm: Long)
                                     (fun: ( /* Int, */ Long, A) => B)
-                                    (implicit tx: T, ser: NewImmutSerializer[A]): Option[B] = {
+                                    (implicit tx: T, ser: ConstantSerializer[A]): Option[B] = {
    store.flatGet { out =>
       out.writeByte(2)
       writeKey(key, out) // out.writeInt( key )

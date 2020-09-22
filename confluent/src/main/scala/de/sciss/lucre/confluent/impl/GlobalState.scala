@@ -37,7 +37,7 @@ private[impl] object GlobalState {
       partialTree  .write(out)
     }
 
-    def read(in: DataInput, tx: D)(implicit acc: tx.Acc): GlobalState[T, D] = {
+    override def readT(in: DataInput)(implicit tx: D): GlobalState[T, D] = {
       val serVer = in.readLong()
       if (serVer != SER_VERSION)
         throw new IllegalStateException(s"Incompatible serialized version. Found $serVer but require $SER_VERSION")
@@ -45,7 +45,7 @@ private[impl] object GlobalState {
       val idCnt         = tx.readCachedIntVar(in)
       val versionLinear = tx.readCachedIntVar(in)
       val versionRandom = tx.readCachedLongVar(in)
-      val partialTree   = Ancestor.readTree[D, Long](in, tx)(acc, implicitly[TSerializer[D, Long]], _.toInt)
+      val partialTree   = Ancestor.readTree[D, Long](in)(tx, TSerializer.Long, _.toInt)
       GlobalState[T, D](durRootId = durRootId, idCnt = idCnt, versionLinear = versionLinear,
         versionRandom = versionRandom, partialTree = partialTree)
     }

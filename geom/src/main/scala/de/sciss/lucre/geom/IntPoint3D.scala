@@ -30,7 +30,7 @@ trait IntPoint3DLike {
 }
 
 object IntPoint3D {
-  implicit def serializer: NewImmutSerializer[IntPoint3D] = IntSpace.ThreeDim.pointSerializer
+  implicit def serializer: ConstantSerializer[IntPoint3D] = IntSpace.ThreeDim.pointSerializer
 }
 final case class IntPoint3D(x: Int, y: Int, z: Int) extends IntPoint3DLike {
   def +(p: IntPoint3D) = IntPoint3D(x + p.x, y + p.y, z + p.z)

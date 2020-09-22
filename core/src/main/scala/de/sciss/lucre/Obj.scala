@@ -18,7 +18,7 @@ import de.sciss.lucre.impl.ObjImpl
 import de.sciss.serial.DataInput
 
 object Obj {
-  def read[T <: Txn[T]](in: DataInput, tx: T)(implicit acc: tx.Acc): Obj[T] = ObjImpl.read(in, tx)
+  def read[T <: Txn[T]](in: DataInput)(implicit tx: T): Obj[T] = ObjImpl.read(in)
 
   /** Copy an object graph with `in` as a leaf.
    * This is short for the following sequence:
@@ -47,14 +47,14 @@ object Obj {
       _init
     }
 
-    final override def readObj[T <: Txn[T]](in: DataInput, tx: T)(implicit acc: tx.Acc): Obj[T] = {
+    final override def readObj[T <: Txn[T]](in: DataInput)(implicit tx: T): Obj[T] = {
       val tpe = in.readInt()
       if (tpe !== typeId) sys.error(
         s"Type mismatch, expected $typeId (0x${typeId.toHexString}) but found $tpe (0x${tpe.toHexString})")
-      readIdentifiedObj(in, tx)
+      readIdentifiedObj(in)
     }
 
-    override def readIdentifiedObj[T <: Txn[T]](in: DataInput, tx: T)(implicit acc: tx.Acc): Obj[T]
+    override def readIdentifiedObj[T <: Txn[T]](in: DataInput)(implicit tx: T): Obj[T]
   }
 
   def addType(tpe: Type): Unit      = ObjImpl.addType(tpe)

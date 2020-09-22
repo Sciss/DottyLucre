@@ -1,8 +1,7 @@
 package de.sciss.lucre.confluent
 
-import de.sciss.lucre.TSerializer
-import de.sciss.lucre.{Var => LVar}
 import de.sciss.lucre.impl.MutableImpl
+import de.sciss.lucre.{WritableSerializer, Var => LVar}
 import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.collection.immutable.{IndexedSeq => Vec}
@@ -18,18 +17,14 @@ class CursorsSpec extends ConfluentSpec {
   //   confluent.showLog = true
 
   object Entity {
-    implicit object CursorSer extends TSerializer[T, Cursor[T, D]] {
-      def write(c: Cursor[T, D], out: DataOutput): Unit = c.write(out)
-
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): Cursor[T, D] = {
-        tx.system.readCursor(in)(tx)
+    implicit object CursorSer extends WritableSerializer[T, Cursor[T, D]] {
+      override def readT(in: DataInput)(implicit tx: T): Cursor[T, D] = {
+        tx.system.readCursor(in)
       }
     }
 
-    implicit object Ser extends TSerializer[T, Entity] {
-      def write(e: Entity, out: DataOutput): Unit = e.write(out)
-
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): Entity = {
+    implicit object Ser extends WritableSerializer[T, Entity] {
+      override def readT(in: DataInput)(implicit tx: T): Entity = {
         val id      = tx.readId(in)
         val field   = id.readIntVar(in)
         val cursors = id.readVar[Vec[Cursor[T, D]]](in)

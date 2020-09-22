@@ -14,15 +14,15 @@
 package de.sciss.lucre
 package impl
 
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.DataInput
 
 import scala.annotation.meta.field
 
 object ObjImpl {
-  def read[T <: Txn[T]](in: DataInput, tx: T)(implicit acc: tx.Acc): Obj[T] = {
+  def read[T <: Txn[T]](in: DataInput)(implicit tx: T): Obj[T] = {
     val typeId  = in.readInt()
     val tpe     = getType(typeId)
-    tpe.readIdentifiedObj(in, tx)
+    tpe.readIdentifiedObj(in)
   }
 
   implicit def serializer[T <: Txn[T]]: TSerializer[T, Obj[T]] = anySer.asInstanceOf[Ser[T]]
@@ -44,9 +44,7 @@ object ObjImpl {
   @inline
   def getType(id: Int): Obj.Type = map.getOrElse(id, sys.error(s"Unknown object type $id (0x${id.toHexString})"))
 
-  private final class Ser[T <: Txn[T]] extends TSerializer[T, Obj[T]] {
-    def read(in: DataInput, tx: T)(implicit acc: tx.Acc): Obj[T] = ObjImpl.read(in, tx)
-
-    def write(obj: Obj[T], out: DataOutput): Unit = obj.write(out)
+  private final class Ser[T <: Txn[T]] extends WritableSerializer[T, Obj[T]] {
+    override def readT(in: DataInput)(implicit tx: T): Obj[T] = ObjImpl.read(in)
   }
 }

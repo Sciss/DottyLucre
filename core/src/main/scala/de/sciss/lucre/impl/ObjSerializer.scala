@@ -15,18 +15,16 @@ package de.sciss.lucre
 package impl
 
 import de.sciss.equal.Implicits._
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.DataInput
 
 trait ObjSerializer[T <: Txn[T], Repr <: Obj[T]]
-  extends TSerializer[T, Repr] {
+  extends WritableSerializer[T, Repr] {
 
   protected def tpe: Obj.Type
 
-  final def write(v: Repr, out: DataOutput): Unit = v.write(out)
-
-  final def read(in: DataInput, tx: T)(implicit acc: tx.Acc): Repr = {
+  override final def readT(in: DataInput)(implicit tx: T): Repr = {
     val tpe0 = in.readInt()
     if (tpe0 !== tpe.typeId) sys.error(s"Type mismatch, expected ${tpe.typeId}, found $tpe0")
-    tpe.readIdentifiedObj(in, tx).asInstanceOf[Repr]
+    tpe.readIdentifiedObj(in).asInstanceOf[Repr]
   }
 }

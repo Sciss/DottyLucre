@@ -45,7 +45,7 @@ object TotalOrder {
       new SetNew[T](tx, rootTag)
     }
 
-    def read[T <: Exec[T]](in: DataInput, tx: T)(implicit access: tx.Acc): Set[T] = {
+    def read[T <: Exec[T]](in: DataInput)(implicit tx: T): Set[T] = {
       val _tx: tx.type = tx
 //      new SetRead(in, tx)
       new Set[T] with MutableImpl[T] {
@@ -62,7 +62,7 @@ object TotalOrder {
 
         val sizeVal: Var[Int] = id.readIntVar(in)
 
-        val root: Set.Entry[T] = EntrySerializer.read(in, _tx)
+        val root: Set.Entry[T] = EntrySerializer.readT(in)(_tx)
       }
     }
 
@@ -169,11 +169,8 @@ object TotalOrder {
     }
   }
 
-  private final class SetSerializer[T <: Exec[T]] extends TSerializer[T, Set[T]] {
-    def read(in: DataInput, tx: T)(implicit access: tx.Acc): Set[T] =
-      Set.read[T](in, tx) // new SetRead[T](in, tx)
-
-    def write(v: Set[T], out: DataOutput): Unit = v.write(out)
+  private final class SetSerializer[T <: Exec[T]] extends WritableSerializer[T, Set[T]] {
+    override def readT(in: DataInput)(implicit tx: T): Set[T] = Set.read[T](in)
 
     override def toString = "Set.serializer"
   }
@@ -227,31 +224,29 @@ object TotalOrder {
 
     override def toString = s"Set$id"
 
-    final def readEntry(in: DataInput, tx: T)(implicit access: tx.Acc): E = 
-      EntrySerializer.read(in, tx)
+    final def readEntry(in: DataInput)(implicit tx: T): E =
+      EntrySerializer.readT(in)
 
-    protected implicit object EntrySerializer extends TSerializer[T, E] {
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): E = {
+    protected implicit object EntrySerializer extends WritableSerializer[T, E] {
+      override def readT(in: DataInput)(implicit tx: T): E = {
         val id      = tx.readId(in)
         val tagVal  = id.readIntVar(in)
         val prevRef = id.readVar[EOpt](in)(EntryOptionSerializer)
         val nextRef = id.readVar[EOpt](in)(EntryOptionSerializer)
         new E(id, me, tagVal, prevRef, nextRef)
       }
-
-      def write(v: E, out: DataOutput): Unit = v.write(out)
     }
 
     protected implicit object EntryOptionSerializer extends TSerializer[T, EOpt] {
-      def read(in: DataInput, tx: T)(implicit access: tx.Acc): EOpt = {
+      override def readT(in: DataInput)(implicit tx: T): EOpt = {
         (in.readByte(): @switch) match {
           case 0 => me.empty
-          case 1 => EntrySerializer.read(in, tx)
+          case 1 => EntrySerializer.readT(in)
           case cookie => sys.error(s"Unexpected cookie $cookie")
         }
       }
 
-      def write(v: EOpt, out: DataOutput): Unit = {
+      override def write(v: EOpt, out: DataOutput): Unit = {
         val e = v.orNull
         if (e == null) {
           out.writeByte(0)
@@ -433,9 +428,9 @@ object TotalOrder {
       new MapNew[T, A](tx, observer, entryView, rootTag)
     }
 
-    def read[T <: Exec[T], A](in: DataInput, tx: T, observer: Map.RelabelObserver[T, A],
+    def read[T <: Exec[T], A](in: DataInput, observer: Map.RelabelObserver[T, A],
                               entryView: A => Map.Entry[T, A])
-                             (implicit access: tx.Acc, keySerializer: TSerializer[T, A]): Map[T, A] = {
+                             (implicit tx: T, keySerializer: TSerializer[T, A]): Map[T, A] = {
       val _tx: tx.type    = tx
       val _entryView      = entryView
       val _keySerializer  = keySerializer
@@ -458,7 +453,7 @@ object TotalOrder {
 
         val sizeVal: Var[Int] = id.readIntVar(in)
 
-        val root: Map.Entry[T, A] = EntrySerializer.read(in, _tx)
+        val root: Map.Entry[T, A] = EntrySerializer.readT(in)(_tx)
       }
     }
 
@@ -622,12 +617,10 @@ object TotalOrder {
   private final class MapSerializer[T <: Exec[T], A](observer: Map.RelabelObserver[T, A],
                                                      entryView: A => Map.Entry[T, A])
                                                     (implicit keySerializer: TSerializer[T, A])
-    extends TSerializer[T, Map[T, A]] {
+    extends WritableSerializer[T, Map[T, A]] {
 
-    def read(in: DataInput, tx: T)(implicit access: tx.Acc): Map[T, A] =
-      Map.read[T, A](in, tx, observer, entryView) //  new MapRead[T, A](tx, observer, entryView, in)
-
-    def write(v: Map[T, A], out: DataOutput): Unit = v.write(out)
+    override def readT(in: DataInput)(implicit tx: T): Map[T, A] =
+      Map.read[T, A](in, observer, entryView) //  new MapRead[T, A](tx, observer, entryView, in)
 
     override def toString = "Map.serializer"
   }
@@ -671,12 +664,12 @@ object TotalOrder {
   }
 
   private final class MapEntrySerializer[T <: Exec[T], A](map: Map[T, A])
-    extends TSerializer[T, Map.Entry[T, A]] {
+    extends WritableSerializer[T, Map.Entry[T, A]] {
 
     private type E    = Map.Entry[T, A]
     private type KOpt = KeyOption[T, A]
 
-    def read(in: DataInput, tx: T)(implicit access: tx.Acc): E = {
+    override def readT(in: DataInput)(implicit tx: T): E = {
       import map.keyOptionSer
       val idE     = tx.readId(in)
       val tagVal  = idE.readIntVar(in)
@@ -684,21 +677,17 @@ object TotalOrder {
       val nextRef = idE.readVar[KOpt](in)(keyOptionSer)
       new Map.Entry[T, A](map, idE, tagVal, prevRef, nextRef)
     }
-
-    def write(v: E, out: DataOutput): Unit = v.write(out)
   }
 
   private final class KeyOptionSerializer[T <: Exec[T], A](map: Map[T, A])
-    extends TSerializer[T, KeyOption[T, A]] {
+    extends WritableSerializer[T, KeyOption[T, A]] {
 
     private type KOpt = KeyOption[T, A]
 
-    def write(v: KOpt, out: DataOutput): Unit = v.write(out)
-
-    def read(in: DataInput, tx: T)(implicit access: tx.Acc): KOpt = {
+    override def readT(in: DataInput)(implicit tx: T): KOpt = {
       if (in.readByte() == 0) map.emptyKey
       else {
-        val key = map.keySerializer.read(in, tx)
+        val key = map.keySerializer.readT(in)
         new DefinedKey(map, key)
       }
     }
@@ -765,8 +754,8 @@ object TotalOrder {
 
     def root: E
 
-    final def readEntry(in: DataInput, tx: T)(implicit access: tx.Acc): E =
-      EntrySerializer.read(in, tx)
+    final def readEntry(in: DataInput)(implicit tx: T): E =
+      EntrySerializer.readT(in)
 
     protected final def disposeData(): Unit = {
       root   .dispose()

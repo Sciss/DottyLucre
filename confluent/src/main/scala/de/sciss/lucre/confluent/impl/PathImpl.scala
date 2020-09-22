@@ -41,10 +41,8 @@ private[confluent] object PathImpl {
 
   private val anySer = new Ser[Confluent.Txn, Durable.Txn]
 
-  private final class Ser[T <: Txn[T], D <: DurableLike.Txn[D]] extends TSerializer[D, Access[T]] {
-    def write(v: Access[T], out: DataOutput): Unit = v.write(out)
-
-    def read(in: DataInput, tx: D)(implicit access: tx.Acc): Access[T] = {
+  private final class Ser[T <: Txn[T], D <: DurableLike.Txn[D]] extends WritableSerializer[D, Access[T]] {
+    override def readT(in: DataInput)(implicit tx: D): Access[T] = {
       val sz    = in./* PACKED */ readInt()
       var tree  = FingerTree.empty[(Int, Long), Long](PathMeasure)
       var i = 0

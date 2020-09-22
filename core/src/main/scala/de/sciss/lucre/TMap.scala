@@ -27,15 +27,15 @@ object TMap extends Obj.Type {
   object Key {
     implicit object Int extends Key[Int] {
       final val typeId  = 2 // IntObj.typeId
-      def serializer: NewImmutSerializer[scala.Int] = NewImmutSerializer.Int
+      def serializer: ConstantSerializer[scala.Int] = TSerializer.Int
     }
     implicit object Long extends Key[Long] {
       final val typeId  = 3 // LongObj.typeId
-      def serializer: NewImmutSerializer[scala.Long] = NewImmutSerializer.Long
+      def serializer: ConstantSerializer[scala.Long] = TSerializer.Long
     }
     implicit object String extends Key[String] {
       final val typeId  = 8 // StringObj.typeId
-      def serializer: NewImmutSerializer[java.lang.String] = NewImmutSerializer.String
+      def serializer: ConstantSerializer[java.lang.String] = TSerializer.String
     }
 
     def apply(typeId: Int): Key[_] = (typeId: @switch) match {
@@ -47,16 +47,15 @@ object TMap extends Obj.Type {
   /** Cheesy little type class for supported immutable keys. */
   sealed trait Key[K] {
     def typeId: Int
-    def serializer: NewImmutSerializer[K]
+    def serializer: ConstantSerializer[K]
   }
 
   object Modifiable {
     def apply[T <: Txn[T], K: Key, Repr[~ <: Txn[~]] <: Elem[~]]()(implicit tx: T): Modifiable[T, K, Repr] =
       TMapImpl[T, K, Repr]()
 
-    def read[T <: Txn[T], K: Key, Repr[~ <: Txn[~]] <: Elem[~]](in: DataInput, tx: T)
-                                                               (implicit acc: tx.Acc): Modifiable[T, K, Repr] =
-      serializer[T, K, Repr].read(in, tx)
+    def read[T <: Txn[T], K: Key, Repr[~ <: Txn[~]] <: Elem[~]](in: DataInput)(implicit tx: T): Modifiable[T, K, Repr] =
+      serializer[T, K, Repr].readT(in)
 
     implicit def serializer[T <: Txn[T], K: Key, Repr[~ <: Txn[~]] <: Elem[~]]: TSerializer[T, Modifiable[T, K, Repr]] =
       TMapImpl.modSerializer[T, K, Repr]
@@ -85,12 +84,11 @@ object TMap extends Obj.Type {
     def -=(key: K): this.type
   }
 
-  def read[T <: Txn[T], K: Key, Repr[~ <: Txn[~]] <: Elem[~]](in: DataInput, tx: T)
-                                                             (implicit acc: tx.Acc): TMap[T, K, Repr] =
-    serializer[T, K, Repr].read(in, tx)
+  def read[T <: Txn[T], K: Key, Repr[~ <: Txn[~]] <: Elem[~]](in: DataInput)(implicit tx: T): TMap[T, K, Repr] =
+    serializer[T, K, Repr].readT(in)
 
-  def readIdentifiedObj[T <: Txn[T]](in: DataInput, tx: T)(implicit acc: tx.Acc): Obj[T] =
-    TMapImpl.readIdentifiedObj(in, tx)
+  override def readIdentifiedObj[T <: Txn[T]](in: DataInput)(implicit tx: T): Obj[T] =
+    TMapImpl.readIdentifiedObj(in)
 
   implicit def serializer[T <: Txn[T], K: Key, Repr[~ <: Txn[~]] <: Elem[~]]: TSerializer[T, TMap[T, K, Repr]] =
     TMapImpl.serializer[T, K, Repr]

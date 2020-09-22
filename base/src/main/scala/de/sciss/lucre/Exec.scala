@@ -46,7 +46,7 @@ trait Exec[T <: Exec[T]] {
   //  def newInMemorySet[A]    : RefSet[S, A]
   //  def newInMemoryMap[A, B] : RefMap[S, A, B]
 
-  def readId(in: DataInput)(implicit acc: Acc): Id
+  def readId(in: DataInput) /*(implicit acc: Acc)*/: Id
 
   /** Creates a handle (in-memory) to refresh a stale version of an object, assuming that the future transaction is issued
    * from the same cursor that is used to create the handle, except for potentially having advanced.

@@ -27,12 +27,10 @@ object CursorImpl {
     ConfluentLike[T] { type D = D1 }): TSerializer[D1, Cursor[T, D1]] = new Ser[T, D1]
 
   private final class Ser[T <: Txn[T], D1 <: DurableLike.Txn[D1]](implicit system: ConfluentLike[T] { type D = D1 })
-    extends TSerializer[D1, Cursor[T, D1]] {
+    extends WritableSerializer[D1, Cursor[T, D1]] {
 
-    def write(v: Cursor[T, D1], out: DataOutput): Unit = v.write(out)
-
-    def read(in: DataInput, tx: D1)(implicit access: tx.Acc): Cursor[T, D1] =
-      CursorImpl.read[T, D1](in, tx)
+    override def readT(in: DataInput)(implicit tx: D1): Cursor[T, D1] =
+      CursorImpl.read[T, D1](in)
   }
 
 //  private trait NoSys extends Sys[NoSys] { type D = stm.Durable }
@@ -44,11 +42,9 @@ object CursorImpl {
   private final val anyPathSer = new PathSer[Confluent.Txn, AnyTxn]
 
   private final class PathSer[T <: Txn[T], D1 <: LTxn[D1]] // (implicit system: S { type D = D1 })
-    extends TSerializer[D1, Access[T]] {
+    extends WritableSerializer[D1, Access[T]] {
 
-    def write(v: Access[T], out: DataOutput): Unit = v.write(out)
-
-    def read(in: DataInput, tx: D1)(implicit access: tx.Acc): Access[T] =
+    override def readT(in: DataInput)(implicit tx: D1): Access[T] =
       confluent.Access.read(in) // system.readPath(in)
   }
 
@@ -64,14 +60,12 @@ object CursorImpl {
   private final val anyDataSer = new DataSer[Confluent.Txn, AnyTxn]
 
   private final class DataSer[T <: Txn[T], D <: LTxn[D]]
-    extends TSerializer[D, Data[T, D]] {
+    extends WritableSerializer[D, Data[T, D]] {
 
-    def write(d: Data[T, D], out: DataOutput): Unit = d.write(out)
-
-    def read(in: DataInput, tx: D)(implicit access: tx.Acc): Data[T, D] = readData[T, D](in, tx)
+    override def readT(in: DataInput)(implicit tx: D): Data[T, D] = readData[T, D](in)
   }
 
-  def readData[T <: Txn[T], D <: LTxn[D]](in: DataInput, tx: D)(implicit access: tx.Acc): Data[T, D] = {
+  def readData[T <: Txn[T], D <: LTxn[D]](in: DataInput)(implicit tx: D): Data[T, D] = {
     val cookie  = in.readShort()
     if (cookie != COOKIE) throw new IllegalStateException(s"Unexpected cookie $cookie (should be $COOKIE)")
     val id      = tx.readId(in) // implicitly[Serializer[D#Tx, D#Acc, D#Id]].read(in)
@@ -98,9 +92,9 @@ object CursorImpl {
                                                    (implicit system: ConfluentLike[T] { type D = D1 }): Cursor[T, D1] =
     new Impl[T, D1](data)
 
-  def read[T <: Txn[T], D1 <: DurableLike.Txn[D1]](in: DataInput, tx: D1)(implicit access: tx.Acc,
-                                                                          system: ConfluentLike[T] { type D = D1 }): Cursor[T, D1] = {
-    val data = readData[T, D1](in, tx)
+  def read[T <: Txn[T], D1 <: DurableLike.Txn[D1]](in: DataInput)(implicit tx: D1,
+                                                                  system: ConfluentLike[T] { type D = D1 }): Cursor[T, D1] = {
+    val data = readData[T, D1](in)
     Cursor.wrap[T, D1](data)
   }
 

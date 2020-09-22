@@ -37,6 +37,6 @@ trait Space[PL, P, /*HL,*/ H] {
 
   implicit def lexicalOrder: Ordering[PL]
 
-  implicit def pointSerializer    : NewImmutSerializer[P]
-  implicit def hyperCubeSerializer: NewImmutSerializer[H]
+  implicit def pointSerializer    : ConstantSerializer[P]
+  implicit def hyperCubeSerializer: ConstantSerializer[H]
 }

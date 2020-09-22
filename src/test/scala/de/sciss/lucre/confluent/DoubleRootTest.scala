@@ -17,26 +17,26 @@ object DoubleRootTest extends App {
   println(s"Directory: $dir")
 
   println("First iteration")
-  iter()
+  iterate()
   println("Second iteration")
-  iter()
+  iterate()
 
   class Data(val id: Ident[T], val vr: LVar[Int])
 
   implicit object DataSer extends TSerializer[T, Data] {
-    def write(v: Data, out: DataOutput): Unit = {
+    override def write(v: Data, out: DataOutput): Unit = {
       v.id.write(out)
       v.vr.write(out)
     }
 
-    def read(in: DataInput, tx: T)(implicit access: tx.Acc): Data = {
+    override def readT(in: DataInput)(implicit tx: T): Data = {
       val id = tx.readId(in)
       val vr = id.readIntVar(in)
       new Data(id, vr)
     }
   }
 
-  def iter(): Unit = {
+  def iterate(): Unit = {
     val database              = BerkeleyDB.factory(dir, createIfNecessary = true)
     implicit val confluent: S = Confluent(database)
     // val durable             = confluent.durable
