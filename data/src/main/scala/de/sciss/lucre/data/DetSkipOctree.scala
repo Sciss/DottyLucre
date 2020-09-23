@@ -106,7 +106,7 @@ object DetSkipOctree {
     val headTree: this.LeftTopBranch = LeftTopBranchFormat.readT(in)(tx0)
 
     val lastTreeRef: Var[T, this.TopBranch] =
-      id.readVar[this.TopBranch](in)(tx0, TopBranchFormat)
+      id.readVar[this.TopBranch](in)(TopBranchFormat)
   }
 
   implicit def format[T <: Exec[T], P,
@@ -1772,14 +1772,13 @@ object DetSkipOctree {
      */
     private[this] def readLeftTopBranch(in: DataInput, id: Ident[T])(implicit tx: T): LeftTopBranch = {
       val sz  = numOrthants
-//      val ch  = tx.newVarArray[LeftChild](sz)
       val ch  = new Array[Var[T, LeftChild]](sz)
       var i = 0
       while (i < sz) {
-        ch(i) = id.readVar[LeftChild](in)(tx, LeftChildFormat)
+        ch(i) = id.readVar[LeftChild](in)(LeftChildFormat)
         i += 1
       }
-      val nextRef = id.readVar[Next](in)(tx, RightOptionReader)
+      val nextRef = id.readVar[Next](in)(RightOptionReader)
       new LeftTopBranchImpl(octree, id, children = ch, nextRef = nextRef)
     }
 
@@ -1791,14 +1790,13 @@ object DetSkipOctree {
       val parentRef   = id.readVar[LeftBranch](in)
       val hc          = space.hyperCubeFormat.read(in)
       val sz          = numOrthants
-//      val ch          = tx.newVarArray[LeftChild](sz)
       val ch          = new Array[Var[T, LeftChild]](sz)
       var i = 0
       while (i < sz) {
-        ch(i) = id.readVar[LeftChild](in)(tx, LeftChildFormat)
+        ch(i) = id.readVar[LeftChild](in)(LeftChildFormat)
         i += 1
       }
-      val nextRef = id.readVar[Next](in)(tx, RightOptionReader)
+      val nextRef = id.readVar[Next](in)(RightOptionReader)
       new LeftChildBranchImpl(octree, id, parentRef, hc, children = ch, nextRef = nextRef)
     }
     
@@ -1809,14 +1807,13 @@ object DetSkipOctree {
                                         (implicit tx: T): RightTopBranch = {
       val prev  = TopBranchFormat.readT(in)
       val sz    = numOrthants
-//      val ch    = tx.newVarArray[RightChild](sz)
       val ch    = new Array[Var[T, RightChild]](sz)
       var i = 0
       while (i < sz) {
         ch(i) = id.readVar[RightChild](in)
         i += 1
       }
-      val nextRef = id.readVar[Next](in)(tx, RightOptionReader)
+      val nextRef = id.readVar[Next](in)(RightOptionReader)
       new RightTopBranchImpl(octree, id, prev, ch, nextRef)
     }
 
@@ -1835,7 +1832,7 @@ object DetSkipOctree {
         ch(i) = id.readVar[RightChild](in)
         i += 1
       }
-      val nextRef = id.readVar[Next](in)(tx, RightOptionReader)
+      val nextRef = id.readVar[Next](in)(RightOptionReader)
       new RightChildBranchImpl(octree, id, parentRef, prev, hc, ch, nextRef)
     }
     

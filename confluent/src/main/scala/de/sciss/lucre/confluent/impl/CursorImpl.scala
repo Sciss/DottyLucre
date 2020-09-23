@@ -69,7 +69,7 @@ object CursorImpl {
     val cookie  = in.readShort()
     if (cookie != COOKIE) throw new IllegalStateException(s"Unexpected cookie $cookie (should be $COOKIE)")
     val id      = tx.readId(in) // implicitly[Format[D#Tx, D#Acc, D#Id]].read(in)
-    val path    = id.readVar[Access[T]](in)(tx, pathFormat[T, D])
+    val path    = id.readVar[Access[T]](in)(pathFormat[T, D])
     new DataImpl[T, D](id, path)
   }
 

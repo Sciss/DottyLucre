@@ -163,10 +163,10 @@ class  DoubleLinkedListSuite extends AnyFunSpec with GivenWhenThen {
       implicit object ser extends WritableFormat[T, Node] {
         override def readT(in: DataInput)(implicit tx: T): Node = {
           val id = tx.readId(in)
-          readData(in, id)(tx)
+          readData(in, id)
         }
 
-        private def readData(in: DataInput, _id: Ident[T])(implicit tx: T): Node = new Node with MutableImpl[T] {
+        private def readData(in: DataInput, _id: Ident[T]): Node = new Node with MutableImpl[T] {
           val id    : Ident[T]              = _id
           val name  : String                = in.readUTF()
           val value : LVar[T, Int]          = id.readIntVar(in)

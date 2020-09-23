@@ -170,7 +170,7 @@ object TotalOrder {
         sys.error(s"Incompatible serialized version (found $version, required $SER_VERSION).")
     }
 
-    val sizeVal: Var[T, Int] = id.readIntVar(in)(tx0)
+    val sizeVal: Var[T, Int] = id.readIntVar(in)
 
     val root: Set.Entry[T] = EntryFormat.readT(in)(tx0)
   }
@@ -213,8 +213,8 @@ object TotalOrder {
       override def readT(in: DataInput)(implicit tx: T): E = {
         val id      = tx.readId(in)
         val tagVal  = id.readIntVar(in)
-        val prevRef = id.readVar[EOpt](in)(tx, EntryOptionFormat)
-        val nextRef = id.readVar[EOpt](in)(tx, EntryOptionFormat)
+        val prevRef = id.readVar[EOpt](in)(EntryOptionFormat)
+        val nextRef = id.readVar[EOpt](in)(EntryOptionFormat)
         new E(id, me, tagVal, prevRef, nextRef)
       }
     }
@@ -596,7 +596,7 @@ object TotalOrder {
       require(version == SER_VERSION, s"Incompatible serialized version (found $version, required $SER_VERSION).")
     }
 
-    val sizeVal: Var[T, Int] = id.readIntVar(in)(tx0)
+    val sizeVal: Var[T, Int] = id.readIntVar(in)
 
     val root: Map.Entry[T, A] = EntryFormat.readT(in)(tx0)
   }
@@ -630,8 +630,8 @@ object TotalOrder {
       import map.keyOptionFmt
       val idE     = tx.readId(in)
       val tagVal  = idE.readIntVar(in)
-      val prevRef = idE.readVar[KOpt](in)(tx, keyOptionFmt)
-      val nextRef = idE.readVar[KOpt](in)(tx, keyOptionFmt)
+      val prevRef = idE.readVar[KOpt](in)
+      val nextRef = idE.readVar[KOpt](in)
       new Map.Entry[T, A](map, idE, tagVal, prevRef, nextRef)
     }
   }

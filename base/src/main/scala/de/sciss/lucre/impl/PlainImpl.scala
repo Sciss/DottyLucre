@@ -39,12 +39,12 @@ object PlainImpl {
     def newIntVar     (init: Int    )(implicit tx: T): Var[T, Int    ] = new IntVarImpl     (init)
     def newLongVar    (init: Long   )(implicit tx: T): Var[T, Long   ] = new LongVarImpl    (init)
 
-    def readVar[A](in: DataInput)(implicit tx: T, format: TFormat[Plain, A]): Var[T, A] =
+    def readVar[A](in: DataInput)(implicit format: TFormat[Plain, A]): Var[T, A] =
       opNotSupported("readVar")
 
-    def readBooleanVar(in: DataInput)(implicit tx: T): Var[T, Boolean] = opNotSupported("readBooleanVar" )
-    def readIntVar    (in: DataInput)(implicit tx: T): Var[T, Int    ] = opNotSupported("readIntVar"     )
-    def readLongVar   (in: DataInput)(implicit tx: T): Var[T, Long   ] = opNotSupported("readLongVar"    )
+    def readBooleanVar(in: DataInput): Var[T, Boolean] = opNotSupported("readBooleanVar" )
+    def readIntVar    (in: DataInput): Var[T, Int    ] = opNotSupported("readIntVar"     )
+    def readLongVar   (in: DataInput): Var[T, Long   ] = opNotSupported("readLongVar"    )
   }
 
   private abstract class AbstractVar extends Disposable[T] with Writable {

@@ -1423,7 +1423,7 @@ object HASkipList {
         sys.error(s"Incompatible serialized version (found $version, required $SER_VERSION).")
 
       val minGap = in.readByte().toInt
-      new SetImpl[T, A](id, minGap, keyObserver, list => id.readVar[Node[T, A]](in)(tx, list))
+      new SetImpl[T, A](id, minGap, keyObserver, list => id.readVar[Node[T, A]](in)(list))
     }
 
     def format[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
@@ -1493,7 +1493,7 @@ object HASkipList {
       if (version != SER_VERSION) sys.error(s"Incompatible serialized version (found $version, required $SER_VERSION).")
 
       val minGap = in.readByte().toInt
-      new MapImpl[T, A, B](id, minGap, keyObserver, list => id.readVar[Node[T, A, B]](in)(tx, list))
+      new MapImpl[T, A, B](id, minGap, keyObserver, list => id.readVar[Node[T, A, B]](in)(list))
     }
 
     def format[T <: Exec[T], A, B](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)

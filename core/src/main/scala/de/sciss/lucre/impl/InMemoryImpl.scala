@@ -102,16 +102,16 @@ object InMemoryImpl {
       new SysInMemoryRef[Long](peer)
     }
 
-    def readVar[A](in: DataInput)(implicit tx: T, format: TFormat[T, A]): Var[T, A] =
+    def readVar[A](in: DataInput)(implicit format: TFormat[T, A]): Var[T, A] =
       opNotSupported("readVar")
 
-    def readBooleanVar(in: DataInput)(implicit tx: T): Var[T, Boolean] =
+    def readBooleanVar(in: DataInput): Var[T, Boolean] =
       opNotSupported("readBooleanVar")
 
-    def readIntVar(in: DataInput)(implicit tx: T): Var[T, Int] =
+    def readIntVar(in: DataInput): Var[T, Int] =
       opNotSupported("readIntVar")
 
-    def readLongVar(in: DataInput)(implicit tx: T): Var[T, Long] =
+    def readLongVar(in: DataInput): Var[T, Long] =
       opNotSupported("readLongVar")
 
     override def equals(that: Any): Boolean = that match {

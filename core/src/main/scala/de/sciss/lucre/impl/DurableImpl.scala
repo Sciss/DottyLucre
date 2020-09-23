@@ -258,22 +258,22 @@ object DurableImpl {
       res
     }
 
-    def readVar[A](in: DataInput)(implicit tx: T, format: TFormat[T, A]): Var[T, A] = {
+    def readVar[A](in: DataInput)(implicit format: TFormat[T, A]): Var[T, A] = {
       val id = in./* PACKED */ readInt()
       new VarImpl[T, A](id, format)
     }
 
-    def readBooleanVar(in: DataInput)(implicit tx: T): Var[T, Boolean] = {
+    def readBooleanVar(in: DataInput): Var[T, Boolean] = {
       val id = in./* PACKED */ readInt()
       new BooleanVar[T](id)
     }
 
-    def readIntVar(in: DataInput)(implicit tx: T): Var[T, Int] = {
+    def readIntVar(in: DataInput): Var[T, Int] = {
       val id = in./* PACKED */ readInt()
       new IntVar[T](id)
     }
 
-    def readLongVar(in: DataInput)(implicit tx: T): Var[T, Long] = {
+    def readLongVar(in: DataInput): Var[T, Long] = {
       val id = in./* PACKED */ readInt()
       new LongVar[T](id)
     }

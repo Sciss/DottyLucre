@@ -29,7 +29,7 @@ object ThesisFiatKaplanExample extends App {
         new Impl[T, A] {
           val peerFmt = peer
           val id      = tx.readId(in)
-          val head    = id.readVar[Option[Cell]](in)(tx, TFormat.option(CellFmt))
+          val head    = id.readVar[Option[Cell]](in)(TFormat.option(CellFmt))
         }
       }
     }

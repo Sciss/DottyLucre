@@ -74,36 +74,36 @@ private abstract class IdImpl[T <: Txn[T]] extends Ident[T] {
     }
   }
 
-  final def readVar[A](in: DataInput)(implicit tx: T, format: TFormat[T, A]): Var[T, A] = {
+  final def readVar[A](in: DataInput)(implicit format: TFormat[T, A]): Var[T, A] = {
     val res = makeVar[A](readSource(in))
     log(s"txn read $res")
     res
   }
 
 
-  final protected def readSource(in: DataInput): Id = {
+  final private def readSource(in: DataInput): Id = {
     val base = in./* PACKED */ readInt()
     new ConfluentId(base, path)
   }
 
-  final protected def readPartialSource(in: DataInput): Id = {
-    val base = in./* PACKED */ readInt()
-    new PartialId(base, path)
-  }
+//  final protected def readPartialSource(in: DataInput): Id = {
+//    val base = in./* PACKED */ readInt()
+//    new PartialId(base, path)
+//  }
 
-  final def readBooleanVar(in: DataInput)(implicit tx: T): Var[T, Boolean] = {
+  final def readBooleanVar(in: DataInput): Var[T, Boolean] = {
     val res = new BooleanVar(readSource(in))
     log(s"txn read $res")
     res
   }
 
-  final def readIntVar(in: DataInput)(implicit tx: T): Var[T, Int] = {
+  final def readIntVar(in: DataInput): Var[T, Int] = {
     val res = new IntVar(readSource(in))
     log(s"txn read $res")
     res
   }
 
-  final def readLongVar(in: DataInput)(implicit tx: T): Var[T, Long] = {
+  final def readLongVar(in: DataInput): Var[T, Long] = {
     val res = new LongVar(readSource(in))
     log(s"txn read $res")
     res

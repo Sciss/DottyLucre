@@ -119,8 +119,8 @@ object ListObjImpl {
         (in.readByte: @switch) match {
           case 1 =>
             val elem = Elem.read(in).asInstanceOf[A]
-            val pred = id.readVar[C](in)(tx, self)
-            val succ = id.readVar[C](in)(tx, self)
+            val pred = id.readVar[C](in)(self)
+            val succ = id.readVar[C](in)(self)
             new Cell[T, A](elem, pred, succ)
           case 0 => null
           case cookie => sys.error(s"Unexpected cookie $cookie")

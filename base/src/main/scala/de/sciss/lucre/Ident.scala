@@ -24,11 +24,11 @@ trait Ident[T <: Exec[T]] extends Disposable[T] with serial.Writable {
   def newIntVar    (init: Int    )(implicit tx: T): Var[T, Int]
   def newLongVar   (init: Long   )(implicit tx: T): Var[T, Long]
 
-  def readVar[A](in: DataInput)(implicit tx: T, format: TFormat[T, A]): Var[T, A]
+  def readVar[A](in: DataInput)(implicit format: TFormat[T, A]): Var[T, A]
 
-  def readBooleanVar(in: DataInput)(implicit tx: T): Var[T, Boolean]
-  def readIntVar    (in: DataInput)(implicit tx: T): Var[T, Int]
-  def readLongVar   (in: DataInput)(implicit tx: T): Var[T, Long]
+  def readBooleanVar(in: DataInput): Var[T, Boolean]
+  def readIntVar    (in: DataInput): Var[T, Int]
+  def readLongVar   (in: DataInput): Var[T, Long]
 
   /** Ensures that the identifier is actually valid in the current transaction. */
   def ! (implicit tx: T): tx.Id
