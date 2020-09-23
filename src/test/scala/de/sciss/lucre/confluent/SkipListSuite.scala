@@ -4,7 +4,8 @@ import java.io.File
 
 import de.sciss.lucre.data.{HASkipList, SkipList}
 import de.sciss.lucre.store.BerkeleyDB
-import de.sciss.lucre.{Confluent, ConfluentLike, InTxnRandom, TRandom, TSerializer, TestUtil, Cursor => LCursor}
+import de.sciss.lucre.{Confluent, ConfluentLike, InTxnRandom, TRandom, TestUtil, Cursor => LCursor}
+import de.sciss.serial.TFormat
 import org.scalatest.GivenWhenThen
 import org.scalatest.featurespec.AnyFeatureSpec
 
@@ -45,7 +46,7 @@ class SkipListSuite extends AnyFeatureSpec with GivenWhenThen {
     if (TWO_GAP_SIZES) {
       withList[T]("HA-1 (" + sysName + ")", { oo =>
         implicit val sys: S = sysCreator()
-        implicit val ser: TSerializer[T, HASkipList.Set[T, Int]] = HASkipList.Set.serializer[T, Int](oo)
+        implicit val format: TFormat[T, HASkipList.Set[T, Int]] = HASkipList.Set.format[T, Int](oo)
         val (access, cursor) = sys.cursorRoot { implicit tx =>
           HASkipList.Set.empty[T, Int](minGap = 1, keyObserver = oo)
         } { implicit tx => _ => sys.newCursor() }
@@ -54,7 +55,7 @@ class SkipListSuite extends AnyFeatureSpec with GivenWhenThen {
     }
     withList[T]("HA-2 (" + sysName + ")", { oo =>
       implicit val sys: S = sysCreator()
-      implicit val ser: TSerializer[T, HASkipList.Set[T, Int]] = HASkipList.Set.serializer[T, Int](oo)
+      implicit val format: TFormat[T, HASkipList.Set[T, Int]] = HASkipList.Set.format[T, Int](oo)
       val (access, cursor) = sys.cursorRoot[HASkipList.Set[T, Int], LCursor[T]] { implicit tx =>
         HASkipList.Set.empty[T, Int](minGap = 2, keyObserver = oo)
       } {

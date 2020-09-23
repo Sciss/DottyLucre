@@ -16,16 +16,16 @@ package confluent
 package impl
 
 import de.sciss.lucre.data.Ancestor
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.{DataInput, DataOutput, TFormat}
 
 private[impl] object GlobalState {
   private val SER_VERSION = 0x436F6E666C6E7400L  // "Conflnt\0"
 
-  implicit def serializer[T <: Txn[T], D <: DurableLike.Txn[D]]: TSerializer[D, GlobalState[T, D]] =
-    new Ser[T, D]
+  implicit def format[T <: Txn[T], D <: DurableLike.Txn[D]]: TFormat[D, GlobalState[T, D]] =
+    new Fmt[T, D]
 
-  private final class Ser[T <: Txn[T], D <: DurableLike.Txn[D]]
-    extends TSerializer[D, GlobalState[T, D]] {
+  private final class Fmt[T <: Txn[T], D <: DurableLike.Txn[D]]
+    extends TFormat[D, GlobalState[T, D]] {
 
     def write(v: GlobalState[T, D], out: DataOutput): Unit = {
       import v._
@@ -45,7 +45,7 @@ private[impl] object GlobalState {
       val idCnt         = tx.readCachedIntVar(in)
       val versionLinear = tx.readCachedIntVar(in)
       val versionRandom = tx.readCachedLongVar(in)
-      val partialTree   = Ancestor.readTree[D, Long](in)(tx, TSerializer.Long, _.toInt)
+      val partialTree   = Ancestor.readTree[D, Long](in)(tx, TFormat.Long, _.toInt)
       GlobalState[T, D](durRootId = durRootId, idCnt = idCnt, versionLinear = versionLinear,
         versionRandom = versionRandom, partialTree = partialTree)
     }

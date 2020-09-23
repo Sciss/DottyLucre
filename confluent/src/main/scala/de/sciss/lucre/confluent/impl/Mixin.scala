@@ -19,8 +19,8 @@ import de.sciss.lucre.confluent.impl.DurableCacheMapImpl.Store
 import de.sciss.lucre.confluent.impl.{PathImpl => Path}
 import de.sciss.lucre.data.Ancestor
 import de.sciss.lucre.impl.{ReactionMapImpl, TRandomImpl}
-import de.sciss.lucre.{ConfluentLike, DataStore, Ident, IdentMap, ConstantSerializer, Observer, TRandom, TSerializer, TSource, TxnLike, Txn => LTxn}
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.lucre.{ConfluentLike, DataStore, Ident, IdentMap, Observer, TRandom, TSource, TxnLike, Txn => LTxn}
+import de.sciss.serial.{ConstFormat, DataInput, DataOutput, TFormat}
 
 import scala.annotation.tailrec
 import scala.collection.immutable.{IndexedSeq => Vec}
@@ -62,7 +62,7 @@ trait Mixin[Tx <: Txn[Tx]]
         val idCnt         = tx.newCachedIntVar(0)
         val versionLinear = tx.newCachedIntVar(0)
         val versionRandom = tx.newCachedLongVar(TRandomImpl.initialScramble(0L)) // scramble !!!
-        val partialTree   = Ancestor.newTree[D, Long](1L << 32)(tx, implicitly[TSerializer[D, Long]], _.toInt)
+        val partialTree   = Ancestor.newTree[D, Long](1L << 32)(tx, TFormat.Long, _.toInt)
         GlobalState[T, D](durRootId = durRootId, idCnt = idCnt, versionLinear = versionLinear,
           versionRandom = versionRandom, partialTree = partialTree)
       }
@@ -123,13 +123,13 @@ trait Mixin[Tx <: Txn[Tx]]
     Cursor.read[T, D](in)
   }
 
-  final def root[A](init: T => A)(implicit serializer: TSerializer[T, A]): TRef[T, A] =
+  final def root[A](init: T => A)(implicit format: TFormat[T, A]): TRef[T, A] =
     executeRoot { implicit tx =>
       rootBody(init)
     }
 
   final def rootJoin[A](init: T => A)
-                       (implicit itx: TxnLike, serializer: TSerializer[T, A]): TRef[T, A] = {
+                       (implicit itx: TxnLike, format: TFormat[T, A]): TRef[T, A] = {
     log("::::::: rootJoin :::::::")
     TxnExecutor.defaultAtomic { itx =>
       implicit val tx: T = wrapRoot(itx)
@@ -138,34 +138,34 @@ trait Mixin[Tx <: Txn[Tx]]
   }
 
   private def rootBody[A](init: T => A)
-                         (implicit tx: T, serializer: TSerializer[T, A]): TRef[T, A] = {
+                         (implicit tx: T, format: TFormat[T, A]): TRef[T, A] = {
     val (rootVar, _, _) = initRoot(init, _ => (), _ => ())
     rootVar
   }
 
   def cursorRoot[A, B](init: T => A)(result: T => A => B)
-                      (implicit serializer: TSerializer[T, A]): (TRef[T, A], B) =
+                      (implicit format: TFormat[T, A]): (TRef[T, A], B) =
     executeRoot { implicit tx =>
       val (rootVar, rootVal, _) = initRoot(init, _ => (), _ => ())
       rootVar -> result(tx)(rootVal)
     }
 
   final def rootWithDurable[A, B](confInt: T => A)(durInit: D => B)
-                                 (implicit aSer: TSerializer[T, A],
-                                  bSer: TSerializer[D, B]): (TSource[T, A], B) =
+                                 (implicit aFmt: TFormat[T, A],
+                                  bFmt: TFormat[D, B]): (TSource[T, A], B) =
     executeRoot { implicit tx =>
       implicit val dtx: D = durableTx(tx)
       val (_, confV, durV) = initRoot[A, B](confInt, { _ /* tx */ =>
         // read durable
         val did = global.durRootId
-        // stm.DurableSurgery.read (durable)(did)(bSer.read(_, ()))
-        durable.read(did)(bSer.readT(_)(dtx))
+        // stm.DurableSurgery.read (durable)(did)(bFmt.read(_, ()))
+        durable.read(did)(bFmt.readT(_)(dtx))
       }, { _ /* tx */ =>
         // create durable
         val _durV = durInit(dtx)
         val did = global.durRootId
-        // stm.DurableSurgery.write(durable)(did)(bSer.write(_durV, _))
-        durable.write(did)(bSer.write(_durV, _))
+        // stm.DurableSurgery.write(durable)(did)(bFmt.write(_durV, _))
+        durable.write(did)(bFmt.write(_durV, _))
         _durV
       })
       tx.newHandle(confV) -> durV
@@ -178,10 +178,10 @@ trait Mixin[Tx <: Txn[Tx]]
   }
 
   private def initRoot[A, B](initA: T => A, readB: T => B, initB: T => B)
-                            (implicit tx: T, serA: TSerializer[T, A]): (TRef[T, A], A, B) = {
-    val rootVar     = new RootVar[T, A](0, "Root") // serializer
+                            (implicit tx: T, serA: TFormat[T, A]): (TRef[T, A], A, B) = {
+    val rootVar     = new RootVar[T, A](0, "Root") // format
     val rootPath    = tx.inputAccess
-    val arrOpt      = varMap.getImmutable[Array[Byte]](0, tx)(rootPath, ByteArraySerializer)
+    val arrOpt      = varMap.getImmutable[Array[Byte]](0, tx)(rootPath, ByteArrayFormat)
     val (aVal, bVal) = arrOpt match {
       case Some(arr) =>
         val in      = DataInput(arr)
@@ -436,7 +436,7 @@ trait Mixin[Tx <: Txn[Tx]]
     } { out =>
       out./* PACKED */ writeInt(tree.term.toInt)
       out./* PACKED */ writeInt(tree.level     )
-      tree.tree.vertexSerializer.write(v, out)
+      tree.tree.vertexFormat.write(v, out)
     }
 
   // creates a new index tree. this _writes_ the tree (using cookie `1`), as well as the root vertex.
@@ -446,7 +446,7 @@ trait Mixin[Tx <: Txn[Tx]]
     val dtx   = durableTx(tx)
     val term  = index.term
     log(s"txn new tree ${term.toInt}")
-    val tree  = Ancestor.newTree[D, Long](term)(dtx, implicitly[TSerializer[D, Long]], _.toInt)
+    val tree  = Ancestor.newTree[D, Long](term)(dtx, implicitly[TFormat[D, Long]], _.toInt)
     val it    = new IndexTreeImpl(tree, level)
     val vInt  = term.toInt
     store.put { out =>
@@ -457,7 +457,7 @@ trait Mixin[Tx <: Txn[Tx]]
     }
     writeTreeVertex(it, tree.root)(dtx)
 
-    val map = newIndexMap(tx, term, ())(index, TSerializer.Unit)
+    val map = newIndexMap(tx, term, ())(index, TFormat.Unit)
     store.put { out =>
       out.writeByte(5)
       out.writeInt(vInt)
@@ -475,7 +475,7 @@ trait Mixin[Tx <: Txn[Tx]]
       out.writeByte(5)
       out.writeInt(index.term.toInt)
     } { in =>
-      readIndexMap[Unit](in, tx)(index, TSerializer.Unit)
+      readIndexMap[Unit](in, tx)(index, TFormat.Unit)
     }
     opt.getOrElse(sys.error(s"No time stamp map found for $index"))
   }
@@ -486,7 +486,7 @@ trait Mixin[Tx <: Txn[Tx]]
       out.writeByte(1)
       out.writeInt(term.toInt)
     } { in =>
-      val tree = Ancestor.readTree[D, Long](in)(tx, TSerializer.Long, _.toInt) // tx.durable
+      val tree = Ancestor.readTree[D, Long](in)(tx, TFormat.Long, _.toInt) // tx.durable
       val level = in./* PACKED */ readInt()
       new IndexTreeImpl(tree, level)
     } getOrElse {
@@ -515,7 +515,7 @@ trait Mixin[Tx <: Txn[Tx]]
     } { in =>
       in./* PACKED */ readInt() // tree index!
       val level   = in./* PACKED */ readInt()
-      val v       = tree.vertexSerializer.readT(in)
+      val v       = tree.vertexFormat.readT(in)
       (v, level)
     } getOrElse sys.error(s"Trying to access nonexistent vertex ${term.toInt}")
   }
@@ -526,7 +526,7 @@ trait Mixin[Tx <: Txn[Tx]]
       out.writeByte(3)
       out.writeInt(v.version.toInt)
     } { out =>
-      partialTree.vertexSerializer.write(v, out)
+      partialTree.vertexFormat.write(v, out)
     }
 
   // ---- index map handler ----
@@ -534,7 +534,7 @@ trait Mixin[Tx <: Txn[Tx]]
   // creates a new index map for marked values and returns that map. it does not _write_ that map
   // anywhere.
   override final def newIndexMap[A](tx: T, rootTerm: Long, rootValue: A)
-                          (implicit index: tx.Acc, serializer: ConstantSerializer[A]): IndexMap[T, A] = {
+                          (implicit index: tx.Acc, format: ConstFormat[A]): IndexMap[T, A] = {
     implicit val dtx: D     = durableTx(tx)
     val tree                = readIndexTree(index.term)
     val full                = tree.tree
@@ -548,7 +548,7 @@ trait Mixin[Tx <: Txn[Tx]]
   }
 
   override final def readIndexMap[A](in: DataInput, tx: T)
-                           (implicit index: tx.Acc, serializer: ConstantSerializer[A]): IndexMap[T, A] = {
+                           (implicit index: tx.Acc, format: ConstFormat[A]): IndexMap[T, A] = {
     implicit val dtx: D     = durableTx(tx)
     implicit val dAcc: Unit = ()
     val term                = index.term
@@ -612,7 +612,7 @@ trait Mixin[Tx <: Txn[Tx]]
       out.writeByte(3)
       out.writeInt(term.toInt)
     } { in =>
-      partialTree.vertexSerializer.readT(in)
+      partialTree.vertexFormat.readT(in)
     } getOrElse {
       sys.error(s"Trying to access nonexistent vertex ${term.toInt}")
     }
@@ -625,14 +625,14 @@ trait Mixin[Tx <: Txn[Tx]]
   }
 
   final def newPartialMap[A](rootValue: A)
-                            (implicit tx: T, serializer: ConstantSerializer[A]): IndexMap[T, A] = {
+                            (implicit tx: T, format: ConstFormat[A]): IndexMap[T, A] = {
     implicit val dtx: D = durableTx(tx)
     val map   = Ancestor.newMap[D, Long, A](partialTree, partialTree.root, rootValue)
     new PartialMapImpl[A](map)
   }
 
   final def readPartialMap[A](in: DataInput)
-                             (implicit tx: T, serializer: ConstantSerializer[A]): IndexMap[T, A] = {
+                             (implicit tx: T, format: ConstFormat[A]): IndexMap[T, A] = {
     implicit val dtx: D     = durableTx(tx)
     implicit val dAcc: Unit = ()
     val map   = Ancestor.readMap[D, Long, A](in, dtx, partialTree)

@@ -40,9 +40,9 @@ class OctreeSuite extends AnyFeatureSpec with GivenWhenThen {
   def withSys[S <: ConfluentLike[T], T <: Txn[T]](sysName: String, sysCreator: () => S, sysCleanUp: (S, Boolean) => Unit): Unit = {
     withTree[T](sysName, () => {
       val system = sysCreator()
-      // import SpaceSerializers.{IntPoint3DSerializer, IntCubeSerializer}
+      // import SpaceFormats.{IntPoint3DFormat, IntCubeFormat}
 //      implicit val pointView = (p: IntPoint3D /*, _: Any*/ ) => p
-//      implicit val ser = DetSkipOctree.serializer[T, IntPoint3DLike, IntPoint3D, IntCube, IntPoint3D]
+//      implicit val ser = DetSkipOctree.format[T, IntPoint3DLike, IntPoint3D, IntCube, IntPoint3D]
       val (access, cursor) = system.cursorRoot { implicit tx =>
         DetSkipOctree.empty[T, IntPoint3DLike, IntPoint3D, IntCube, IntPoint3D](cube)
       } {

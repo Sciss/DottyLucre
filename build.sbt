@@ -5,7 +5,7 @@ lazy val mimaVersion      = "4.0.0"
 
 lazy val deps = new {
   val base = new {
-    val serial        = "1.1.3"
+    val serial        = "2.0.0-SNAPSHOT"
   }
   val adjunct = new {
     val numbers       = "0.2.1"
@@ -18,7 +18,7 @@ lazy val deps = new {
   val expr = new {
     def equal: String = core.equal
     val fileUtil      = "1.1.5"
-    val span          = "1.4.4"
+    val span          = "2.0.0-SNAPSHOT"
   }
   val confluent = new {
     val finger        = "1.5.5"

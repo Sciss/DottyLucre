@@ -14,8 +14,8 @@
 package de.sciss.lucre.confluent
 package impl
 
-import de.sciss.lucre.{DataStore, ConstantSerializer, TSerializer}
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.lucre.DataStore
+import de.sciss.serial.{ConstFormat, DataInput, DataOutput, TFormat}
 
 import scala.annotation.switch
 
@@ -39,7 +39,7 @@ sealed trait DurablePartialMapImpl[T <: Txn[T], K] extends DurablePersistentMap[
   final def isFresh(key: K, tx: T)(implicit conPath: tx.Acc): Boolean = true // III
 
   final def putImmutable[A](key: K, value: A, tx: T)
-                           (implicit conPath: tx.Acc, ser: ConstantSerializer[A]): Unit = {
+                           (implicit conPath: tx.Acc, format: ConstFormat[A]): Unit = {
     val term = conPath.term
     // first we need to see if anything has already been written to the index of the write path
     val eOpt: Option[Entry[T, A]] = store.flatGet[Entry[T, A]]({ out =>
@@ -50,11 +50,11 @@ sealed trait DurablePartialMapImpl[T <: Txn[T], K] extends DurablePersistentMap[
         case 1 =>
           // a single 'root' value is found. extract it for successive re-write.
           val term2 = in.readLong()
-          val prev  = ser.read(in)
+          val prev  = format.read(in)
           Some(EntrySingle(term2, prev))
         case 2 =>
           // there is already a map found
-          val m = handler.readPartialMap[A](/* index, */ in)(tx, ser)
+          val m = handler.readPartialMap[A](/* index, */ in)(tx, format)
           Some(EntryMap(m))
         case _ => None // this would be a partial hash which we don't use
       }
@@ -65,7 +65,7 @@ sealed trait DurablePartialMapImpl[T <: Txn[T], K] extends DurablePersistentMap[
       // if there is a single entry, construct a new ancestor.map with the
       // entry's value taken as root value
       case Some(EntrySingle(_, prevValue)) =>
-        putFullMap[A](key, /* index, */ term, value, /* prevTerm, */ prevValue)(tx, ser)
+        putFullMap[A](key, /* index, */ term, value, /* prevTerm, */ prevValue)(tx, format)
       // if there is an existing map, simply add the new value to it
       case Some(EntryMap(m)) =>
         //if( key == 0 ) {
@@ -81,16 +81,16 @@ sealed trait DurablePartialMapImpl[T <: Txn[T], K] extends DurablePersistentMap[
         //            val indexTerm = index.term
         //            if( term == indexTerm ) {
         //               putPartials( key, index )
-        putFullSingle[A](key, /* index, */ term, value)(tx, ser)
+        putFullSingle[A](key, /* index, */ term, value)(tx, format)
     }
   }
   
-  final def put[A](key: K, value: A, tx: T)(implicit conPath: tx.Acc, ser: TSerializer[T, A]): Unit = {
+  final def put[A](key: K, value: A, tx: T)(implicit conPath: tx.Acc, format: TFormat[T, A]): Unit = {
     ???
   }
 
   private def putFullMap[A](key: K, /* conIndex: Access[T], */ term: Long, value: A, /* prevTerm: Long, */
-                            prevValue: A)(implicit tx: T, ser: ConstantSerializer[A]): Unit = {
+                            prevValue: A)(implicit tx: T, format: ConstFormat[A]): Unit = {
     // create new map with previous value
     val m = handler.newPartialMap[A](/* conIndex, prevTerm, */ prevValue)
 
@@ -108,7 +108,7 @@ sealed trait DurablePartialMapImpl[T <: Txn[T], K] extends DurablePersistentMap[
 
   // store the full value at the full hash (path.sum)
   private def putFullSingle[/* @spec(ValueSpec) */ A](key: K, /* conIndex: Access[T], */ term: Long, value: A)
-                                               (implicit tx: T, ser: ConstantSerializer[A]): Unit =
+                                               (implicit tx: T, format: ConstFormat[A]): Unit =
     store.put { out =>
       out.writeByte(2)
       writeKey(key, out) // out.writeInt( key )
@@ -116,7 +116,7 @@ sealed trait DurablePartialMapImpl[T <: Txn[T], K] extends DurablePersistentMap[
     } { out =>
       out.writeByte(1) // aka entry single
       out.writeLong(term)
-      ser.write(value, out)
+      format.write(value, out)
     }
 
   def remove(key: K, tx: T)(implicit path: tx.Acc): Boolean = {
@@ -124,13 +124,13 @@ sealed trait DurablePartialMapImpl[T <: Txn[T], K] extends DurablePersistentMap[
     true
   }
 
-  final def getImmutable[A](key: K, tx: T)(implicit conPath: tx.Acc, ser: ConstantSerializer[A]): Option[A] = {
+  final def getImmutable[A](key: K, tx: T)(implicit conPath: tx.Acc, format: ConstFormat[A]): Option[A] = {
     if (conPath.isEmpty) return None
     val (maxIndex, maxTerm) = conPath.splitIndex
-    getWithPrefixLen[A, A](key, maxIndex, maxTerm)((/* _, */ _, value) => value)(tx, ser)
+    getWithPrefixLen[A, A](key, maxIndex, maxTerm)((/* _, */ _, value) => value)(tx, format)
   }
 
-  final def get[A](key: K, tx: T)(implicit conPath: tx.Acc, ser: TSerializer[T, A]): Option[A] = {
+  final def get[A](key: K, tx: T)(implicit conPath: tx.Acc, format: TFormat[T, A]): Option[A] = {
     if (conPath.isEmpty) return None
     val (maxIndex, maxTerm) = conPath.splitIndex
     getWithPrefixLen[Array[Byte], A](key, maxIndex, maxTerm) {
@@ -148,14 +148,14 @@ sealed trait DurablePartialMapImpl[T <: Txn[T], K] extends DurablePersistentMap[
         }
         val access  = writeTerm +: suffix
         val in      = DataInput(arr)
-        tx.withReadAccess(access)(ser.readT(in)(tx))
-    } (tx, ByteArraySerializer)
+        tx.withReadAccess(access)(format.readT(in)(tx))
+    } (tx, ByteArrayFormat)
   }
 
   // XXX boom! specialized
   private def getWithPrefixLen[A, B](key: K, maxConIndex: Access[T], maxTerm: Long)
                                     (fun: ( /* Int, */ Long, A) => B)
-                                    (implicit tx: T, ser: ConstantSerializer[A]): Option[B] = {
+                                    (implicit tx: T, format: ConstFormat[A]): Option[B] = {
    store.flatGet { out =>
       out.writeByte(2)
       writeKey(key, out) // out.writeInt( key )
@@ -187,7 +187,7 @@ sealed trait DurablePartialMapImpl[T <: Txn[T], K] extends DurablePersistentMap[
           // _root_ value.
 
           val term2 = in.readLong()
-          val value = ser.read(in)
+          val value = format.read(in)
           //                  EntrySingle[ S, A ]( term2, value )
           Some(fun(/* preConLen, */ term2, value))
 

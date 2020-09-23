@@ -13,15 +13,15 @@
 
 package de.sciss.lucre.confluent
 
-import de.sciss.lucre.{DataStore, DurableLike, InMemoryLike, TSerializer, TSource, TxnLike, confluent, Sys => LSys}
-import de.sciss.serial.DataInput
+import de.sciss.lucre.{DataStore, DurableLike, InMemoryLike, TSource, TxnLike, confluent, Sys => LSys}
+import de.sciss.serial.{DataInput, TFormat}
 
 import scala.collection.immutable.{IndexedSeq => Vec}
 
 /** This is analogous to a `ConfluentLike` trait. Since there is only one system in
   * `LucreConfluent`, it was decided to just name it `confluent.Sys`.
   */
-trait Txt /*[S <: Sys[S]]*/ extends LSys /*[S]*/ {
+trait Sys extends LSys {
   type D <: DurableLike .Txn[D]
   type I <: InMemoryLike.Txn[I]
 
@@ -70,20 +70,20 @@ trait Txt /*[S <: Sys[S]]*/ extends LSys /*[S]*/ {
     *
     * @param init         a function to initialize the data structure (if the database is fresh)
     * @param result       a function to process the data structure
-    * @param serializer   a serializer to read or write the data structure
+    * @param format   a format to read or write the data structure
     * @tparam A           type of data structure
     * @tparam B           type of result from the second function. typically this is an `stm.Cursor[S]`
     * @return             the access to the data structure along with the result of the second function.
     */
   def cursorRoot[A, B](init: T => A)(result: T => A => B)
-                      (implicit serializer: TSerializer[T, A]): (TRef[T, A], B)
+                      (implicit format: TFormat[T, A]): (TRef[T, A], B)
 
   /** Initializes the data structure both with a confluently persisted and an ephemeral-durable value.
     *
     * @param confluent    a function that provides the initial confluent data (if the database is fresh)
     * @param durable      a function that provides the initial ephemeral data (if the database is fresh)
-    * @param aSer         a serializer to read or write the confluent data structure
-    * @param bSer         a serializer to read or write the ephemeral data structure
+    * @param aFmt         a format to read or write the confluent data structure
+    * @param bFmt         a format to read or write the ephemeral data structure
     * @tparam A           type of confluent data structure
     * @tparam B           type of ephemeral data structure
     * @return             a tuple consisting of a handle to the confluent structure and the
@@ -91,8 +91,8 @@ trait Txt /*[S <: Sys[S]]*/ extends LSys /*[S]*/ {
     *                     require an `stm.Source` because `D#Acc` is `Unit` and does not need refresh.
     */
   def rootWithDurable[A, B](confluent: T => A)(durable: D => B)
-                           (implicit aSer: TSerializer[T, A],
-                                     bSer: TSerializer[D, B]): (TSource[T, A], B)
+                           (implicit aFmt: TFormat[T, A],
+                            bFmt: TFormat[D, B]): (TSource[T, A], B)
 
   /** Retrieves the In information for a given version term. */
   private[confluent] def versionInfo(term: Long)(implicit tx: TxnLike): VersionInfo

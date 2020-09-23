@@ -1,10 +1,10 @@
 package de.sciss.lucre.confluent
 
-import de.sciss.lucre.{Confluent, WritableSerializer}
+import de.sciss.lucre.Confluent
 import de.sciss.lucre.impl.MutableImpl
 import de.sciss.lucre.{Var => LVar}
 import de.sciss.lucre.store.BerkeleyDB
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.{DataInput, DataOutput, WritableFormat}
 
 /*
   -- output --
@@ -43,7 +43,7 @@ object RetroactiveTest extends App {
   //  showLog       = true
   //  showCursorLog = true
 
-  implicit object Ser extends WritableSerializer[T, Foo] {
+  implicit object Fmt extends WritableFormat[T, Foo] {
     def readT(in: DataInput)(implicit tx: T): Foo = {
       val id = tx.readId(in)
       new Foo(id, id.readIntVar(in), id.readVar[String](in))

@@ -4,8 +4,8 @@ import java.io.File
 
 import de.sciss.lucre.impl.MutableImpl
 import de.sciss.lucre.store.BerkeleyDB
-import de.sciss.lucre.{Confluent, Durable, Ident, Mutable, TSerializer, WritableSerializer, Var => LVar}
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.lucre.{Confluent, Durable, Ident, Mutable, Var => LVar}
+import de.sciss.serial.{DataInput, DataOutput, TFormat, WritableFormat}
 import org.scalatest.GivenWhenThen
 import org.scalatest.funspec.AnyFunSpec
 
@@ -37,7 +37,7 @@ class  DoubleLinkedListSuite extends AnyFunSpec with GivenWhenThen {
       ///////////////////////////// v0 /////////////////////////////
 
       Given("v0 : Allocate node w0, with x = 1")
-      implicit val whyOhWhy: TSerializer[T, Node] = Node.ser
+      implicit val whyOhWhy: TFormat[T, Node] = Node.ser
       val (access, cursor) = s.cursorRoot[Option[Node], Cursor[T, D]] { implicit tx =>
         val w0 = Node("w0", 1)
         Some(w0)
@@ -160,7 +160,7 @@ class  DoubleLinkedListSuite extends AnyFunSpec with GivenWhenThen {
 
   class Types(val s: S) {
     object Node {
-      implicit object ser extends WritableSerializer[T, Node] {
+      implicit object ser extends WritableFormat[T, Node] {
         override def readT(in: DataInput)(implicit tx: T): Node = {
           val id = tx.readId(in)
           readData(in, id)(tx)

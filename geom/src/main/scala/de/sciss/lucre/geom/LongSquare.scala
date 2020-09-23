@@ -14,6 +14,8 @@
 package de.sciss.lucre
 package geom
 
+import de.sciss.serial.ConstFormat
+
 trait LongSquareLike 
   extends HyperCube[LongPoint2DLike, LongSquare] with QueryShape[BigInt, LongPoint2DLike, LongSquare] {
   
@@ -286,6 +288,6 @@ trait LongSquareLike
 }
 
 object LongSquare {
-  implicit def serializer: ConstantSerializer[LongSquare] = LongSpace.TwoDim.hyperCubeSerializer
+  implicit def format: ConstFormat[LongSquare] = LongSpace.TwoDim.hyperCubeFormat
 }
 final case class LongSquare(cx: Long, cy: Long, extent: Long) extends LongSquareLike

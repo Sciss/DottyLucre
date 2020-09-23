@@ -1,8 +1,8 @@
 package de.sciss.lucre.confluent
 
 import de.sciss.lucre.impl.MutableImpl
-import de.sciss.lucre.{WritableSerializer, Var => LVar}
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.lucre.{Var => LVar}
+import de.sciss.serial.{DataInput, DataOutput, WritableFormat}
 
 import scala.collection.immutable.{IndexedSeq => Vec}
 
@@ -17,13 +17,13 @@ class CursorsSpec extends ConfluentSpec {
   //   confluent.showLog = true
 
   object Entity {
-    implicit object CursorSer extends WritableSerializer[T, Cursor[T, D]] {
+    implicit object CursorFmt extends WritableFormat[T, Cursor[T, D]] {
       override def readT(in: DataInput)(implicit tx: T): Cursor[T, D] = {
         tx.system.readCursor(in)
       }
     }
 
-    implicit object Ser extends WritableSerializer[T, Entity] {
+    implicit object Fmt extends WritableFormat[T, Entity] {
       override def readT(in: DataInput)(implicit tx: T): Entity = {
         val id      = tx.readId(in)
         val field   = id.readIntVar(in)

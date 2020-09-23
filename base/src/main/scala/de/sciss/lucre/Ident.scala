@@ -14,17 +14,17 @@
 package de.sciss.lucre
 
 import de.sciss.serial
-import de.sciss.serial.DataInput
+import de.sciss.serial.{DataInput, TFormat}
 
 trait Ident[T <: Exec[T]] extends Disposable with serial.Writable {
   
-  def newVar[A](init: A)(implicit serializer: TSerializer[T, A]): Var[A]
+  def newVar[A](init: A)(implicit format: TFormat[T, A]): Var[A]
 
   def newBooleanVar(init: Boolean): Var[Boolean]
   def newIntVar    (init: Int    ): Var[Int]
   def newLongVar   (init: Long   ): Var[Long]
 
-  def readVar[A](in: DataInput)(implicit serializer: TSerializer[T, A]): Var[A]
+  def readVar[A](in: DataInput)(implicit format: TFormat[T, A]): Var[A]
 
   def readBooleanVar(in: DataInput): Var[Boolean]
   def readIntVar    (in: DataInput): Var[Int]

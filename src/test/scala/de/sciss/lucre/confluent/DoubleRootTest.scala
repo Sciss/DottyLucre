@@ -3,8 +3,8 @@ package de.sciss.lucre.confluent
 import java.io.File
 
 import de.sciss.lucre.store.BerkeleyDB
-import de.sciss.lucre.{Confluent, Durable, TSerializer, Var => LVar}
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.lucre.{Confluent, Durable, Var => LVar}
+import de.sciss.serial.{DataInput, DataOutput, TFormat}
 
 // XXX TODO should be a ScalaTest spec
 object DoubleRootTest extends App {
@@ -23,7 +23,7 @@ object DoubleRootTest extends App {
 
   class Data(val id: Ident[T], val vr: LVar[Int])
 
-  implicit object DataSer extends TSerializer[T, Data] {
+  implicit object DataFmt extends TFormat[T, Data] {
     override def write(v: Data, out: DataOutput): Unit = {
       v.id.write(out)
       v.vr.write(out)
@@ -48,7 +48,7 @@ object DoubleRootTest extends App {
     //
     //    val cursor = durable.step { implicit tx => cursorAcc() }
 
-    implicit val screwYou: TSerializer[D, Cursor.Data[T, D]] = Cursor.Data.serializer[T, D] // "lovely" Scala type inference at its best
+    implicit val screwYou: TFormat[D, Cursor.Data[T, D]] = Cursor.Data.format[T, D] // "lovely" Scala type inference at its best
     val (varAcc, csrData) = confluent.rootWithDurable { implicit tx =>
       println("Init confluent")
       val id = tx.newId()

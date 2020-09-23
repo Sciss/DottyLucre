@@ -19,7 +19,7 @@ import de.sciss.serial.{DataInput, Writable}
 
 object Access {
   def root[T <: Txn[T]]: Access[T] = impl.PathImpl.root[T]
-  def info[T <: Txn[T]](access: Access[T])(implicit tx: TxnLike, system: Txt): VersionInfo =
+  def info[T <: Txn[T]](access: Access[T])(implicit tx: TxnLike, system: Sys): VersionInfo =
     system.versionInfo(access.term)
 
   def read[T <: Txn[T]](in: DataInput): Access[T] = impl.PathImpl.read(in)

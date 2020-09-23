@@ -17,7 +17,7 @@ package impl
 
 import de.sciss.fingertree
 import de.sciss.fingertree.{FingerTree, FingerTreeLike}
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.{DataInput, DataOutput, TFormat, WritableFormat}
 
 import scala.util.hashing.MurmurHash3
 
@@ -36,12 +36,12 @@ private[confluent] object PathImpl {
       (a._1 + b._1 + c._1, a._2 + b._2 + c._2)
   }
 
-  implicit def serializer[T <: Txn[T], D <: DurableLike.Txn[D]]: TSerializer[D, Access[T]] =
-    anySer.asInstanceOf[Ser[T, D]]
+  implicit def format[T <: Txn[T], D <: DurableLike.Txn[D]]: TFormat[D, Access[T]] =
+    anyFmt.asInstanceOf[Fmt[T, D]]
 
-  private val anySer = new Ser[Confluent.Txn, Durable.Txn]
+  private val anyFmt = new Fmt[Confluent.Txn, Durable.Txn]
 
-  private final class Ser[T <: Txn[T], D <: DurableLike.Txn[D]] extends WritableSerializer[D, Access[T]] {
+  private final class Fmt[T <: Txn[T], D <: DurableLike.Txn[D]] extends WritableFormat[D, Access[T]] {
     override def readT(in: DataInput)(implicit tx: D): Access[T] = {
       val sz    = in./* PACKED */ readInt()
       var tree  = FingerTree.empty[(Int, Long), Long](PathMeasure)

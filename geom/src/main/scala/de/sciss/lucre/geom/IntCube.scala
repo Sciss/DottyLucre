@@ -15,6 +15,7 @@ package de.sciss.lucre
 package geom
 
 import de.sciss.lucre.geom.IntSpace.ThreeDim
+import de.sciss.serial.ConstFormat
 
 /**
  * A three dimensional cube.
@@ -387,7 +388,7 @@ trait IntCubeLike extends HyperCube[IntPoint3DLike, IntCube] with QueryShape[Big
 }
 
 object IntCube {
-  implicit def serializer: ConstantSerializer[IntCube] = IntSpace.ThreeDim.hyperCubeSerializer
+  implicit def format: ConstFormat[IntCube] = IntSpace.ThreeDim.hyperCubeFormat
 }
 final case class IntCube(cx: Int, cy: Int, cz: Int, extent: Int)
   extends IntCubeLike

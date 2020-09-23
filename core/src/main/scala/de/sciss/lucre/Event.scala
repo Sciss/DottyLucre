@@ -15,7 +15,7 @@ package de.sciss.lucre
 
 import de.sciss.equal.Implicits._
 import de.sciss.lucre.Log.logEvent
-import de.sciss.serial.{DataInput, DataOutput, Writable}
+import de.sciss.serial.{DataInput, DataOutput, TFormat, Writable, WritableFormat}
 
 import scala.annotation.switch
 import scala.collection.immutable.{IndexedSeq => Vec}
@@ -46,9 +46,9 @@ trait EventLike[T <: Txn[T], +A] extends Observable[T, A] {
 }
 
 object Event {
-  implicit def serializer[T <: Txn[T]]: TSerializer[T, Event[T, Any]] = anySer.asInstanceOf[Ser[T]]
+  implicit def format[T <: Txn[T]]: TFormat[T, Event[T, Any]] = anyFmt.asInstanceOf[Fmt[T]]
 
-  private val anySer = new Ser[AnyTxn]
+  private val anyFmt = new Fmt[AnyTxn]
 
   private[lucre] def read[T <: Txn[T]](in: DataInput)(implicit tx: T): Event[T, Any] = {
     val slot  = in.readByte().toInt
@@ -56,7 +56,7 @@ object Event {
     node.event(slot)
   }
 
-  private final class Ser[T <: Txn[T]] extends WritableSerializer[T, Event[T, Any]] {
+  private final class Fmt[T <: Txn[T]] extends WritableFormat[T, Event[T, Any]] {
     override def readT(in: DataInput)(implicit tx: T): Event[T, Any] =
       Event.read(in)
   }
@@ -66,17 +66,17 @@ object Event {
   private def NoChildren[T <: Txn[T]]: Children[T] = Vector.empty
 
   object Targets {
-    private implicit def childrenSerializer[T <: Txn[T]]: TSerializer[T, Children[T]] =
-      anyChildrenSer.asInstanceOf[ChildrenSer[T]]
+    private implicit def childrenFormat[T <: Txn[T]]: TFormat[T, Children[T]] =
+      anyChildrenFmt.asInstanceOf[ChildrenFmt[T]]
 
-    private val anyChildrenSer = new ChildrenSer[AnyTxn]
+    private val anyChildrenFmt = new ChildrenFmt[AnyTxn]
 
-    private final class ChildrenSer[T <: Txn[T]] extends TSerializer[T, Children[T]] {
+    private final class ChildrenFmt[T <: Txn[T]] extends TFormat[T, Children[T]] {
       override def write(v: Children[T], out: DataOutput): Unit = {
         out./* PACKED */ writeInt(v.size)
         v.foreach { tup =>
           out.writeByte(tup._1)
-          tup._2.write(out) // same as Selector.serializer.write(tup._2)
+          tup._2.write(out) // same as Selector.format.write(tup._2)
         }
       }
 

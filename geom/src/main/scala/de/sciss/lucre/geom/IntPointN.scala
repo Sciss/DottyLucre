@@ -13,8 +13,8 @@
 
 package de.sciss.lucre.geom
 
-import de.sciss.lucre.ConstantSerializer
 import de.sciss.lucre.geom.IntSpace.NDim
+import de.sciss.serial.ConstFormat
 
 import scala.collection.immutable.{IndexedSeq => Vec}
 
@@ -37,7 +37,7 @@ trait IntPointNLike {
 }
 
 object IntPointN {
-  implicit def serializer: ConstantSerializer[IntPointN] = IntSpace.NDim.pointSerializer
+  implicit def format: ConstFormat[IntPointN] = IntSpace.NDim.pointFormat
 }
 final case class IntPointN(components: Vec[Int]) extends IntPointNLike {
   // if( components.size != dim ) throw new IllegalArgumentException( "Expected " + dim + " components: " + components )

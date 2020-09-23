@@ -15,7 +15,7 @@ package de.sciss.lucre
 package data
 
 import de.sciss.lucre.geom.{DistanceMeasure, HyperCube, QueryShape, Space}
-import de.sciss.serial.DataInput
+import de.sciss.serial.{DataInput, TFormat, WritableFormat}
 
 import scala.collection.immutable.{IndexedSeq => Vec}
 
@@ -24,27 +24,27 @@ object SkipOctree {
     (a, _) => view(a)
 
   def empty[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](hyperCube: H)
-                                      (implicit tx: T, view: (A /*, T*/) => PL, space: Space[PL, P, H],
-                                       keySerializer: TSerializer[T, A]): SkipOctree[T, PL, P, H, A] =
+                                      (implicit tx: T, view: (A) => PL, space: Space[PL, P, H],
+                                       keyFormat: TFormat[T, A]): SkipOctree[T, PL, P, H, A] =
     DetSkipOctree.empty[T, PL, P, H, A](hyperCube)
 
-  def read[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](in: DataInput)(implicit tx: T, view: (A /*, T*/) => PL,
+  def read[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](in: DataInput)(implicit tx: T, view: (A) => PL,
                                                             space: Space[PL, P, H],
-                                                            keySerializer: TSerializer[T, A]): SkipOctree[T, PL, P, H, A] =
+                                                            keyFormat: TFormat[T, A]): SkipOctree[T, PL, P, H, A] =
     DetSkipOctree.read[T, PL, P, H, A](in)
 
-  implicit def serializer[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A /*, T*/) => PL, space: Space[PL, P, H],
-                                                     keySerializer: TSerializer[T, A]): TSerializer[T, SkipOctree[T, PL, P, H, A]] =
-    new Ser[T, PL, P, H, A]
+  implicit def format[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A) => PL, space: Space[PL, P, H],
+                                                     keyFormat: TFormat[T, A]): TFormat[T, SkipOctree[T, PL, P, H, A]] =
+    new Fmt[T, PL, P, H, A]
 
-  private final class Ser[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A /*, T*/) => PL, space: Space[PL, P, H],
-                                                                         keySerializer: TSerializer[T, A])
-    extends WritableSerializer[T, SkipOctree[T, PL, P, H, A]] {
+  private final class Fmt[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A) => PL, space: Space[PL, P, H],
+                                                                         keyFormat: TFormat[T, A])
+    extends WritableFormat[T, SkipOctree[T, PL, P, H, A]] {
 
     override def readT(in: DataInput)(implicit tx: T): SkipOctree[T, PL, P, H, A] =
       DetSkipOctree.read(in)
 
-    override def toString = "SkipOctree.serializer"
+    override def toString = "SkipOctree.format"
   }
 }
 

@@ -15,7 +15,7 @@ package de.sciss.lucre
 
 import de.sciss.equal.Implicits._
 import de.sciss.lucre.impl.ObjImpl
-import de.sciss.serial.DataInput
+import de.sciss.serial.{DataInput, TFormat}
 
 object Obj {
   def read[T <: Txn[T]](in: DataInput)(implicit tx: T): Obj[T] = ObjImpl.read(in)
@@ -37,7 +37,7 @@ object Obj {
     res
   }
 
-  implicit def serializer[T <: Txn[T]]: TSerializer[T, Obj[T]] = ObjImpl.serializer
+  implicit def format[T <: Txn[T]]: TFormat[T, Obj[T]] = ObjImpl.format
 
   trait Type extends Elem.Type {
     private[this] lazy val _init: Unit = Obj.addType(this)
@@ -72,10 +72,10 @@ object Obj {
 //  val  AttrReplaced : evt.Map.Replaced.type = evt.Map.Replaced
 //  type AttrReplaced[T <: Txn[T]]            = evt.Map.Replaced[T, String, Obj[T]]
 //
-  /* implicit */ def attrMapSerializer[T <: Txn[T]]: TSerializer[T, AttrMap[T]] =
-    anyAttrMapSer.asInstanceOf[TSerializer[T, AttrMap[T]]]
+  /* implicit */ def attrMapFormat[T <: Txn[T]]: TFormat[T, AttrMap[T]] =
+    anyAttrMapFmt.asInstanceOf[TFormat[T, AttrMap[T]]]
 
-  private[this] val anyAttrMapSer = TMap.Modifiable.serializer[AnyTxn, String, Obj]
+  private[this] val anyAttrMapFmt = TMap.Modifiable.format[AnyTxn, String, Obj]
 
   final val attrName = "name"
 }

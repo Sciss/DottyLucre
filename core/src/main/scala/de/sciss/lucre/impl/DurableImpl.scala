@@ -16,7 +16,7 @@ package impl
 
 import de.sciss.equal.Implicits._
 import de.sciss.lucre.Log.logTxn
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.{DataInput, DataOutput, TFormat}
 
 import scala.annotation.elidable
 import scala.concurrent.stm.{InTxn, Ref}
@@ -45,24 +45,24 @@ object DurableImpl {
       new CachedIntVar[T](0, _idCnt)
     }
 
-    def root[A](init: T => A)(implicit serializer: TSerializer[T, A]): TSource[T, A] =
+    def root[A](init: T => A)(implicit format: TFormat[T, A]): TSource[T, A] =
       step { implicit tx =>
         rootBody(init)
       }
 
-    def rootJoin[A](init: T => A)(implicit tx: TxnLike, serializer: TSerializer[T, A]): TSource[T, A] =
-      rootBody(init)(wrap(tx.peer), serializer)
+    def rootJoin[A](init: T => A)(implicit tx: TxnLike, format: TFormat[T, A]): TSource[T, A] =
+      rootBody(init)(wrap(tx.peer), format)
 
     private[this] def rootBody[A](init: T => A)
-                                 (implicit tx: T, serializer: TSerializer[T, A]): TSource[T, A] = {
+                                 (implicit tx: T, format: TFormat[T, A]): TSource[T, A] = {
       val rootId = 2 // 1 == reaction map!!!
       if (exists(rootId)) {
-        new TVarImpl[T, A](rootId, serializer)
+        new TVarImpl[T, A](rootId, format)
       } else {
         val id = newIdValue()
         require(id === rootId,
           s"Root can only be initialized on an empty database (expected id count is $rootId but found $id)")
-        val res = new TVarImpl[T, A](id, serializer)
+        val res = new TVarImpl[T, A](id, format)
         res.setInit(init(tx))
         res
       }
@@ -146,8 +146,8 @@ object DurableImpl {
 
     final def newId(): Id = new IdImpl[T](this)(system.newIdValue()(this))
     
-    final def newCachedVar[A](init: A)(implicit ser: TSerializer[T, A]): TVar[T, A] = {
-      val res = new CachedVarImpl[T, A](system.newIdValue()(this), Ref(init), ser)
+    final def newCachedVar[A](init: A)(implicit format: TFormat[T, A]): TVar[T, A] = {
+      val res = new CachedVarImpl[T, A](system.newIdValue()(this), Ref(init), format)
       res.writeInit()(this)
       res
     }
@@ -167,9 +167,9 @@ object DurableImpl {
     final def newIdentMap[A]: IdentMap[Ident[T], T, A] =
       IdentMapImpl[Ident[T], T, A] { implicit tx => id => id.!.id }
 
-    final def readCachedVar[A](in: DataInput)(implicit ser: TSerializer[T, A]): TVar[T, A] = {
+    final def readCachedVar[A](in: DataInput)(implicit format: TFormat[T, A]): TVar[T, A] = {
       val id = in./* PACKED */ readInt()
-      val res = new CachedVarImpl[T, A](id, Ref.make[A](), ser)
+      val res = new CachedVarImpl[T, A](id, Ref.make[A](), format)
       res.readInit()(this)
       res
     }
@@ -193,7 +193,7 @@ object DurableImpl {
       new IdImpl[T](this)(base)
     }
 
-    final def newHandle[A](value: A)(implicit serializer: TSerializer[T, A]): TSource[T, A] =
+    final def newHandle[A](value: A)(implicit format: TFormat[T, A]): TSource[T, A] =
       new EphemeralTSource(value)
 
     // ---- attributes ----
@@ -234,8 +234,8 @@ object DurableImpl {
 
     def dispose(): Unit = tx.system.remove(id)(tx)
 
-    def newVar[A](init: A)(implicit ser: TSerializer[T, A]): Var[A] = {
-      val res = new VarImpl[T, A](tx)(tx.system.newIdValue()(tx), ser)
+    def newVar[A](init: A)(implicit format: TFormat[T, A]): Var[A] = {
+      val res = new VarImpl[T, A](tx)(tx.system.newIdValue()(tx), format)
       res.setInit(init) // (this)
       res
     }
@@ -258,9 +258,9 @@ object DurableImpl {
       res
     }
 
-    def readVar[A](in: DataInput)(implicit ser: TSerializer[T, A]): Var[A] = {
+    def readVar[A](in: DataInput)(implicit format: TFormat[T, A]): Var[A] = {
       val id = in./* PACKED */ readInt()
-      new VarImpl[T, A](tx)(id, ser)
+      new VarImpl[T, A](tx)(id, format)
     }
 
     def readBooleanVar(in: DataInput): Var[Boolean] = {
@@ -305,18 +305,18 @@ object DurableImpl {
 
   private final class VarImpl[T <: D[T], A](tx: T)
                                            (protected val id: Int,
-                                            protected val ser: TSerializer[T, A])
+                                            protected val format: TFormat[T, A])
     extends BasicVar[T, A](tx) {
 
     def apply(): A =
-      tx.system.read[A](id)(ser.readT(_)(tx))(tx)
+      tx.system.read[A](id)(format.readT(_)(tx))(tx)
 
     def setInit(v: A): Unit =
-      tx.system.write(id)(ser.write(v, _))(tx)
+      tx.system.write(id)(format.write(v, _))(tx)
 
     def update(v: A): Unit = {
       assertExists()
-      tx.system.write(id)(ser.write(v, _))(tx)
+      tx.system.write(id)(format.write(v, _))(tx)
     }
 
 //    def swap(v: A): A = {
@@ -329,23 +329,23 @@ object DurableImpl {
   }
 
   private final class TVarImpl[T <: D[T], A](protected val id: Int,
-                                             protected val ser: TSerializer[T, A])
+                                             protected val format: TFormat[T, A])
     extends BasicTVar[T, A] {
 
     def apply()(implicit tx: T): A =
-      tx.system.read[A](id)(ser.readT(_)(tx))(tx)
+      tx.system.read[A](id)(format.readT(_)(tx))(tx)
 
     def setInit(v: A)(implicit tx: T): Unit =
-      tx.system.write(id)(ser.write(v, _))(tx)
+      tx.system.write(id)(format.write(v, _))(tx)
 
     def update(v: A)(implicit tx: T): Unit = {
       assertExists()
-      tx.system.write(id)(ser.write(v, _))(tx)
+      tx.system.write(id)(format.write(v, _))(tx)
     }
   }
 
   private final class CachedVarImpl[T <: D[T], A](protected val id: Int, peer: Ref[A],
-                                                  ser: TSerializer[T, A])
+                                                  format: TFormat[T, A])
     extends BasicTVar[T, A] {
 
     def apply()(implicit tx: T): A = peer.get(tx.peer)
@@ -354,14 +354,14 @@ object DurableImpl {
 
     def update(v: A)(implicit tx: T): Unit = {
       peer.set(v)(tx.peer)
-      tx.system.write(id)(ser.write(v, _))(tx)
+      tx.system.write(id)(format.write(v, _))(tx)
     }
 
     def writeInit()(implicit tx: T): Unit =
-      tx.system.write(id)(ser.write(this(), _))(tx)
+      tx.system.write(id)(format.write(this(), _))(tx)
 
     def readInit()(implicit tx: T): Unit =
-      peer.set(tx.system.read(id)(ser.readT(_)(tx))(tx))(tx.peer)
+      peer.set(tx.system.read(id)(format.readT(_)(tx))(tx))(tx.peer)
 
 //    def swap(v: A): A = {
 //      val res = peer.swap(v)(tx.peer)

@@ -3,8 +3,8 @@ package de.sciss.lucre.data
 import de.sciss.lucre.data.TotalOrder.Map
 import de.sciss.lucre.geom.{IntCube, IntDistanceMeasure3D, IntPoint3D, IntPoint3DLike, IntSpace}
 import de.sciss.lucre.store.BerkeleyDB
-import de.sciss.lucre.{Cursor, Durable, InMemory, Sys, TReader, TSerializer, TestUtil, Txn, WritableSerializer}
-import de.sciss.serial.{DataInput, DataOutput, Writable}
+import de.sciss.lucre.{Cursor, Durable, InMemory, Sys, TestUtil, Txn}
+import de.sciss.serial.{DataInput, DataOutput, TReader, TFormat, Writable, WritableFormat}
 import org.scalatest.GivenWhenThen
 import org.scalatest.featurespec.AnyFeatureSpec
 
@@ -70,11 +70,11 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
   }
 
   object FullVertexPre {
-    implicit def serializer[T <: Txn[T]](implicit vertexReader: TReader[T, FullVertex[T]]): TSerializer[T, FullVertexPre[T]] =
-      new SerImpl[T](vertexReader)
+    implicit def format[T <: Txn[T]](implicit vertexReader: TReader[T, FullVertex[T]]): TFormat[T, FullVertexPre[T]] =
+      new FmtImpl[T](vertexReader)
 
-    private final class SerImpl[T <: Txn[T]](vertexReader: TReader[T, FullVertex[T]])
-      extends WritableSerializer[T, FullVertexPre[T]] {
+    private final class FmtImpl[T <: Txn[T]](vertexReader: TReader[T, FullVertex[T]])
+      extends WritableFormat[T, FullVertexPre[T]] {
 
       override def readT(in: DataInput)(implicit tx: T): FullVertexPre[T] = {
         val id  = in.readByte()
@@ -138,7 +138,7 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
         val preOrder : TotalOrder.Map[T, FullVertexPre[T]] = TotalOrder.Map.empty(orderObserver, _.order, 0)
         val postOrder: TotalOrder.Map[T, FullVertex   [T]] = TotalOrder.Map.empty(orderObserver, _.post, Int.MaxValue /* - 1 */)
 
-        implicit object vertexSer extends WritableSerializer[T, FullVertex[T]] {
+        implicit object vertexFmt extends WritableFormat[T, FullVertex[T]] {
           override def readT(in: DataInput)(implicit tx: T): FullVertex[T] = {
             new FullVertex[T] {
               val version: Int = in.readInt()
@@ -169,7 +169,7 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
   //      val root: FullRootVertex[ S ],
   //      val preOrder: TotalOrder.Map[ S, FullVertexPre[ S ]],
   //      val postOrder: TotalOrder.Map[ S, FullVertex[ S ]],
-  //      val vertexSer: Serializer[ FullVertex[ S ]]
+  //      val vertexFmt: Format[ FullVertex[ S ]]
   //   ) {
 
   sealed trait FullTree[T <: Txn[T]] {
@@ -182,7 +182,7 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
     def preOrder : TotalOrder.Map[T, FullVertexPre[T]]
     def postOrder: TotalOrder.Map[T, FullVertex[T]]
 
-    def vertexSer: TSerializer[T, FullVertex[T]]
+    def vertexFmt: TFormat[T, FullVertex[T]]
 
     private type V = FullVertex[T]
 
@@ -320,7 +320,7 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
   }
 
   //   sealed trait FullRootVertex[ S <: Sys[ S ]] extends FullVertex[ S ] {
-  ////      implicit def vertexSer : Serializer[ FullVertex[ S ]]
+  ////      implicit def vertexFmt : Format[ FullVertex[ S ]]
   ////      def preOrder  : TotalOrder.Map[ S, FullVertexPre[ S ]]
   ////      def postOrder : TotalOrder.Map[ S, FullVertex[ S ]]
   //   }
@@ -422,7 +422,7 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
   }
 
   sealed trait MarkRootVertex[T <: Txn[T]] extends MarkVertex[T] {
-    implicit def vertexSer: TSerializer[T, MarkVertex[T]]
+    implicit def vertexFmt: TFormat[T, MarkVertex[T]]
 
     def preOrder : TotalOrder.Map[T, MarkVertex[T]]
     def postOrder: TotalOrder.Map[T, MarkVertex[T]]
@@ -434,17 +434,17 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
 
       lazy val orderObserver = new RelabelObserver[T, MarkVertex[T]]("mark", t)
 
-      lazy val _vertexSer: TSerializer[T, MarkVertex[T]] = new WritableSerializer[T, MarkVertex[T]] {
+      lazy val _vertexFmt: TFormat[T, MarkVertex[T]] = new WritableFormat[T, MarkVertex[T]] {
         override def readT(in: DataInput)(implicit tx: T): MarkVertex[T] = {
           new MarkVertex[T] {
-            val full: FullVertex[T] = ft.vertexSer.readT(in)
+            val full: FullVertex[T] = ft.vertexFmt.readT(in)
             val pre : TotalOrder.Map.Entry[T, MarkVertex[T]] = root.preOrder .readEntry(in)
             val post: TotalOrder.Map.Entry[T, MarkVertex[T]] = root.postOrder.readEntry(in)
           }
         }
       }
       lazy val root: MarkRootVertex[T] = new MarkRootVertex[T] {
-        implicit val vertexSer: TSerializer[T, MarkVertex[T]] = _vertexSer
+        implicit val vertexFmt: TFormat[T, MarkVertex[T]] = _vertexFmt
 
         def full: FullVertex[T] = ft.root
 
@@ -456,7 +456,7 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
         lazy val post: MarkOrder[T] = postOrder.root // postOrder.insertAfter( root, this )
       }
       lazy val t = {
-        implicit val keySer: TSerializer[T, MarkVertex[T]] = _vertexSer
+        implicit val keyFmt: TFormat[T, MarkVertex[T]] = _vertexFmt
         SkipOctree.empty[T, IntPoint3DLike, IntPoint3D, IntCube, MarkVertex[T]](ft.t.hyperCube)
       }
       t += root
@@ -465,7 +465,7 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
         implicit val ord: scala.Ordering[MarkVertex[T]] = new scala.Ordering[MarkVertex[T]] {
           def compare(a: MarkVertex[T], b: MarkVertex[T]): Int = a.pre.compare(b.pre)
         }
-        implicit val keySer: TSerializer[T, MarkVertex[T]] = _vertexSer
+        implicit val keyFmt: TFormat[T, MarkVertex[T]] = _vertexFmt
         val res = SkipList.Set.empty[T, MarkVertex[T]]
         res.add(root)
         res
@@ -475,7 +475,7 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
         implicit val ord: scala.Ordering[MarkVertex[T]] = new scala.Ordering[MarkVertex[T]] {
           def compare(a: MarkVertex[T], b: MarkVertex[T]): Int = a.post.compare(b.post)
         }
-        implicit val keySer: TSerializer[T, MarkVertex[T]] = _vertexSer
+        implicit val keyFmt: TFormat[T, MarkVertex[T]] = _vertexFmt
         val res = SkipList.Set.empty[T, MarkVertex[T]]
         res.add(root)
         res

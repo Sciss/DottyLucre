@@ -13,7 +13,7 @@
 
 package de.sciss.lucre.confluent
 
-import de.sciss.lucre.{ConstantSerializer, TSerializer}
+import de.sciss.serial.{ConstFormat, TFormat}
 
 object CacheMap {
   trait InMemory[T <: Txn[T], K, +Store] extends CacheMap[T, K, Store] {
@@ -22,16 +22,16 @@ object CacheMap {
   }
 
   trait Durable[T <: Txn[T], K, +Store] extends CacheMap[T, K, Store] {
-    def putCacheTxn   [A](key: K, value: A, tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Unit
-    def putCacheNonTxn[A](key: K, value: A, tx: T)(implicit path: tx.Acc, serializer: ConstantSerializer[A]): Unit
+    def putCacheTxn   [A](key: K, value: A, tx: T)(implicit path: tx.Acc, format: TFormat[T, A]): Unit
+    def putCacheNonTxn[A](key: K, value: A, tx: T)(implicit path: tx.Acc, format: ConstFormat[A]): Unit
 
-    def getCacheTxn   [A](key: K, tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Option[A]
-    def getCacheNonTxn[A](key: K, tx: T)(implicit path: tx.Acc, serializer: ConstantSerializer[A]): Option[A]
+    def getCacheTxn   [A](key: K, tx: T)(implicit path: tx.Acc, format: TFormat[T, A]): Option[A]
+    def getCacheNonTxn[A](key: K, tx: T)(implicit path: tx.Acc, format: ConstFormat[A]): Option[A]
   }
 
   trait Partial[T <: Txn[T], K, +Store] extends CacheMap[T, K, Store] {
-    def putPartial[A](key: K, value: A, tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Unit
-    def getPartial[A](key: K          , tx: T)(implicit path: tx.Acc, serializer: TSerializer[T, A]): Option[A]
+    def putPartial[A](key: K, value: A, tx: T)(implicit path: tx.Acc, format: TFormat[T, A]): Unit
+    def getPartial[A](key: K          , tx: T)(implicit path: tx.Acc, format: TFormat[T, A]): Option[A]
   }
 }
 

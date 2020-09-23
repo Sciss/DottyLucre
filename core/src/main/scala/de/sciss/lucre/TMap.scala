@@ -14,7 +14,7 @@
 package de.sciss.lucre
 
 import de.sciss.lucre.impl.TMapImpl
-import de.sciss.serial.DataInput
+import de.sciss.serial.{ConstFormat, DataInput, TFormat}
 
 import scala.annotation.switch
 import scala.reflect.ClassTag
@@ -27,15 +27,15 @@ object TMap extends Obj.Type {
   object Key {
     implicit object Int extends Key[Int] {
       final val typeId  = 2 // IntObj.typeId
-      def serializer: ConstantSerializer[scala.Int] = TSerializer.Int
+      def format: ConstFormat[scala.Int] = TFormat.Int
     }
     implicit object Long extends Key[Long] {
       final val typeId  = 3 // LongObj.typeId
-      def serializer: ConstantSerializer[scala.Long] = TSerializer.Long
+      def format: ConstFormat[scala.Long] = TFormat.Long
     }
     implicit object String extends Key[String] {
       final val typeId  = 8 // StringObj.typeId
-      def serializer: ConstantSerializer[java.lang.String] = TSerializer.String
+      def format: ConstFormat[java.lang.String] = TFormat.String
     }
 
     def apply(typeId: Int): Key[_] = (typeId: @switch) match {
@@ -47,7 +47,7 @@ object TMap extends Obj.Type {
   /** Cheesy little type class for supported immutable keys. */
   sealed trait Key[K] {
     def typeId: Int
-    def serializer: ConstantSerializer[K]
+    def format: ConstFormat[K]
   }
 
   object Modifiable {
@@ -55,10 +55,10 @@ object TMap extends Obj.Type {
       TMapImpl[T, K, Repr]()
 
     def read[T <: Txn[T], K: Key, Repr[~ <: Txn[~]] <: Elem[~]](in: DataInput)(implicit tx: T): Modifiable[T, K, Repr] =
-      serializer[T, K, Repr].readT(in)
+      format[T, K, Repr].readT(in)
 
-    implicit def serializer[T <: Txn[T], K: Key, Repr[~ <: Txn[~]] <: Elem[~]]: TSerializer[T, Modifiable[T, K, Repr]] =
-      TMapImpl.modSerializer[T, K, Repr]
+    implicit def format[T <: Txn[T], K: Key, Repr[~ <: Txn[~]] <: Elem[~]]: TFormat[T, Modifiable[T, K, Repr]] =
+      TMapImpl.modFormat[T, K, Repr]
   }
 
   trait Modifiable[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Form[~]] extends TMap[T, K, Repr] {
@@ -85,13 +85,13 @@ object TMap extends Obj.Type {
   }
 
   def read[T <: Txn[T], K: Key, Repr[~ <: Txn[~]] <: Elem[~]](in: DataInput)(implicit tx: T): TMap[T, K, Repr] =
-    serializer[T, K, Repr].readT(in)
+    format[T, K, Repr].readT(in)
 
   override def readIdentifiedObj[T <: Txn[T]](in: DataInput)(implicit tx: T): Obj[T] =
     TMapImpl.readIdentifiedObj(in)
 
-  implicit def serializer[T <: Txn[T], K: Key, Repr[~ <: Txn[~]] <: Elem[~]]: TSerializer[T, TMap[T, K, Repr]] =
-    TMapImpl.serializer[T, K, Repr]
+  implicit def format[T <: Txn[T], K: Key, Repr[~ <: Txn[~]] <: Elem[~]]: TFormat[T, TMap[T, K, Repr]] =
+    TMapImpl.format[T, K, Repr]
 
   final case class Update[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Form[~]](map: TMap[T, K, Repr],
                                                                         changes: List[Change[/*T,*/ K, Repr[T]]])

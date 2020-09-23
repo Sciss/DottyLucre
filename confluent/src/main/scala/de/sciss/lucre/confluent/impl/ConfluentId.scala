@@ -14,9 +14,8 @@
 package de.sciss.lucre.confluent
 package impl
 
-import de.sciss.lucre.{ConstantSerializer, TSerializer}
 import de.sciss.lucre.confluent.Log.log
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.{ConstFormat, DataInput, DataOutput, TFormat}
 
 import scala.util.hashing.MurmurHash3
 
@@ -36,7 +35,7 @@ private abstract class IdImpl[T <: Txn[T]] extends Ident[T] {
 
   @inline final protected def alloc(): Id = new ConfluentId(tx, tx.system.newIdValue()(tx), path)
 
-  final def newVar[A](init: A)(implicit ser: TSerializer[T, A]): Var[A] = {
+  final def newVar[A](init: A)(implicit format: TFormat[T, A]): Var[A] = {
     val res = makeVar[A](alloc())
     log(s"txn newVar $res")
     res.setInit(init)
@@ -67,16 +66,16 @@ private abstract class IdImpl[T <: Txn[T]] extends Ident[T] {
     res
   }
 
-  private def makeVar[A](id: Id)(implicit ser: TSerializer[T, A]): BasicVar[T, A ] = {
-    ser match {
-      case plain: ConstantSerializer[A] =>
+  private def makeVar[A](id: Id)(implicit format: TFormat[T, A]): BasicVar[T, A ] = {
+    format match {
+      case plain: ConstFormat[A] =>
         new VarImpl  [T, A](tx, id, plain)
       case _ =>
         new VarTxImpl[T, A](tx, id)
     }
   }
 
-  final def readVar[A](in: DataInput)(implicit ser: TSerializer[T, A]): Var[A] = {
+  final def readVar[A](in: DataInput)(implicit format: TFormat[T, A]): Var[A] = {
     val res = makeVar[A](readSource(in))
     log(s"txn read $res")
     res
@@ -93,7 +92,7 @@ private abstract class IdImpl[T <: Txn[T]] extends Ident[T] {
     new PartialId(tx, base, path)
   }
 
-  //  final def readPartialVar[A](pid: S#Id, in: DataInput)(implicit ser: serial.Serializer[T, S#Acc, A]): S#Var[A] = {
+  //  final def readPartialVar[A](pid: S#Id, in: DataInput)(implicit format: serial.Format[T, S#Acc, A]): S#Var[A] = {
   //    if (Confluent.DEBUG_DISABLE_PARTIAL) return readVar(pid, in)
   //
   //    val res = new PartialVarTxImpl[S, A](readPartialSource(in, pid))

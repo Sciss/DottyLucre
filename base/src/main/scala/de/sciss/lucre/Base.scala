@@ -18,8 +18,6 @@ import java.io.Closeable
 /** The `Base` trait is a pre-stage to `stm.Sys`, without introducing
  * peer STM transactions. It can thus be used to build purely imperative
  * non-transactional systems.
- *
- * @tparam S   the representation type of the system
  */
 trait Base /*[Tx <: Exec[Tx]]*/ extends Closeable {
   //  type I <: Base[I]

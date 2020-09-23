@@ -15,7 +15,7 @@ package de.sciss.lucre
 package data
 
 import de.sciss.lucre.impl.MutableImpl
-import de.sciss.serial.{DataInput, DataOutput, Writable}
+import de.sciss.serial.{DataInput, DataOutput, TFormat, Writable, WritableFormat}
 
 import scala.annotation.{switch, tailrec}
 
@@ -62,12 +62,12 @@ object TotalOrder {
 
         val sizeVal: Var[Int] = id.readIntVar(in)
 
-        val root: Set.Entry[T] = EntrySerializer.readT(in)(_tx)
+        val root: Set.Entry[T] = EntryFormat.readT(in)(_tx)
       }
     }
 
-    implicit def serializer[T <: Exec[T]]: TSerializer[T, Set[T]] =
-      new SetSerializer[T]
+    implicit def format[T <: Exec[T]]: TFormat[T, Set[T]] =
+      new SetFormat[T]
 
     sealed trait EntryOption[T <: Exec[T]] {
       protected type E    = Entry[T]
@@ -169,10 +169,10 @@ object TotalOrder {
     }
   }
 
-  private final class SetSerializer[T <: Exec[T]] extends WritableSerializer[T, Set[T]] {
+  private final class SetFormat[T <: Exec[T]] extends WritableFormat[T, Set[T]] {
     override def readT(in: DataInput)(implicit tx: T): Set[T] = Set.read[T](in)
 
-    override def toString = "Set.serializer"
+    override def toString = "Set.format"
   }
 
 //  private final class SetRead[T <: Exec[T]](in: DataInput, protected val tx: T)
@@ -188,7 +188,7 @@ object TotalOrder {
 //
 //    val sizeVal: Var[Int] = id.readIntVar(in)
 //
-//    val root: Set.Entry[T] = EntrySerializer.read(in, tx)
+//    val root: Set.Entry[T] = EntryFormat.read(in, tx)
 //  }
 
   private final class SetNew[T <: Exec[T]](protected val tx: T, rootTag: Int)
@@ -202,8 +202,8 @@ object TotalOrder {
     val root: E = {
       val rootId  = tx.newId()
       val tagVal  = rootId.newIntVar(rootTag)
-      val prevRef = id.newVar[EOpt](empty)(EntryOptionSerializer)
-      val nextRef = id.newVar[EOpt](empty)(EntryOptionSerializer)
+      val prevRef = id.newVar[EOpt](empty)(EntryOptionFormat)
+      val nextRef = id.newVar[EOpt](empty)(EntryOptionFormat)
       new Set.Entry[T](rootId, me, tagVal, prevRef, nextRef)
     }
   }
@@ -225,23 +225,23 @@ object TotalOrder {
     override def toString = s"Set$id"
 
     final def readEntry(in: DataInput)(implicit tx: T): E =
-      EntrySerializer.readT(in)
+      EntryFormat.readT(in)
 
-    protected implicit object EntrySerializer extends WritableSerializer[T, E] {
+    protected implicit object EntryFormat extends WritableFormat[T, E] {
       override def readT(in: DataInput)(implicit tx: T): E = {
         val id      = tx.readId(in)
         val tagVal  = id.readIntVar(in)
-        val prevRef = id.readVar[EOpt](in)(EntryOptionSerializer)
-        val nextRef = id.readVar[EOpt](in)(EntryOptionSerializer)
+        val prevRef = id.readVar[EOpt](in)(EntryOptionFormat)
+        val nextRef = id.readVar[EOpt](in)(EntryOptionFormat)
         new E(id, me, tagVal, prevRef, nextRef)
       }
     }
 
-    protected implicit object EntryOptionSerializer extends TSerializer[T, EOpt] {
+    protected implicit object EntryOptionFormat extends TFormat[T, EOpt] {
       override def readT(in: DataInput)(implicit tx: T): EOpt = {
         (in.readByte(): @switch) match {
           case 0 => me.empty
-          case 1 => EntrySerializer.readT(in)
+          case 1 => EntryFormat.readT(in)
           case cookie => sys.error(s"Unexpected cookie $cookie")
         }
       }
@@ -424,23 +424,23 @@ object TotalOrder {
   object Map {
     def empty[T <: Exec[T], A](observer: Map.RelabelObserver[T, A], entryView: A => Map.Entry[T, A],
                                rootTag: Int = 0)
-                              (implicit tx: T, keySerializer: TSerializer[T, A]): Map[T, A] = {
+                              (implicit tx: T, keyFormat: TFormat[T, A]): Map[T, A] = {
       new MapNew[T, A](tx, observer, entryView, rootTag)
     }
 
     def read[T <: Exec[T], A](in: DataInput, observer: Map.RelabelObserver[T, A],
                               entryView: A => Map.Entry[T, A])
-                             (implicit tx: T, keySerializer: TSerializer[T, A]): Map[T, A] = {
+                             (implicit tx: T, keyFormat: TFormat[T, A]): Map[T, A] = {
       val _tx: tx.type    = tx
       val _entryView      = entryView
-      val _keySerializer  = keySerializer
+      val _keyFormat  = keyFormat
       val _observer       = observer
 
 //      new MapRead[T, A](tx, observer, entryView, in)
       new Map[T, A] with MutableImpl[T] {
 
         val entryView     : A => Entry[T, A]          = _entryView
-        val keySerializer : TSerializer[T, A]         = _keySerializer
+        val keyFormat : TFormat[T, A]         = _keyFormat
         val tx            : T                         = _tx
         val observer      : Map.RelabelObserver[T, A] = _observer
 
@@ -453,14 +453,14 @@ object TotalOrder {
 
         val sizeVal: Var[Int] = id.readIntVar(in)
 
-        val root: Map.Entry[T, A] = EntrySerializer.readT(in)(_tx)
+        val root: Map.Entry[T, A] = EntryFormat.readT(in)(_tx)
       }
     }
 
-    implicit def serializer[T <: Exec[T], A](observer: Map.RelabelObserver[T, A],
+    implicit def format[T <: Exec[T], A](observer: Map.RelabelObserver[T, A],
                                              entryView: A => Map.Entry[T, A])
-                                            (implicit keySerializer: TSerializer[T, A]): TSerializer[T, Map[T, A]] =
-      new MapSerializer[T, A](observer, entryView)
+                                            (implicit keyFormat: TFormat[T, A]): TFormat[T, Map[T, A]] =
+      new MapFormat[T, A](observer, entryView)
 
     /**
      * A `RelabelObserver` is notified before and after a relabeling is taking place due to
@@ -608,27 +608,27 @@ object TotalOrder {
 
     def write(out: DataOutput): Unit = {
       out.writeByte(1)
-      map.keySerializer.write(get, out)
+      map.keyFormat.write(get, out)
     }
 
     override def toString: String = get.toString
   }
 
-  private final class MapSerializer[T <: Exec[T], A](observer: Map.RelabelObserver[T, A],
+  private final class MapFormat[T <: Exec[T], A](observer: Map.RelabelObserver[T, A],
                                                      entryView: A => Map.Entry[T, A])
-                                                    (implicit keySerializer: TSerializer[T, A])
-    extends WritableSerializer[T, Map[T, A]] {
+                                                    (implicit keyFormat: TFormat[T, A])
+    extends WritableFormat[T, Map[T, A]] {
 
     override def readT(in: DataInput)(implicit tx: T): Map[T, A] =
       Map.read[T, A](in, observer, entryView) //  new MapRead[T, A](tx, observer, entryView, in)
 
-    override def toString = "Map.serializer"
+    override def toString = "Map.format"
   }
 
 //  private final class MapRead[T <: Exec[T], A](protected val tx: T,
 //                                               protected val observer: Map.RelabelObserver[T, A],
 //                                               val entryView: A => Map.Entry[T, A], in: DataInput)
-//                                              (implicit private[TotalOrder] val keySerializer: TSerializer[T, A])
+//                                              (implicit private[TotalOrder] val keyFormat: TFormat[T, A])
 //    extends Map[T, A] with MutableImpl[T] {
 //
 //    val id: Ident[T] = tx.readId(in)
@@ -640,13 +640,13 @@ object TotalOrder {
 //
 //    val sizeVal: Var[Int] = id.readIntVar(in)
 //
-//    val root: Map.Entry[T, A] = EntrySerializer.read(in, tx)
+//    val root: Map.Entry[T, A] = EntryFormat.read(in, tx)
 //  }
 
   private final class MapNew[T <: Exec[T], A](protected val tx: T,
                                               protected val observer: Map.RelabelObserver[T, A],
                                               val entryView: A => Map.Entry[T, A], rootTag: Int)
-                                             (implicit private[TotalOrder] val keySerializer: TSerializer[T, A])
+                                             (implicit private[TotalOrder] val keyFormat: TFormat[T, A])
     extends Map[T, A] with MutableImpl[T] {
 
     val id: Ident[T] = tx.newId()
@@ -662,31 +662,31 @@ object TotalOrder {
     }
   }
 
-  private final class MapEntrySerializer[T <: Exec[T], A](map: Map[T, A])
-    extends WritableSerializer[T, Map.Entry[T, A]] {
+  private final class MapEntryFormat[T <: Exec[T], A](map: Map[T, A])
+    extends WritableFormat[T, Map.Entry[T, A]] {
 
     private type E    = Map.Entry[T, A]
     private type KOpt = KeyOption[T, A]
 
     override def readT(in: DataInput)(implicit tx: T): E = {
-      import map.keyOptionSer
+      import map.keyOptionFmt
       val idE     = tx.readId(in)
       val tagVal  = idE.readIntVar(in)
-      val prevRef = idE.readVar[KOpt](in)(keyOptionSer)
-      val nextRef = idE.readVar[KOpt](in)(keyOptionSer)
+      val prevRef = idE.readVar[KOpt](in)(keyOptionFmt)
+      val nextRef = idE.readVar[KOpt](in)(keyOptionFmt)
       new Map.Entry[T, A](map, idE, tagVal, prevRef, nextRef)
     }
   }
 
-  private final class KeyOptionSerializer[T <: Exec[T], A](map: Map[T, A])
-    extends WritableSerializer[T, KeyOption[T, A]] {
+  private final class KeyOptionFormat[T <: Exec[T], A](map: Map[T, A])
+    extends WritableFormat[T, KeyOption[T, A]] {
 
     private type KOpt = KeyOption[T, A]
 
     override def readT(in: DataInput)(implicit tx: T): KOpt = {
       if (in.readByte() == 0) map.emptyKey
       else {
-        val key = map.keySerializer.readT(in)
+        val key = map.keyFormat.readT(in)
         new DefinedKey(map, key)
       }
     }
@@ -731,7 +731,7 @@ object TotalOrder {
 
   sealed trait Map[T <: Exec[T], A] extends TotalOrder[T] {
     map =>
-    
+
     protected def tx: T
 
     override def toString = s"Map$id"
@@ -740,21 +740,21 @@ object TotalOrder {
     protected final type KOpt = KeyOption[T, A]
 
     private[TotalOrder] final val emptyKey: KOpt = new EmptyKey[T, A]
-    final implicit val EntrySerializer: TSerializer[T, E] = new MapEntrySerializer[T, A](this)
-    private[TotalOrder] final implicit val keyOptionSer: TSerializer[T, KOpt] = new KeyOptionSerializer[T, A](this)
+    final implicit val EntryFormat: TFormat[T, E] = new MapEntryFormat[T, A](this)
+    private[TotalOrder] final implicit val keyOptionFmt: TFormat[T, KOpt] = new KeyOptionFormat[T, A](this)
 
     protected def sizeVal: Var[Int]
 
     protected def observer: Map.RelabelObserver[T, A]
 
-    private[TotalOrder] def keySerializer: TSerializer[T, A]
+    private[TotalOrder] def keyFormat: TFormat[T, A]
 
     def entryView: A => E
 
     def root: E
 
     final def readEntry(in: DataInput)(implicit tx: T): E =
-      EntrySerializer.readT(in)
+      EntryFormat.readT(in)
 
     protected final def disposeData(): Unit = {
       root   .dispose()

@@ -4,7 +4,8 @@ import java.io.File
 
 import de.sciss.lucre.data.TotalOrder
 import de.sciss.lucre.store.BerkeleyDB
-import de.sciss.lucre.{Confluent, ConfluentLike, InTxnRandom, TSerializer, TestUtil}
+import de.sciss.lucre.{Confluent, ConfluentLike, InTxnRandom, TestUtil}
+import de.sciss.serial.TFormat
 import org.scalatest.GivenWhenThen
 import org.scalatest.featurespec.AnyFeatureSpec
 
@@ -59,7 +60,7 @@ class TotalOrderSuite extends AnyFeatureSpec with GivenWhenThen {
 
         implicit val system: S = sysCreator()
         try {
-          implicit val ser: TSerializer[T, TotalOrder.Set[T]] = TotalOrder.Set.serializer[T]
+          implicit val format: TFormat[T, TotalOrder.Set[T]] = TotalOrder.Set.format[T]
           val (access, cursor) = system.cursorRoot {
             implicit tx =>
               TotalOrder.Set.empty[T]() /* ( new RelabelObserver[ S#Tx, E ] {

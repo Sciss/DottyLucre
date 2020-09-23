@@ -15,7 +15,7 @@ package de.sciss.lucre
 package impl
 
 import de.sciss.lucre.Plain.Id
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.{DataInput, DataOutput, TFormat}
 
 object PlainImpl {
   def apply(): Plain = new SysImpl
@@ -31,13 +31,13 @@ object PlainImpl {
 
     def write(out: DataOutput): Unit = opNotSupported("Plain.Id.write")
     
-    def newVar[A](init: A)(implicit serializer: TSerializer[Plain, A]): Var[A] = new VarImpl(init)
+    def newVar[A](init: A)(implicit format: TFormat[Plain, A]): Var[A] = new VarImpl(init)
 
     def newBooleanVar (init: Boolean): Var[Boolean] = new BooleanVarImpl (init)
     def newIntVar     (init: Int    ): Var[Int    ] = new IntVarImpl     (init)
     def newLongVar    (init: Long   ): Var[Long   ] = new LongVarImpl    (init)
 
-    def readVar[A](in: DataInput)(implicit serializer: TSerializer[Plain, A]): Var[A] = 
+    def readVar[A](in: DataInput)(implicit format: TFormat[Plain, A]): Var[A] =
       opNotSupported("readVar")
 
     def readBooleanVar(in: DataInput): Var[Boolean] = opNotSupported("readBooleanVar" )
@@ -140,7 +140,7 @@ object PlainImpl {
 
 //    def newRef[A](init: A): Ref[Tx, A] = new VarImpl(init)
 
-//    def newVar[A](id: Id, init: A)(implicit serializer: TxSerializer[Tx, A]): Var[A] =
+//    def newVar[A](id: Id, init: A)(implicit format: TxFormat[Tx, A]): Var[A] =
 //      new VarImpl(init)
 //
 //    def newBooleanVar (id: Id, init: Boolean ): Var[Boolean] = new BooleanVarImpl (init)
@@ -154,14 +154,14 @@ object PlainImpl {
     //    def newInMemoryMap[K, V]: RefMap[S, K, V] = new PlainInMemoryMap[K, V]
     //    def newInMemorySet[A]   : RefSet[S, A]    = new PlainInMemorySet[A]
 
-//    def readVar[A](id: Id, in: DataInput)(implicit serializer: TSerializer[Tx, A]): Var[A] =
+//    def readVar[A](id: Id, in: DataInput)(implicit format: TFormat[Tx, A]): Var[A] =
 //      opNotSupported("readVar")
 //
 //    def readBooleanVar(id: Id, in: DataInput): Var[Boolean]  = opNotSupported("readBooleanVar")
 //    def readIntVar    (id: Id, in: DataInput): Var[Int]      = opNotSupported("readIntVar")
 //    def readLongVar   (id: Id, in: DataInput): Var[Long]     = opNotSupported("readLongVar")
 
-    def newHandle[A](value: A)(implicit serializer: TSerializer[Tx, A]): TSource[Tx, A] =
+    def newHandle[A](value: A)(implicit format: TFormat[Tx, A]): TSource[Tx, A] =
       new EphemeralTSource(value)
   }
 }

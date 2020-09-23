@@ -17,7 +17,7 @@ package impl
 import de.sciss.equal.Implicits._
 import de.sciss.lucre.TMap.Key
 import de.sciss.lucre.data.SkipList
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.{DataInput, DataOutput, TFormat}
 
 import scala.reflect.ClassTag
 
@@ -26,25 +26,25 @@ object TMapImpl {
                                                             keyType: Key[K]): TMap.Modifiable[T, K, Repr] = {
     val targets = Event.Targets[T]()
     new Impl[T, K, Repr](tx)(targets) { self =>
-      val peer: SkipList.Map[T, K, List[Entry[K, V]]] = SkipList.Map.empty(tx, keyOrdering, self.keyType.serializer,
-        TSerializer.list(entrySerializer))
+      val peer: SkipList.Map[T, K, List[Entry[K, V]]] = SkipList.Map.empty(tx, keyOrdering, self.keyType.format,
+        TFormat.list(entryFormat))
     }
   }
 
-  def serializer[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]]: TSerializer[T, TMap[T, K, Repr]] =
-    new Ser[T, K, Repr]
+  def format[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]]: TFormat[T, TMap[T, K, Repr]] =
+    new Fmt[T, K, Repr]
 
-  def modSerializer[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]]: TSerializer[T, TMap.Modifiable[T, K, Repr]] =
-    new ModSer[T, K, Repr]
+  def modFormat[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]]: TFormat[T, TMap.Modifiable[T, K, Repr]] =
+    new ModFmt[T, K, Repr]
 
-  private class Ser[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]] // (implicit keyType: Key[K])
-    extends ObjSerializer[T, TMap[T, K, Repr]] {
+  private class Fmt[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]] // (implicit keyType: Key[K])
+    extends ObjFormat[T, TMap[T, K, Repr]] {
 
     def tpe: Obj.Type = TMap
   }
 
-  private class ModSer[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]] // (implicit keyType: Key[K])
-    extends ObjSerializer[T, TMap.Modifiable[T, K, Repr]] {
+  private class ModFmt[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]] // (implicit keyType: Key[K])
+    extends ObjFormat[T, TMap.Modifiable[T, K, Repr]] {
 
     def tpe: Obj.Type = TMap
   }
@@ -60,8 +60,8 @@ object TMapImpl {
                                                                   (implicit tx: T, keyType: Key[K]): Impl[T, K, Repr] =
     new Impl[T, K, Repr](tx)(targets) { self =>
       val peer: SkipList.Map[T, K, List[Entry[K, V]]] =
-        SkipList.Map.read[T, K, List[Entry[K, V]]](in)(tx, keyOrdering, self.keyType.serializer,
-          TSerializer.list(entrySerializer))
+        SkipList.Map.read[T, K, List[Entry[K, V]]](in)(tx, keyOrdering, self.keyType.format,
+          TFormat.list(entryFormat))
     }
 
   private final class Entry[K, V](val key: K, val value: V)
@@ -96,15 +96,15 @@ object TMapImpl {
       }
     }
 
-    object entrySerializer extends TSerializer[T, Entry[K, V]] {
+    object entryFormat extends TFormat[T, Entry[K, V]] {
       override def readT(in: DataInput)(implicit tx: T): Entry[K, V] = {
-        val key   = keyType.serializer.read(in)
+        val key   = keyType.format.read(in)
         val value = Elem.read[T](in).asInstanceOf[V]
         new Entry[K, V](key, value)
       }
 
       override def write(entry: Entry[K, V], out: DataOutput): Unit = {
-        keyType.serializer.write(entry.key, out)
+        keyType.format.write(entry.key, out)
         entry.value.write(out)
       }
     }

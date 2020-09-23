@@ -14,7 +14,7 @@
 package de.sciss.lucre
 package impl
 
-import de.sciss.serial.DataInput
+import de.sciss.serial.{DataInput, TFormat, WritableFormat}
 
 import scala.annotation.meta.field
 
@@ -25,10 +25,10 @@ object ElemImpl {
     tpe.readIdentifiedObj(in)
   }
 
-  implicit def serializer[T <: Txn[T]]: TSerializer[T, Elem[T]] = anySer.asInstanceOf[Ser[T]]
+  implicit def format[T <: Txn[T]]: TFormat[T, Elem[T]] = anyFmt.asInstanceOf[Fmt[T]]
 
   @field private[this] final val sync   = new AnyRef
-  @field private[this] final val anySer = new Ser[AnyTxn]
+  @field private[this] final val anyFmt = new Fmt[AnyTxn]
 
   // @volatile private var map = Map.empty[Int, Elem.Type]
   @volatile private var map = Map[Int, Elem.Type](TMap.typeId -> TMap)
@@ -45,7 +45,7 @@ object ElemImpl {
   @inline
   def getType(id: Int): Elem.Type = map.getOrElse(id, sys.error(s"Unknown element type $id (0x${id.toHexString})"))
 
-  private final class Ser[T <: Txn[T]] extends WritableSerializer[T, Elem[T]] {
+  private final class Fmt[T <: Txn[T]] extends WritableFormat[T, Elem[T]] {
     override def readT(in: DataInput)(implicit tx: T): Elem[T] = ElemImpl.read(in)
   }
 }

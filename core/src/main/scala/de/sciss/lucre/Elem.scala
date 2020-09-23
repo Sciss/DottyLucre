@@ -15,12 +15,12 @@ package de.sciss.lucre
 
 import de.sciss.equal.Implicits._
 import de.sciss.lucre.impl.ElemImpl
-import de.sciss.serial.{DataInput, Writable}
+import de.sciss.serial.{DataInput, TFormat, Writable}
 
 object Elem {
   def read[T <: Txn[T]](in: DataInput)(implicit tx: T): Elem[T] = ElemImpl.read(in)
 
-  implicit def serializer[T <: Txn[T]]: TSerializer[T, Elem[T]] = ElemImpl.serializer
+  implicit def format[T <: Txn[T]]: TFormat[T, Elem[T]] = ElemImpl.format
 
   trait Type {
     def typeId: Int

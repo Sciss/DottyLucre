@@ -17,8 +17,8 @@ package impl
 import de.sciss.lucre.confluent.Log.log
 import de.sciss.lucre.confluent.impl.{PathImpl => Path}
 import de.sciss.lucre.impl.BasicTxnImpl
-import de.sciss.lucre.{Confluent, Durable, DurableLike, IdentMap, InMemory, ConstantSerializer, Obj, ReactionMap, TMap, TSerializer, Ident => LIdent}
-import de.sciss.serial.DataInput
+import de.sciss.lucre.{Confluent, Durable, DurableLike, IdentMap, InMemory, Obj, ReactionMap, TMap, Ident => LIdent}
+import de.sciss.serial.{ConstFormat, DataInput, TFormat}
 
 import scala.collection.immutable.{IndexedSeq => Vec, Queue => IQueue}
 import scala.concurrent.stm.{InTxn, Txn => ScalaTxn}
@@ -148,10 +148,10 @@ trait TxnMixin[Tx <: Txn[Tx]]
   def attrMap(obj: Obj[T]): Obj.AttrMap[T] = {
     val id        = obj.id.!(this)
     val mBase     = id.base | 0x80000000  // XXX TODO --- a bit cheesy to throw away one bit entirely
-    val mapOpt    = fullCache.getCacheTxn[Obj.AttrMap[T]](mBase, this)(id.path, Obj.attrMapSerializer)
+    val mapOpt    = fullCache.getCacheTxn[Obj.AttrMap[T]](mBase, this)(id.path, Obj.attrMapFormat)
     mapOpt.getOrElse {
       val map = TMap.Modifiable[T, String, Obj]()(TMap.Key.String, this)
-      fullCache.putCacheTxn[Obj.AttrMap[T]](mBase, map, this)(id.path, Obj.attrMapSerializer)
+      fullCache.putCacheTxn[Obj.AttrMap[T]](mBase, map, this)(id.path, Obj.attrMapFormat)
       markDirty()
       map
     }
@@ -160,7 +160,7 @@ trait TxnMixin[Tx <: Txn[Tx]]
   override def attrMapOption(obj: Obj[T]): Option[Obj.AttrMap[T]] = {
     val id        = obj.id.!(this)
     val mBase     = id.base | 0x80000000  // XXX TODO --- a bit cheesy to throw away one bit entirely
-    fullCache.getCacheTxn[Obj.AttrMap[T]](mBase, this)(id.path, Obj.attrMapSerializer)
+    fullCache.getCacheTxn[Obj.AttrMap[T]](mBase, this)(id.path, Obj.attrMapFormat)
   }
 
   // ----
@@ -194,47 +194,47 @@ trait TxnMixin[Tx <: Txn[Tx]]
     }
   }
 
-  final def newHandle[A](value: A)(implicit serializer: TSerializer[T, A]): TSource[T, A] = {
+  final def newHandle[A](value: A)(implicit format: TFormat[T, A]): TSource[T, A] = {
     val h = new HandleImpl[T, A](value, inputAccess.index)
     addDirtyLocalCache(h)
     h
   }
 
-  final def newHandleM[A](value: A)(implicit serializer: TSerializer[T, A]): TSource[T, A] =
+  final def newHandleM[A](value: A)(implicit format: TFormat[T, A]): TSource[T, A] =
     newHandle(value)
 
-  final def getNonTxn[A](id: Id)(implicit ser: ConstantSerializer[A]): A = {
+  final def getNonTxn[A](id: Id)(implicit format: ConstFormat[A]): A = {
     log(s"txn get $id")
-    fullCache.getCacheNonTxn[A](id.base, this)(id.path, ser).getOrElse(sys.error(s"No value for $id"))
+    fullCache.getCacheNonTxn[A](id.base, this)(id.path, format).getOrElse(sys.error(s"No value for $id"))
   }
 
-  final def getTxn[A](id: Id)(implicit ser: TSerializer[T, A]): A = {
+  final def getTxn[A](id: Id)(implicit format: TFormat[T, A]): A = {
     log(s"txn get' $id")
-    fullCache.getCacheTxn[A](id.base, this)(id.path, ser).getOrElse(sys.error(s"No value for $id"))
+    fullCache.getCacheTxn[A](id.base, this)(id.path, format).getOrElse(sys.error(s"No value for $id"))
   }
 
-  final def putTxn[A](id: Id, value: A)(implicit ser: TSerializer[T, A]): Unit = {
-    fullCache.putCacheTxn[A](id.base, value, this)(id.path, ser)
+  final def putTxn[A](id: Id, value: A)(implicit format: TFormat[T, A]): Unit = {
+    fullCache.putCacheTxn[A](id.base, value, this)(id.path, format)
     markDirty()
   }
 
-  final def putNonTxn[A](id: Id, value: A)(implicit ser: ConstantSerializer[A]): Unit = {
-    fullCache.putCacheNonTxn[A](id.base, value, this)(id.path, ser)
+  final def putNonTxn[A](id: Id, value: A)(implicit format: ConstFormat[A]): Unit = {
+    fullCache.putCacheNonTxn[A](id.base, value, this)(id.path, format)
     markDirty()
   }
 
-//  final def putPartial[A](id: S#Id, value: A)(implicit ser: serial.Serializer[T, S#Acc, A]): Unit = {
+//  final def putPartial[A](id: S#Id, value: A)(implicit format: serial.Format[T, S#Acc, A]): Unit = {
 //    partialCache.putPartial(id.base, id.path, value)(this, ser)
 //    markDirty()
 //  }
 //
-//  final def getPartial[A](id: S#Id)(implicit ser: serial.Serializer[T, S#Acc, A]): A =
+//  final def getPartial[A](id: S#Id)(implicit format: serial.Format[T, S#Acc, A]): A =
 //    partialCache.getPartial[A](id.base, id.path)(this, ser).getOrElse(sys.error(s"No value for $id"))
 
   final def removeFromCache(id: Id): Unit =
     fullCache.removeCacheOnly(id.base, this)(id.path)
 
-//  final def newVar[A](pid: Id, init: A)(implicit ser: TSerializer[T, A]): Var[A] = {
+//  final def newVar[A](pid: Id, init: A)(implicit format: TFormat[T, A]): Var[A] = {
 //    val res = makeVar[A](alloc(pid))
 //    log(s"txn newVar $res")
 //    res.setInit(init)

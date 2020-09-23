@@ -4,12 +4,12 @@ import java.io.File
 
 import de.sciss.lucre.impl.MutableImpl
 import de.sciss.lucre.store.BerkeleyDB
-import de.sciss.lucre.{Confluent, Mutable, WritableSerializer, Txn => LTxn, Var => LVar}
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.lucre.{Confluent, Mutable, Txn => LTxn, Var => LVar}
+import de.sciss.serial.{DataInput, DataOutput, WritableFormat}
 
 class Nodes[T <: LTxn[T]] {
   object Node {
-    implicit object ser extends WritableSerializer[T, Node] {
+    implicit object ser extends WritableFormat[T, Node] {
       def readT(in: DataInput)(implicit tx: T): Node = new Node with MutableImpl[T] {
         val id    = tx.readId(in)
         val value = id.readVar[Int](in)

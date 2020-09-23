@@ -13,7 +13,7 @@
 
 package de.sciss.lucre
 
-import de.sciss.serial.DataInput
+import de.sciss.serial.{DataInput, TFormat}
 
 trait Exec[T <: Exec[T]] {
   type Id <: Ident[T]
@@ -44,10 +44,10 @@ trait Exec[T <: Exec[T]] {
    * (e.g. self access).
    *
    * @param value         the object which will be refreshed when calling `get` on the returned handle
-   * @param serializer    used to write and freshly read the object
+   * @param format    used to write and freshly read the object
    * @return              the handle
    */
-  def newHandle[A](value: A)(implicit serializer: TSerializer[T, A]): TSource[T, A]
+  def newHandle[A](value: A)(implicit format: TFormat[T, A]): TSource[T, A]
 }
 
 trait AnyExec extends Exec[AnyExec]

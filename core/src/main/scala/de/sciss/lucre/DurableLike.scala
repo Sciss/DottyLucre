@@ -14,7 +14,7 @@
 package de.sciss.lucre
 
 import de.sciss.lucre
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.{DataInput, DataOutput, TFormat}
 
 import scala.concurrent.stm.InTxn
 
@@ -28,10 +28,10 @@ object DurableLike {
 
     final type Id     = DurableLike.Id[T]
 
-    def newCachedVar[A](  init: A    )(implicit serializer: TSerializer[T, A]): TVar[T, A]
+    def newCachedVar[A](  init: A    )(implicit format: TFormat[T, A]): TVar[T, A]
     def newCachedIntVar(  init: Int  ): TVar[T, Int ]
     def newCachedLongVar( init: Long ): TVar[T, Long]
-    def readCachedVar[A]( in: DataInput)(implicit serializer: TSerializer[T, A]): TVar[T, A]
+    def readCachedVar[A]( in: DataInput)(implicit format: TFormat[T, A]): TVar[T, A]
     def readCachedIntVar( in: DataInput): TVar[T, Int ]
     def readCachedLongVar(in: DataInput): TVar[T, Long]
   }

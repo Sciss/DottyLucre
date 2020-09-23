@@ -2,8 +2,8 @@ package de.sciss.lucre.data
 
 import de.sciss.lucre.data.TotalOrder.Map.RelabelObserver
 import de.sciss.lucre.store.BerkeleyDB
-import de.sciss.lucre.{Cursor, Durable, InMemory, Sys, TSerializer, TestUtil, Txn, WritableSerializer}
-import de.sciss.serial.{DataInput, DataOutput, Writable}
+import de.sciss.lucre.{Cursor, Durable, InMemory, Sys, TestUtil, Txn}
+import de.sciss.serial.{DataInput, DataOutput, Writable, WritableFormat}
 import org.scalatest.GivenWhenThen
 import org.scalatest.featurespec.AnyFeatureSpec
 
@@ -18,8 +18,8 @@ import scala.collection.immutable.{Vector => Vec}
  */
 object TotalOrderSuite {
   object MapHolder {
-    final class Serializer[T <: Txn[T]](observer: RelabelObserver[T, MapHolder[T]], tx0: T)
-      extends WritableSerializer[T, MapHolder[T]] {
+    final class Format[T <: Txn[T]](observer: RelabelObserver[T, MapHolder[T]], tx0: T)
+      extends WritableFormat[T, MapHolder[T]] {
 
       val map: TotalOrder.Map[T, MapHolder[T]] = TotalOrder.Map.empty[T, MapHolder[T]](observer, _.entry)(tx0, this)
 
@@ -160,7 +160,7 @@ class TotalOrderSuite extends AnyFeatureSpec with GivenWhenThen {
           Given("an empty map structure")
 
           val order = cursor.step { implicit tx =>
-            val ser = new MapHolder.Serializer(new RelabelObserver[T, MapHolder[T]] {
+            val ser = new MapHolder.Format(new RelabelObserver[T, MapHolder[T]] {
               def beforeRelabeling(dirty: Iterator[MapHolder[T]])(implicit tx: T): Unit = {
                 dirty.toIndexedSeq // just to make sure the iterator succeeds
               }

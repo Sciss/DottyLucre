@@ -15,7 +15,7 @@ package de.sciss.lucre
 package data
 
 import de.sciss.lucre.geom.{DistanceMeasure, IntCube, IntDistanceMeasure3D, IntPoint3D, IntPoint3DLike, IntSpace}
-import de.sciss.serial.{DataInput, DataOutput, Writable}
+import de.sciss.serial.{DataInput, DataOutput, TFormat, Writable, WritableFormat}
 
 object Ancestor {
   private final val SER_VERSION = 65
@@ -49,7 +49,7 @@ object Ancestor {
     final def versionInt: Int = tree.intView(version)
 
     final def write(out: DataOutput): Unit = {
-      tree.versionSerializer.write(version, out)
+      tree.versionFormat.write(version, out)
       pre .write(out)
       post.write(out)
     }
@@ -62,29 +62,29 @@ object Ancestor {
     override def toString = s"Vertex($version)"
   }
 
-  implicit def treeSerializer[T <: Exec[T], Version](
-                                                      implicit versionSerializer: TSerializer[T, Version],
-                                                      intView: Version => Int): TSerializer[T, Tree[T, Version]] =
-    new TreeSer[T, Version]
+  implicit def treeFormat[T <: Exec[T], Version](
+                                                      implicit versionFormat: TFormat[T, Version],
+                                                      intView: Version => Int): TFormat[T, Tree[T, Version]] =
+    new TreeFmt[T, Version]
 
   def newTree[T <: Exec[T], Version](rootVersion: Version)(
-    implicit tx: T, versionSerializer: TSerializer[T, Version],
+    implicit tx: T, versionFormat: TFormat[T, Version],
     intView: Version => Int): Tree[T, Version] = {
 
     new TreeNew[T, Version](rootVersion, tx)
   }
 
   def readTree[T <: Exec[T], Version](in: DataInput)
-                                     (implicit tx: T, versionSerializer: TSerializer[T, Version],
+                                     (implicit tx: T, versionFormat: TFormat[T, Version],
                                       intView: Version => Int): Tree[T, Version] = {
 
-    val _versionSerializer  = versionSerializer
+    val _versionFormat  = versionFormat
     val _intView            = intView
 
 //    new TreeRead[T, Version](in, tx)
     new TreeImpl[T, Version] {
       val intView           : Version => Int          = _intView
-      val versionSerializer : TSerializer[T, Version] = _versionSerializer
+      val versionFormat : TFormat[T, Version] = _versionFormat
 
       {
         val serVer = in.readByte()
@@ -93,18 +93,18 @@ object Ancestor {
       }
 
       protected val order: TotalOrder.Set[T] = TotalOrder.Set.read(in)
-      val root: K = VertexSerializer.readT(in)
+      val root: K = VertexFormat.readT(in)
     }
   }
 
-  private final class TreeSer[T <: Exec[T], Version](implicit versionSerializer: TSerializer[T, Version],
+  private final class TreeFmt[T <: Exec[T], Version](implicit versionFormat: TFormat[T, Version],
                                                      versionView: Version => Int)
-    extends WritableSerializer[T, Tree[T, Version]] {
+    extends WritableFormat[T, Tree[T, Version]] {
 
     override def readT(in: DataInput)(implicit tx: T): Tree[T, Version] =
       readTree(in)
 
-    override def toString = "Ancestor.treeSerializer"
+    override def toString = "Ancestor.treeFormat"
   }
 
   private sealed trait TreeImpl[T <: Exec[T], Version] extends Tree[T, Version] {
@@ -118,11 +118,11 @@ object Ancestor {
 
     override def toString = s"Ancestor.Tree(root=$root)"
 
-    implicit protected object VertexSerializer extends WritableSerializer[T, K] {
+    implicit protected object VertexFormat extends WritableFormat[T, K] {
       override def readT(in: DataInput)(implicit tx: T): K = new K {
         def tree: Tree[T, Version] = me
 
-        val version : Version                 = versionSerializer.readT(in)
+        val version : Version                 = versionFormat.readT(in)
         val pre     : TotalOrder.Set.Entry[T] = order       .readEntry(in)
         val post    : TotalOrder.Set.Entry[T] = order       .readEntry(in)
       }
@@ -139,7 +139,7 @@ object Ancestor {
       root.dispose()
     }
 
-    final def vertexSerializer: TSerializer[T, K] = VertexSerializer
+    final def vertexFormat: TFormat[T, K] = VertexFormat
 
     final def insertChild(parent: K, newChild: Version): K = new K {
       def tree: Tree[T, Version] = me
@@ -174,7 +174,7 @@ object Ancestor {
   }
 
   private final class TreeNew[T <: Exec[T], Version](rootVersion: Version, tx: T)(
-    implicit val versionSerializer: TSerializer[T, Version], val intView: Version => Int)
+    implicit val versionFormat: TFormat[T, Version], val intView: Version => Int)
     extends TreeImpl[T, Version] {
     me =>
 
@@ -190,7 +190,7 @@ object Ancestor {
   }
 
 //  private final class TreeRead[T <: Exec[T], Version](in: DataInput, tx: T)(
-//    implicit val versionSerializer: TSerializer[T, Version], val intView: Version => Int)
+//    implicit val versionFormat: TFormat[T, Version], val intView: Version => Int)
 //    extends TreeImpl[T, Version] {
 //
 //    {
@@ -200,16 +200,16 @@ object Ancestor {
 //    }
 //
 //    protected val order: TotalOrder.Set[T] = TotalOrder.Set.read(in, tx)
-//    val root: K = VertexSerializer.read(in, tx)
+//    val root: K = VertexFormat.read(in, tx)
 //  }
 
   sealed trait Tree[T <: Exec[T], Version] extends Writable with Disposable {
     protected type K = Vertex[T, Version]
 
-    private[Ancestor] def versionSerializer: TSerializer[T, Version]
+    private[Ancestor] def versionFormat: TFormat[T, Version]
     private[Ancestor] def intView: Version => Int
 
-    def vertexSerializer: TSerializer[T, K]
+    def vertexFormat: TFormat[T, K]
 
     def root: K
 
@@ -277,7 +277,7 @@ object Ancestor {
       fullVertex.write(out)
       pre       .write(out)
       post      .write(out)
-      map.valueSerializer.write(value, out)
+      map.valueFormat.write(value, out)
     }
 
     final def removeAndDispose(): Unit = {
@@ -292,23 +292,23 @@ object Ancestor {
   def newMap[T <: Exec[T], Version, /* @spec(ValueSpec) */ A](full: Tree[T, Version], rootVertex: Vertex[T, Version],
                                                               rootValue: A)
                                                              (implicit tx: T,
-                                                              valueSerializer: TSerializer[T, A]): Map[T, Version, A] = {
+                                                              valueFormat: TFormat[T, A]): Map[T, Version, A] = {
 
-    new MapNew[T, Version, A](full, rootVertex, rootValue, tx, valueSerializer)
+    new MapNew[T, Version, A](full, rootVertex, rootValue, tx, valueFormat)
   }
 
   def readMap[T <: Exec[T], Version, /* @spec(ValueSpec) */ A](in: DataInput, tx: T, full: Tree[T, Version])(
-    implicit valueSerializer: TSerializer[T, A]): Map[T, Version, A] = {
+    implicit valueFormat: TFormat[T, A]): Map[T, Version, A] = {
 
     val _full             = full
-    val _valueSerializer  = valueSerializer
+    val _valueFormat  = valueFormat
 
-//    new MapRead[T, Version, A](full, in, tx, valueSerializer)
+//    new MapRead[T, Version, A](full, in, tx, valueFormat)
     new MapImpl[T, Version, A] {
       me =>
 
       val full            : Tree[T, Version]  = _full
-      val valueSerializer : TSerializer[T, A] = _valueSerializer
+      val valueFormat : TFormat[T, A] = _valueFormat
 
       {
         val serVer = in.readByte()
@@ -316,15 +316,15 @@ object Ancestor {
           sys.error(s"Incompatible serialized version (found $serVer, required $SER_VERSION).")
       }
 
-      protected val preOrder : TotalOrder.Map[T, M] = TotalOrder.Map.read[T, M](in, me, _.pre )(tx, markSerializer)
-      protected val postOrder: TotalOrder.Map[T, M] = TotalOrder.Map.read[T, M](in, me, _.post)(tx, markSerializer)
+      protected val preOrder : TotalOrder.Map[T, M] = TotalOrder.Map.read[T, M](in, me, _.pre )(tx, markFormat)
+      protected val postOrder: TotalOrder.Map[T, M] = TotalOrder.Map.read[T, M](in, me, _.post)(tx, markFormat)
 
-      protected val preList  : SkipList  .Set[T, M] = SkipList  .Set.read[T, M](in)(tx, preOrdering , markSerializer)
-      protected val postList : SkipList  .Set[T, M] = SkipList  .Set.read[T, M](in)(tx, postOrdering, markSerializer)
+      protected val preList  : SkipList  .Set[T, M] = SkipList  .Set.read[T, M](in)(tx, preOrdering , markFormat)
+      protected val postList : SkipList  .Set[T, M] = SkipList  .Set.read[T, M](in)(tx, postOrdering, markFormat)
 
       private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, M] = {
         val pointView = (p: M /*, tx: T*/) => p.toPoint // (tx)
-        SkipOctree.read[T, IntPoint3DLike, IntPoint3D, IntCube, M](in)(tx, pointView, IntSpace.ThreeDim, markSerializer)
+        SkipOctree.read[T, IntPoint3DLike, IntPoint3D, IntCube, M](in)(tx, pointView, IntSpace.ThreeDim, markFormat)
       }
     }
   }
@@ -382,20 +382,20 @@ object Ancestor {
       def compare(a: M, b: M): Int = a.post compare b.post
     }
 
-    protected implicit object markSerializer extends WritableSerializer[T, M] {
+    protected implicit object markFormat extends WritableFormat[T, M] {
       override def readT(in: DataInput)(implicit tx: T): M = new M {
         def map: MapImpl[T, Version, A] = me
 
-        val fullVertex: Vertex[T, Version]        = full.vertexSerializer.readT (in)
+        val fullVertex: Vertex[T, Version]        = full.vertexFormat.readT (in)
         val pre       : MarkOrder[T, Version, A]  = preOrder        .readEntry  (in)
         val post      : MarkOrder[T, Version, A]  = postOrder       .readEntry  (in)
-        val value     : A                         = valueSerializer .readT      (in)
+        val value     : A                         = valueFormat .readT      (in)
       }
     }
 
     final def write(out: DataOutput): Unit = {
       out.writeByte(SER_VERSION)
-      // note: we ask for the full tree through the serializer constructor,
+      // note: we ask for the full tree through the format constructor,
       // thus we omit writing it out ourselves
       preOrder .write(out)
       postOrder.write(out)
@@ -562,19 +562,19 @@ object Ancestor {
   private final class MapNew[T <: Exec[T], Version, A](val full: Tree[T, Version],
                                                        rootVertex: Vertex[T, Version],
                                                        rootValue: A, tx: T,
-                                                       val valueSerializer: TSerializer[T, A])
+                                                       val valueFormat: TFormat[T, A])
     extends MapImpl[T, Version, A] {
     me =>
 
     protected val preOrder: TotalOrder.Map[T, M] =
-      TotalOrder.Map.empty[T, M](me, _.pre)(tx, markSerializer)
+      TotalOrder.Map.empty[T, M](me, _.pre)(tx, markFormat)
 
     protected val postOrder: TotalOrder.Map[T, M] =
-      TotalOrder.Map.empty[T, M](me, _.post, rootTag = Int.MaxValue)(tx, markSerializer)
+      TotalOrder.Map.empty[T, M](me, _.post, rootTag = Int.MaxValue)(tx, markFormat)
 
     private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, M] = {
       val pointView = (p: M /*, tx: T*/) => p.toPoint // (tx)
-      SkipOctree.empty[T, IntPoint3DLike, IntPoint3D, IntCube, M](cube)(tx, pointView, IntSpace.ThreeDim, markSerializer)
+      SkipOctree.empty[T, IntPoint3DLike, IntPoint3D, IntCube, M](cube)(tx, pointView, IntSpace.ThreeDim, markFormat)
     }
 
     protected val root: M = {
@@ -610,7 +610,7 @@ object Ancestor {
 
 //  private final class MapRead[T <: Exec[T], Version, A](val full: Tree[T, Version], in: DataInput,
 //                                                        tx: T,
-//                                                        val valueSerializer: TSerializer[T, A])
+//                                                        val valueFormat: TFormat[T, A])
 //    extends MapImpl[T, Version, A] {
 //    me =>
 //
@@ -621,10 +621,10 @@ object Ancestor {
 //    }
 //
 //    protected val preOrder: TotalOrder.Map[T, M] =
-//      TotalOrder.Map.read[T, M](in, tx, me, _.pre)(access, markSerializer)
+//      TotalOrder.Map.read[T, M](in, tx, me, _.pre)(access, markFormat)
 //
 //    protected val postOrder: TotalOrder.Map[T, M] =
-//      TotalOrder.Map.read[T, M](in, tx, me, _.post)(access, markSerializer)
+//      TotalOrder.Map.read[T, M](in, tx, me, _.post)(access, markFormat)
 //
 //    protected val preList: SkipList.Set[T, M] = {
 //      implicit val ord: Ordering[M] = preOrdering
@@ -638,7 +638,7 @@ object Ancestor {
 //
 //    private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, M] = {
 //      val pointView = (p: M, tx: T) => p.toPoint // (tx)
-//      SkipOctree.read[T, IntPoint3DLike, IntPoint3D, IntCube, M](in, tx)(access, pointView, IntSpace.ThreeDim, markSerializer)
+//      SkipOctree.read[T, IntPoint3DLike, IntPoint3D, IntCube, M](in, tx)(access, pointView, IntSpace.ThreeDim, markFormat)
 //    }
 //  }
 
@@ -708,6 +708,6 @@ object Ancestor {
      */
     def nearestWithFilter(vertex: K)(p: Int => Boolean): Option[(K, A)]
 
-    def valueSerializer: TSerializer[T, A]
+    def valueFormat: TFormat[T, A]
   }
 }

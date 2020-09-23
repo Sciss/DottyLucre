@@ -16,9 +16,9 @@ package de.sciss.lucre.data
 import java.io.PrintStream
 
 import de.sciss.lucre.geom.{DistanceMeasure, HyperCube, QueryShape, Space}
-import de.sciss.lucre.{Disposable, Exec, Ident, Identified, Mutable, TSerializer, Var, WritableSerializer}
+import de.sciss.lucre.{Disposable, Exec, Ident, Identified, Mutable, Var}
 import de.sciss.serial.impl.ByteArrayOutputStream
-import de.sciss.serial.{DataInput, DataOutput, Writable}
+import de.sciss.serial.{DataInput, DataOutput, TFormat, Writable, WritableFormat}
 
 import scala.annotation.{elidable, switch, tailrec}
 import scala.collection.immutable.{IndexedSeq => Vec}
@@ -72,15 +72,15 @@ object DetSkipOctree {
 
   def empty[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](hyperCube: H, skipGap: Int = 2)
                                            (implicit view: (A /*, T*/) => PL, tx: T, space: Space[PL, P, H],
-                                            keySerializer: TSerializer[T, A]): DetSkipOctree[T, PL, P, H, A] =
+                                            keyFormat: TFormat[T, A]): DetSkipOctree[T, PL, P, H, A] =
     new ImplNew[T, PL, P, H, A](skipGap, tx.newId(), hyperCube, view, tx)
 
   def read[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](in: DataInput)(implicit tx: T,
                                                                          pointView: (A /*, T*/) => PL,
                                                                          space: Space[PL, P, H],
-                                                                         keySerializer: TSerializer[T, A]): DetSkipOctree[T, PL, P, H, A] = {
+                                                                         keyFormat: TFormat[T, A]): DetSkipOctree[T, PL, P, H, A] = {
     val _pointView      = pointView
-    val _keySerializer  = keySerializer
+    val _keyFormat  = keyFormat
     val _tx: tx.type    = tx
     val _space          = space
 
@@ -90,11 +90,11 @@ object DetSkipOctree {
 //                                                                                in: DataInput,
 //                                                                                val tx: T)
 //                                                                               (implicit val space: Space[PL, P, H],
-//                                                                                val keySerializer: TSerializer[T, A])
+//                                                                                val keyFormat: TFormat[T, A])
 
     new Impl[T, PL, P, H, A] {
       val pointView: (A /*, T*/) => PL      = _pointView
-      val keySerializer: TSerializer[T, A]  = _keySerializer
+      val keyFormat: TFormat[T, A]  = _keyFormat
       val tx: T                             = _tx
       val space: Space[PL, P, H]            = _space
 
@@ -105,62 +105,62 @@ object DetSkipOctree {
       }
 
       val id: Ident[T] = _tx.readId(in)
-      val hyperCube: H = space.hyperCubeSerializer.read(in) // (in, tx)
+      val hyperCube: H = space.hyperCubeFormat.read(in) // (in, tx)
       val skipList: HASkipList.Set[T, this.Leaf] = {
         implicit val ord: Ordering[this.Leaf] = LeafOrdering
-        implicit val r1: TSerializer[T, this.Leaf] = LeafSerializer
-        HASkipList.Set.serializer[T, this.Leaf](KeyObserver).readT(in)(_tx)
+        implicit val r1: TFormat[T, this.Leaf] = LeafFormat
+        HASkipList.Set.format[T, this.Leaf](KeyObserver).readT(in)(_tx)
       }
-      val headTree: this.LeftTopBranch = LeftTopBranchSerializer.readT(in)(_tx)
+      val headTree: this.LeftTopBranch = LeftTopBranchFormat.readT(in)(_tx)
       val lastTreeRef: Var[this.TopBranch] = {
-        implicit val r4: TSerializer[T, this.TopBranch] = TopBranchSerializer
+        implicit val r4: TFormat[T, this.TopBranch] = TopBranchFormat
         id.readVar[this.TopBranch](in)
       }
     }
   }
 
-  implicit def serializer[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A /*, T*/) => PL, space: Space[PL, P, H],
-                                                     keySerializer: TSerializer[T, A]): TSerializer[T, DetSkipOctree[T, PL, P, H, A]] =
-    new OctreeSerializer[T, PL, P, H, A]
+  implicit def format[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A /*, T*/) => PL, space: Space[PL, P, H],
+                                                     keyFormat: TFormat[T, A]): TFormat[T, DetSkipOctree[T, PL, P, H, A]] =
+    new OctreeFormat[T, PL, P, H, A]
 
-  private final class OctreeSerializer[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A /*, T*/) => PL, 
+  private final class OctreeFormat[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A /*, T*/) => PL,
                                                                   space: Space[PL, P, H], 
-                                                                  keySerializer: TSerializer[T, A])
-    extends WritableSerializer[T, DetSkipOctree[T, PL, P, H, A]] {
+                                                                  keyFormat: TFormat[T, A])
+    extends WritableFormat[T, DetSkipOctree[T, PL, P, H, A]] {
 
     override def readT(in: DataInput)(implicit tx: T): DetSkipOctree[T, PL, P, H, A] =
       DetSkipOctree.read[T, PL, P, H, A](in)
 
-    override def toString = "DetSkipOctree.serializer"
+    override def toString = "DetSkipOctree.format"
   }
 
   private final class ImplNew[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](skipGap: Int,
                                                                              val id: Ident[T], val hyperCube: H,
                                                               val pointView: (A /*, T*/) => PL, val tx: T)
                                                              (implicit val space: Space[PL, P, H],
-                                                              val keySerializer: TSerializer[T, A])
+                                                              val keyFormat: TFormat[T, A])
     extends Impl[T, PL, P, H, A] { octree =>
 
     val skipList: HASkipList.Set[T, this.Leaf] =
-      HASkipList.Set.empty[T, this.Leaf](skipGap, KeyObserver)(tx, LeafOrdering, LeafSerializer)
+      HASkipList.Set.empty[T, this.Leaf](skipGap, KeyObserver)(tx, LeafOrdering, LeafFormat)
 
     val headTree: this.LeftTopBranch = {
       val sz  = numOrthants
 //      val ch  = tx.newVarArray[this.LeftChild](sz)
       val ch  = new Array[Var[this.LeftChild]](sz)
       val cid = tx.newId()
-      implicit val r1: TSerializer[T, this.LeftChild] = LeftChildSerializer
+      implicit val r1: TFormat[T, this.LeftChild] = LeftChildFormat
       var i = 0
       while (i < sz) {
         ch(i) = cid.newVar[this.LeftChild](Empty)
         i += 1
       }
-      implicit val r2: TSerializer[T, this.Next] = RightOptionReader
+      implicit val r2: TFormat[T, this.Next] = RightOptionReader
       val headRight = cid.newVar[this.Next](Empty)
       new LeftTopBranchImpl(octree, cid, children = ch, nextRef = headRight)
     }
     val lastTreeRef: Var[this.TopBranch] = {
-      implicit val r3: TSerializer[T, this.TopBranch] = TopBranchSerializer
+      implicit val r3: TFormat[T, this.TopBranch] = TopBranchFormat
       id.newVar[this.TopBranch](headTree)
     }
   }
@@ -492,7 +492,7 @@ object DetSkipOctree {
      */
     private[DetSkipOctree] def newLeaf(qIdx: Int, value: A): Leaf[T, PL, P, H, A] = {
       val leafId    = octree.tx.newId()
-      val parentRef = leafId.newVar[Branch[T, PL, P, H, A]](this)(octree.BranchSerializer)
+      val parentRef = leafId.newVar[Branch[T, PL, P, H, A]](this)(octree.BranchFormat)
       val l         = new LeafImpl[T, PL, P, H, A](octree, leafId, value, parentRef)
       updateChild(qIdx, l)
       l
@@ -516,10 +516,10 @@ object DetSkipOctree {
       val cid = octree.tx.newId()
       var i = 0
       while (i < sz) {
-        ch(i) = cid.newVar[LeftChild[T, PL, P, H, A]](Empty)(octree.LeftChildSerializer)
+        ch(i) = cid.newVar[LeftChild[T, PL, P, H, A]](Empty)(octree.LeftChildFormat)
         i += 1
       }
-      val parentRef   = cid.newVar[LeftBranch[T, PL, P, H, A]](this)(octree.LeftBranchSerializer)
+      val parentRef   = cid.newVar[LeftBranch[T, PL, P, H, A]](this)(octree.LeftBranchFormat)
       val rightRef    = cid.newVar[Next[T, PL, P, H, A]](Empty)(octree.RightOptionReader)
       val n           = new LeftChildBranchImpl[T, PL, P, H, A](
         octree, cid, parentRef, iq, children = ch, nextRef = rightRef
@@ -560,7 +560,7 @@ object DetSkipOctree {
     def write(out: DataOutput): Unit = {
       out.writeByte(1)
       id.write(out)
-      octree.keySerializer.write(value, out)
+      octree.keyFormat.write(value, out)
       parentRef.write(out)
     }
 
@@ -609,7 +609,7 @@ object DetSkipOctree {
       out.writeByte(3)
       id.write(out)
       parentRef.write(out)
-      octree.space.hyperCubeSerializer.write(thisBranch.hyperCube, out)
+      octree.space.hyperCubeFormat.write(thisBranch.hyperCube, out)
       var i = 0
       val sz = children.length
       while (i < sz) {
@@ -740,12 +740,12 @@ object DetSkipOctree {
       val ch  = new Array[Var[RightChild[T, PL, P, H, A]]](sz)
       val cid = octree.tx.newId()
       var i = 0
-      implicit val ser: TSerializer[T, RightChild[T, PL, P, H, A]] = octree.RightChildSerializer
+      implicit val format: TFormat[T, RightChild[T, PL, P, H, A]] = octree.RightChildFormat
       while (i < sz) {
         ch(i) = cid.newVar[RightChild[T, PL, P, H, A]](Empty)
         i += 1
       }
-      val parentRef = cid.newVar[RightBranch[T, PL, P, H, A]](this)(octree.RightBranchSerializer)
+      val parentRef = cid.newVar[RightBranch[T, PL, P, H, A]](this)(octree.RightBranchFormat)
       val rightRef  = cid.newVar[Next[T, PL, P, H, A]](Empty)(octree.RightOptionReader)
       val n         = new RightChildBranchImpl[T, PL, P, H, A](octree, cid, parentRef, prev, iq, ch, rightRef)
       prev.next     = n
@@ -811,7 +811,7 @@ object DetSkipOctree {
       id.write(out)
       parentRef.write(out)
       prev.write(out)
-      octree.space.hyperCubeSerializer.write(thisBranch.hyperCube, out)
+      octree.space.hyperCubeFormat.write(thisBranch.hyperCube, out)
       var i = 0
       val sz = children.length
       while (i < sz) {
@@ -999,7 +999,7 @@ object DetSkipOctree {
     def tx: T
 
     implicit def space: Space[PL, P, H]
-    implicit def keySerializer: TSerializer[T, A]
+    implicit def keyFormat: TFormat[T, A]
 
     protected def skipList: HASkipList.Set[T, Leaf]
     protected def lastTreeRef: Var[TopBranch]
@@ -1022,7 +1022,7 @@ object DetSkipOctree {
       }
     }
 
-    implicit object RightBranchSerializer extends WritableSerializer[T, RightBranch] {
+    implicit object RightBranchFormat extends WritableFormat[T, RightBranch] {
       override def readT(in: DataInput)(implicit tx: T): RightBranch = {
         val cookie = in.readByte()
         val id = tx.readId(in)
@@ -1034,7 +1034,7 @@ object DetSkipOctree {
       }
     }
 
-    implicit object BranchSerializer extends WritableSerializer[T, Branch] {
+    implicit object BranchFormat extends WritableFormat[T, Branch] {
       override def readT(in: DataInput)(implicit tx: T): Branch = {
         val cookie = in.readByte()
         val id = tx.readId(in)
@@ -1048,7 +1048,7 @@ object DetSkipOctree {
       }
     }
 
-    protected object TopBranchSerializer extends WritableSerializer[T, TopBranch] {
+    protected object TopBranchFormat extends WritableFormat[T, TopBranch] {
       override def readT(in: DataInput)(implicit tx: T): TopBranch = {
         val cookie = in.readByte()
         val id = tx.readId(in)
@@ -1060,7 +1060,7 @@ object DetSkipOctree {
       }
     }
 
-    object LeftChildSerializer extends WritableSerializer[T, LeftChild] {
+    object LeftChildFormat extends WritableFormat[T, LeftChild] {
       override def readT(in: DataInput)(implicit tx: T): LeftChild = {
         val cookie = in.readByte()
         if (cookie == 0) return Empty
@@ -1073,7 +1073,7 @@ object DetSkipOctree {
       }
     }
 
-    implicit object LeftBranchSerializer extends WritableSerializer[T, LeftBranch] {
+    implicit object LeftBranchFormat extends WritableFormat[T, LeftBranch] {
       override def readT(in: DataInput)(implicit tx: T): LeftBranch = {
         val cookie = in.readByte()
         val id = tx.readId(in)
@@ -1085,7 +1085,7 @@ object DetSkipOctree {
       }
     }
 
-    implicit object RightChildSerializer extends WritableSerializer[T, RightChild] {
+    implicit object RightChildFormat extends WritableFormat[T, RightChild] {
       override def readT(in: DataInput)(implicit tx: T): RightChild = {
         val cookie = in.readByte()
         if (cookie == 0) return Empty
@@ -1098,7 +1098,7 @@ object DetSkipOctree {
       }
     }
 
-    implicit object LeftTopBranchSerializer extends WritableSerializer[T, LeftTopBranch] {
+    implicit object LeftTopBranchFormat extends WritableFormat[T, LeftTopBranch] {
       override def readT(in: DataInput)(implicit tx: T): LeftTopBranch = {
         val cookie = in.readByte()
         if (cookie != 2) sys.error(s"Unexpected cookie $cookie")
@@ -1107,7 +1107,7 @@ object DetSkipOctree {
       }
     }
 
-    object RightOptionReader extends WritableSerializer[T, Next] {
+    object RightOptionReader extends WritableFormat[T, Next] {
       override def readT(in: DataInput)(implicit tx: T): Next = {
         val cookie = in.readByte()
         if (cookie == 0) return Empty
@@ -1120,7 +1120,7 @@ object DetSkipOctree {
       }
     }
 
-    protected object LeafSerializer extends WritableSerializer[T, Leaf] {
+    protected object LeafFormat extends WritableFormat[T, Leaf] {
       override def readT(in: DataInput)(implicit tx: T): Leaf = {
         val cookie = in.readByte()
         if (cookie != 1) sys.error(s"Unexpected cookie $cookie")
@@ -1190,7 +1190,7 @@ object DetSkipOctree {
     final def write(out: DataOutput): Unit = {
       out.writeByte(SER_VERSION)
       id          .write(out)
-      space.hyperCubeSerializer.write(hyperCube, out)
+      space.hyperCubeFormat.write(hyperCube, out)
       skipList    .write(out)
       headTree    .write(out)
       lastTreeRef .write(out)
@@ -1773,7 +1773,7 @@ object DetSkipOctree {
      * Serialization-id: 1
      */
     private[this] def readLeaf(in: DataInput, id: Ident[T])(implicit tx: T): Leaf = {
-      val value     = keySerializer.readT(in)
+      val value     = keyFormat.readT(in)
       val parentRef = id.readVar[Branch](in)
       new LeafImpl(octree, id, value, parentRef)
     }
@@ -1787,7 +1787,7 @@ object DetSkipOctree {
       val ch  = new Array[Var[LeftChild]](sz)
       var i = 0
       while (i < sz) {
-        ch(i) = id.readVar[LeftChild](in)(LeftChildSerializer)
+        ch(i) = id.readVar[LeftChild](in)(LeftChildFormat)
         i += 1
       }
       val nextRef = id.readVar[Next](in)(RightOptionReader)
@@ -1800,13 +1800,13 @@ object DetSkipOctree {
     private[this] def readLeftChildBranch(in: DataInput, id: Ident[T])
                                          (implicit tx: T): LeftChildBranch = {
       val parentRef   = id.readVar[LeftBranch](in)
-      val hc          = space.hyperCubeSerializer.read(in)
+      val hc          = space.hyperCubeFormat.read(in)
       val sz          = numOrthants
 //      val ch          = tx.newVarArray[LeftChild](sz)
       val ch          = new Array[Var[LeftChild]](sz)
       var i = 0
       while (i < sz) {
-        ch(i) = id.readVar[LeftChild](in)(LeftChildSerializer)
+        ch(i) = id.readVar[LeftChild](in)(LeftChildFormat)
         i += 1
       }
       val nextRef = id.readVar[Next](in)(RightOptionReader)
@@ -1818,7 +1818,7 @@ object DetSkipOctree {
       */
     private[this] def readRightTopBranch(in: DataInput, id: Ident[T])
                                         (implicit tx: T): RightTopBranch = {
-      val prev  = TopBranchSerializer.readT(in)
+      val prev  = TopBranchFormat.readT(in)
       val sz    = numOrthants
 //      val ch    = tx.newVarArray[RightChild](sz)
       val ch    = new Array[Var[RightChild]](sz)
@@ -1837,8 +1837,8 @@ object DetSkipOctree {
     private[this] def readRightChildBranch(in: DataInput, id: Ident[T])
                                           (implicit tx: T): RightChildBranch = {
       val parentRef = id.readVar[RightBranch](in)
-      val prev      = BranchSerializer.readT(in)
-      val hc        = space.hyperCubeSerializer.read(in)
+      val prev      = BranchFormat.readT(in)
+      val hc        = space.hyperCubeFormat.read(in)
       val sz        = numOrthants
 //      val ch        = tx.newVarArray[RightChild](sz)
       val ch        = new Array[Var[RightChild]](sz)
@@ -1993,10 +1993,10 @@ object DetSkipOctree {
               val cid = tx.newId()
               var i = 0
               while (i < sz) {
-                ch(i) = cid.newVar[LeftChild](Empty)(LeftChildSerializer)
+                ch(i) = cid.newVar[LeftChild](Empty)(LeftChildFormat)
                 i += 1
               }
-              val parentRef   = cid.newVar[LeftBranch](b    )(LeftBranchSerializer)
+              val parentRef   = cid.newVar[LeftBranch](b    )(LeftBranchFormat)
               val rightRef    = cid.newVar[Next      ](Empty)(RightOptionReader   )
               val n           = new LeftChildBranchImpl(
                 octree, cid, parentRef, iq, children = ch, nextRef = rightRef

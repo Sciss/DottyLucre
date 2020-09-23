@@ -1,5 +1,5 @@
 /*
- *  ObjSerializer.scala
+ *  ObjFormat.scala
  *  (Lucre)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
@@ -15,10 +15,10 @@ package de.sciss.lucre
 package impl
 
 import de.sciss.equal.Implicits._
-import de.sciss.serial.DataInput
+import de.sciss.serial.{DataInput, WritableFormat}
 
-trait ObjSerializer[T <: Txn[T], Repr <: Obj[T]]
-  extends WritableSerializer[T, Repr] {
+trait ObjFormat[T <: Txn[T], Repr <: Obj[T]]
+  extends WritableFormat[T, Repr] {
 
   protected def tpe: Obj.Type
 

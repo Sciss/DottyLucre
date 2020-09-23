@@ -14,6 +14,8 @@
 package de.sciss.lucre
 package geom
 
+import de.sciss.serial.ConstFormat
+
 object Space {
   final val bigZero = BigInt(0)
   final val bigOne  = BigInt(1)
@@ -37,6 +39,6 @@ trait Space[PL, P, /*HL,*/ H] {
 
   implicit def lexicalOrder: Ordering[PL]
 
-  implicit def pointSerializer    : ConstantSerializer[P]
-  implicit def hyperCubeSerializer: ConstantSerializer[H]
+  implicit def pointFormat    : ConstFormat[P]
+  implicit def hyperCubeFormat: ConstFormat[H]
 }

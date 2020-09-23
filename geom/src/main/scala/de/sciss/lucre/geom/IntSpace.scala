@@ -14,7 +14,7 @@
 package de.sciss.lucre
 package geom
 
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.{ConstFormat, DataInput, DataOutput}
 
 import scala.annotation.tailrec
 
@@ -42,7 +42,7 @@ object IntSpace {
       }
     }
 
-    implicit object pointSerializer extends ConstantSerializer[IntPoint2D] {
+    implicit object pointFormat extends ConstFormat[IntPoint2D] {
       def read(in: DataInput): IntPoint2D = {
         val x = in.readInt()
         val y = in.readInt()
@@ -55,7 +55,7 @@ object IntSpace {
       }
     }
 
-    implicit object hyperCubeSerializer extends ConstantSerializer[IntSquare] {
+    implicit object hyperCubeFormat extends ConstFormat[IntSquare] {
       def read(in: DataInput): IntSquare = {
         val cx = in.readInt()
         val cy = in.readInt()
@@ -98,7 +98,7 @@ object IntSpace {
       }
     }
 
-    implicit object pointSerializer extends ConstantSerializer[IntPoint3D] {
+    implicit object pointFormat extends ConstFormat[IntPoint3D] {
       def read(in: DataInput): IntPoint3D = {
         val x = in.readInt()
         val y = in.readInt()
@@ -113,7 +113,7 @@ object IntSpace {
       }
     }
 
-    implicit object hyperCubeSerializer extends ConstantSerializer[IntCube] {
+    implicit object hyperCubeFormat extends ConstFormat[IntCube] {
       def read(in: DataInput): IntCube = {
         val cx  = in.readInt()
         val cy  = in.readInt()
@@ -146,7 +146,7 @@ object IntSpace {
       }
     }
 
-    implicit object pointSerializer extends ConstantSerializer[NDim#Point] {
+    implicit object pointFormat extends ConstFormat[NDim#Point] {
       def write(v: NDim#Point, out: DataOutput): Unit = {
         val c = v.components
         out.writeShort(c.size)
@@ -160,7 +160,7 @@ object IntSpace {
       }
     }
 
-    implicit object hyperCubeSerializer extends ConstantSerializer[NDim#HyperCube] {
+    implicit object hyperCubeFormat extends ConstFormat[NDim#HyperCube] {
       def write(v: NDim#HyperCube, out: DataOutput): Unit = {
         val c = v.components
         out.writeShort(c.size)
@@ -186,8 +186,8 @@ object IntSpace {
     val maxPoint        = IntPointN(Vector.fill(dim)(Int.MaxValue))
 
     def lexicalOrder       : Ordering[PointLike]            = NDim.lexicalOrder
-    def pointSerializer    : ConstantSerializer[Point]      = NDim.pointSerializer
-    def hyperCubeSerializer: ConstantSerializer[HyperCube]  = NDim.hyperCubeSerializer
+    def pointFormat    : ConstFormat[Point]      = NDim.pointFormat
+    def hyperCubeFormat: ConstFormat[HyperCube]  = NDim.hyperCubeFormat
   }
 
   /** A helper method which efficiently calculates the unique integer in an interval [a, b] which has

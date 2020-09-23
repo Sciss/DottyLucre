@@ -13,15 +13,14 @@
 
 package de.sciss.lucre.confluent
 
-import de.sciss.lucre.ConstantSerializer
-import de.sciss.serial.DataInput
+import de.sciss.serial.{ConstFormat, DataInput}
 
 trait PartialMapHandler[-T] {
   def getIndexTreeTerm(term: Long)(implicit tx: T): Long
 
   def readPartialMap[A](in: DataInput)
-                       (implicit tx: T, serializer: ConstantSerializer[A]): IndexMap[T, A]
+                       (implicit tx: T, format: ConstFormat[A]): IndexMap[T, A]
 
   def newPartialMap[A](rootValue: A)
-                      (implicit tx: T, serializer: ConstantSerializer[A]): IndexMap[T, A]
+                      (implicit tx: T, format: ConstFormat[A]): IndexMap[T, A]
 }

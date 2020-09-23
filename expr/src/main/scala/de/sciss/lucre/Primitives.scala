@@ -13,9 +13,9 @@
 
 package de.sciss.lucre
 
-import de.sciss.serial.{ImmutableSerializer, Serializer}
 import de.sciss.span.{Span, SpanLike}
 import de.sciss.lucre
+import de.sciss.serial.{ConstFormat, TFormat}
 
 import scala.collection.immutable.{IndexedSeq => Vec}
 
@@ -33,7 +33,7 @@ object IntObj extends impl.ExprTypeImpl[Int, IntObj] {
   import lucre.{IntObj => Repr}
 
   final val typeId = 2
-  final val valueSerializer = TSerializer.Int
+  final val valueFormat = TFormat.Int
 
   override def toString = "IntObj"
 
@@ -64,7 +64,7 @@ object LongObj extends impl.ExprTypeImpl[Long, LongObj] {
   import lucre.{LongObj => Repr}
 
   final val typeId = 3
-  final val valueSerializer = TSerializer.Long
+  final val valueFormat = TFormat.Long
 
   override def toString = "LongObj"
 
@@ -96,7 +96,7 @@ object DoubleObj extends impl.ExprTypeImpl[Double, DoubleObj] {
   import lucre.{DoubleObj => Repr}
 
   final val typeId = 5
-  final val valueSerializer = TSerializer.Double
+  final val valueFormat = TFormat.Double
 
   override def toString = "DoubleObj"
 
@@ -129,7 +129,7 @@ object BooleanObj extends impl.ExprTypeImpl[Boolean, BooleanObj] {
   import lucre.{BooleanObj => Repr}
 
   final val typeId = 6
-  final val valueSerializer = TSerializer.Boolean
+  final val valueFormat = TFormat.Boolean
 
   override def toString = "BooleanObj"
 
@@ -160,7 +160,7 @@ object StringObj extends impl.ExprTypeImpl[String, StringObj] {
   import lucre.{StringObj => Repr}
 
   final val typeId = 8
-  final val valueSerializer = TSerializer.String
+  final val valueFormat = TFormat.String
 
   override def toString = "StringObj"
 
@@ -191,7 +191,7 @@ object SpanLikeObj extends impl.ExprTypeImpl[SpanLike, SpanLikeObj] {
   import lucre.{SpanLikeObj => Repr}
 
   final val typeId = 9
-  final val valueSerializer = ??? // SpanLike.serializer
+  final val valueFormat = ??? // SpanLike.format
 
   override def toString = "SpanLikeObj"
 
@@ -222,7 +222,7 @@ object SpanObj extends impl.ExprTypeImpl[Span, SpanObj] {
   import lucre.{SpanObj => Repr}
 
   final val typeId = 10
-  final val valueSerializer = ??? // Span.serializer
+  final val valueFormat = ??? // Span.format
 
   override def toString = "SpanObj"
 
@@ -253,7 +253,7 @@ object IntVector extends impl.ExprTypeImpl[Vec[Int], IntVector] {
   import lucre.{IntVector => Repr}
 
   final val typeId = 0x2002 //  0x2000 | IntObj.typeId
-  final val valueSerializer: ConstantSerializer[Vec[Int]] = ??? // ConstantSerializer.vec
+  final val valueFormat: ConstFormat[Vec[Int]] = ??? // ConstFormat.vec
 
   override def toString = "IntVector"
 
@@ -289,7 +289,7 @@ object DoubleVector extends impl.ExprTypeImpl[Vec[Double], DoubleVector] {
   import lucre.{DoubleVector => Repr}
 
   final val typeId = 0x2005 //  0x2000 | DoubleObj.typeId
-  final val valueSerializer: ConstantSerializer[Vec[Double]] = ??? // ConstantSerializer.vec
+  final val valueFormat: ConstFormat[Vec[Double]] = ??? // ConstFormat.vec
 
   override def toString = "DoubleVector"
 

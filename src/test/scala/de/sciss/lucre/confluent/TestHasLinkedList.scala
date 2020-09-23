@@ -1,15 +1,15 @@
 package de.sciss.lucre.confluent
 
 import de.sciss.lucre.impl.MutableImpl
-import de.sciss.lucre.{ConfluentLike, Mutable, WritableSerializer, Var => LVar}
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.lucre.{ConfluentLike, Mutable, Var => LVar}
+import de.sciss.serial.{DataInput, DataOutput, WritableFormat}
 
 trait TestHasLinkedList {
   class Types[T <: Txn[T]](val s: ConfluentLike[T]) {
     type Sys = T
 
     object Node {
-      implicit object ser extends WritableSerializer[T, Node] {
+      implicit object ser extends WritableFormat[T, Node] {
         override def readT(in: DataInput)(implicit tx: T): Node = {
           val id = tx.readId(in)
           readData(in, id)(tx)

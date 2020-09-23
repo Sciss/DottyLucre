@@ -2,8 +2,8 @@ package de.sciss.lucre.confluent
 
 import de.sciss.lucre.impl.MutableImpl
 import de.sciss.lucre.store.BerkeleyDB
-import de.sciss.lucre.{Confluent, WritableSerializer, Cursor => LCursor, Var => LVar}
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.lucre.{Confluent, Cursor => LCursor, Var => LVar}
+import de.sciss.serial.{DataInput, DataOutput, WritableFormat}
 import org.scalatest.Outcome
 import org.scalatest.flatspec.FixtureAnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -23,7 +23,7 @@ class RefreshSpec extends FixtureAnyFlatSpec with Matchers {
   // confluent.showLog = true
 
   object Entity {
-    implicit object Ser extends WritableSerializer[T, Entity] {
+    implicit object Fmt extends WritableFormat[T, Entity] {
       override def readT(in: DataInput)(implicit tx: T): Entity = {
         val id    = tx.readId(in)
         val field = id.readIntVar(in)

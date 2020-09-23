@@ -15,13 +15,12 @@ package de.sciss.lucre.confluent
 package impl
 
 import de.sciss.lucre.confluent.Log.log
-import de.sciss.lucre.{ConstantSerializer, TSerializer}
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.{ConstFormat, DataInput, DataOutput, TFormat}
 
 import scala.collection.immutable.LongMap
 
 private[impl] final class HandleImpl[T <: Txn[T], A](stale: A, writeIndex: Access[T])
-                                              (implicit serializer: TSerializer[T, A])
+                                              (implicit format: TFormat[T, A])
   extends TSource[T, A] with Cache[T] {
 
   private var writeTerm = 0L
@@ -45,7 +44,7 @@ private[impl] final class HandleImpl[T <: Txn[T], A](stale: A, writeIndex: Acces
 
   private def apply1(readPath: Access[T])(implicit tx: T): A = {
     val out = DataOutput()
-    serializer.write(stale, out)
+    format.write(stale, out)
     val in = DataInput(out.buffer, 0, out.size)
 
     var entries = LongMap.empty[Long]
@@ -69,7 +68,7 @@ private[impl] final class HandleImpl[T <: Txn[T], A](stale: A, writeIndex: Acces
       if (hash == 0L) {
         // full entry
         val suffix = writeTerm +: readPath.drop(preLen)
-        val res = tx.withReadAccess(suffix)(serializer.readT(in)(tx))
+        val res = tx.withReadAccess(suffix)(format.readT(in)(tx))
         return res
       } else {
         // partial hash
@@ -105,36 +104,36 @@ private[impl] abstract class BasicVar[T <: Txn[T], A] extends Var[A] {
 }
 
 private[impl] final class VarImpl[T <: Txn[T], A](protected val tx: T, protected val id: Ident[T],
-                                                  protected val ser: ConstantSerializer[A])
+                                                  protected val format: ConstFormat[A])
   extends BasicVar[T, A] {
 
   def meld(from: Access[T]): A = {
     log(s"$this meld $from")
     val idm = new ConfluentId[T](tx, id.base, from)
     tx.addInputVersion(from)
-    tx.getNonTxn[A](idm)(ser)
+    tx.getNonTxn[A](idm)(format)
   }
 
   def update(v: A): Unit = {
     log(s"$this set $v")
-    tx.putNonTxn(id, v)(ser)
+    tx.putNonTxn(id, v)(format)
   }
 
   def apply(): A = {
     log(s"$this get")
-    tx.getNonTxn[A](id)(ser)
+    tx.getNonTxn[A](id)(format)
   }
 
   def setInit(v: A): Unit = {
     log(s"$this ini $v")
-    tx.putNonTxn(id, v)(ser)
+    tx.putNonTxn(id, v)(format)
   }
 
   override def toString = s"Var($id)"
 }
 
 private[impl] final class VarTxImpl[T <: Txn[T], A](protected val tx: T, protected val id: Ident[T])
-                                                   (implicit ser: TSerializer[T, A])
+                                                   (implicit format: TFormat[T, A])
   extends BasicVar[T, A] {
 
   def meld(from: Access[T]): A = {
@@ -163,7 +162,7 @@ private[impl] final class VarTxImpl[T <: Txn[T], A](protected val tx: T, protect
 }
 
 private final class RootVar[T <: Txn[T], A](id1: Int, name: String)
-                                           (implicit val ser: TSerializer[T, A])
+                                           (implicit val format: TFormat[T, A])
   extends TRef[T, A] {
 
   def setInit(v: A)(implicit tx: T): Unit = this() = v // XXX could add require( tx.inAccess == Path.root )
@@ -176,17 +175,17 @@ private final class RootVar[T <: Txn[T], A](id1: Int, name: String)
     log(s"$this meld $from")
     val idm = new ConfluentId[T](tx, id1, from)
     tx.addInputVersion(from)
-    tx.getTxn(idm)(ser)
+    tx.getTxn(idm)(format)
   }
 
   def update(v: A)(implicit tx: T): Unit = {
     log(s"$this set $v")
-    tx.putTxn(id, v)(ser)
+    tx.putTxn(id, v)(format)
   }
 
   def apply()(implicit tx: T): A = {
     log(s"$this get")
-    tx.getTxn(id)(ser)
+    tx.getTxn(id)(format)
   }
 
 //  def swap(v: A)(implicit tx: T): A = {
@@ -202,7 +201,7 @@ private final class RootVar[T <: Txn[T], A](id1: Int, name: String)
 }
 
 private[impl] final class BooleanVar[T <: Txn[T]](protected val tx: T, protected val id: Ident[T])
-  extends BasicVar[T, Boolean] with ConstantSerializer[Boolean] {
+  extends BasicVar[T, Boolean] with ConstFormat[Boolean] {
 
   def meld(from: Access[T]): Boolean = {
     log(s"$this meld $from")
@@ -228,14 +227,14 @@ private[impl] final class BooleanVar[T <: Txn[T]](protected val tx: T, protected
 
   override def toString = s"Var[Boolean]($id)"
 
-  // ---- Serializer ----
+  // ---- Format ----
   def write(v: Boolean, out: DataOutput): Unit = out.writeBoolean(v)
 
   def read(in: DataInput): Boolean = in.readBoolean()
 }
 
 private[impl] final class IntVar[T <: Txn[T]](protected val tx: T, protected val id: Ident[T])
-  extends BasicVar[T, Int] with ConstantSerializer[Int] {
+  extends BasicVar[T, Int] with ConstFormat[Int] {
 
   def meld(from: Access[T]): Int = {
     log(s"$this meld $from")
@@ -261,14 +260,14 @@ private[impl] final class IntVar[T <: Txn[T]](protected val tx: T, protected val
 
   override def toString = s"Var[Int]($id)"
 
-  // ---- Serializer ----
+  // ---- Format ----
   def write(v: Int, out: DataOutput): Unit = out.writeInt(v)
 
   def read(in: DataInput): Int = in.readInt()
 }
 
 private[impl] final class LongVar[T <: Txn[T]](protected val tx: T, protected val id: Ident[T])
-  extends BasicVar[T, Long] with ConstantSerializer[Long] {
+  extends BasicVar[T, Long] with ConstFormat[Long] {
 
   def meld(from: Access[T]): Long = {
     log(s"$this meld $from")
@@ -294,7 +293,7 @@ private[impl] final class LongVar[T <: Txn[T]](protected val tx: T, protected va
 
   override def toString = s"Var[Long]($id)"
 
-  // ---- Serializer ----
+  // ---- Format ----
   def write(v: Long, out: DataOutput): Unit = out.writeLong(v)
 
   def read(in: DataInput): Long = in.readLong()

@@ -13,6 +13,8 @@
 
 package de.sciss.lucre
 
+import de.sciss.serial.TFormat
+
 /** A system in LucreSTM describes a particular mode of representing values in time and of
  * persisting values to disk. The `Sys` trait contains types for variables, identifiers,
  * access paths, and transactions which are unique to each system (such as ephemeral in-memory,
@@ -28,10 +30,10 @@ trait Sys /*[S <: Sys[S]]*/ extends Base /*[S]*/ {
    * or provides a newly initialized one via the `init` argument,
    * if no root has been stored yet.
    */
-  def root[A](init: T => A)(implicit serializer: TSerializer[T, A]): TSource[T, A]
+  def root[A](init: T => A)(implicit format: TFormat[T, A]): TSource[T, A]
 
   private[lucre] def rootJoin[A](init: T => A)
-                                (implicit tx: TxnLike, serializer: TSerializer[T, A]): TSource[T, A]
+                                (implicit tx: TxnLike, format: TFormat[T, A]): TSource[T, A]
 
   // ---- event ----
 

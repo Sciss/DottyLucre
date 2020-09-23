@@ -1,7 +1,8 @@
 package de.sciss.lucre.data
 
 import de.sciss.lucre.store.BerkeleyDB
-import de.sciss.lucre.{Cursor, Durable, InMemory, TSerializer, TSource, TestUtil, Txn}
+import de.sciss.lucre.{Cursor, Durable, InMemory, TSource, TestUtil, Txn}
+import de.sciss.serial.TFormat
 import org.scalatest.GivenWhenThen
 import org.scalatest.featurespec.AnyFeatureSpec
 
@@ -43,7 +44,7 @@ class SkipListSuite extends AnyFeatureSpec with GivenWhenThen {
         val (sys, c) = sysCreator()
         val lH = c.step { implicit tx =>
           val l = HASkipList.Set.empty[T, Int](minGap = 1, keyObserver = oo)
-          implicit val ser: TSerializer[T, HASkipList.Set[T, Int]] = HASkipList.Set.serializer(oo)
+          implicit val format: TFormat[T, HASkipList.Set[T, Int]] = HASkipList.Set.format(oo)
           tx.newHandle(l)
         }
         (c, lH, () => sysCleanUp(sys))
@@ -53,7 +54,7 @@ class SkipListSuite extends AnyFeatureSpec with GivenWhenThen {
       val (sys, c) = sysCreator()
       val lH = c.step { implicit tx =>
         val l = HASkipList.Set.empty[T, Int](minGap = 2, keyObserver = oo)
-        implicit val ser: TSerializer[T, HASkipList.Set[T, Int]] = HASkipList.Set.serializer(oo)
+        implicit val format: TFormat[T, HASkipList.Set[T, Int]] = HASkipList.Set.format(oo)
         tx.newHandle(l)
       }
       (c, lH, () => sysCleanUp(sys))

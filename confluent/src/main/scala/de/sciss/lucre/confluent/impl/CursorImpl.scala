@@ -17,17 +17,17 @@ package impl
 
 import de.sciss.lucre.confluent.Cursor.Data
 import de.sciss.lucre.confluent.Log.logCursor
-import de.sciss.lucre.{Txn => LTxn, Var => LVar, Ident => LIdent}
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.lucre.{Ident => LIdent, Txn => LTxn, Var => LVar}
+import de.sciss.serial.{DataInput, DataOutput, TFormat, WritableFormat}
 
 object CursorImpl {
   private final val COOKIE  = 0x4375  // "Cu"
 
-  implicit def serializer[T <: Txn[T], D1 <: DurableLike.Txn[D1]](implicit system:
-    ConfluentLike[T] { type D = D1 }): TSerializer[D1, Cursor[T, D1]] = new Ser[T, D1]
+  implicit def format[T <: Txn[T], D1 <: DurableLike.Txn[D1]](implicit system:
+    ConfluentLike[T] { type D = D1 }): TFormat[D1, Cursor[T, D1]] = new Fmt[T, D1]
 
-  private final class Ser[T <: Txn[T], D1 <: DurableLike.Txn[D1]](implicit system: ConfluentLike[T] { type D = D1 })
-    extends WritableSerializer[D1, Cursor[T, D1]] {
+  private final class Fmt[T <: Txn[T], D1 <: DurableLike.Txn[D1]](implicit system: ConfluentLike[T] { type D = D1 })
+    extends WritableFormat[D1, Cursor[T, D1]] {
 
     override def readT(in: DataInput)(implicit tx: D1): Cursor[T, D1] =
       CursorImpl.read[T, D1](in)
@@ -36,13 +36,13 @@ object CursorImpl {
 //  private trait NoSys extends Sys[NoSys] { type D = stm.Durable }
 //  private type NoSys = Sys
 
-  /* implicit */ def pathSerializer[T <: Txn[T], D <: LTxn[D]]: TSerializer[D, Access[T]] =
-    anyPathSer.asInstanceOf[PathSer[T, D]]
+  /* implicit */ def pathFormat[T <: Txn[T], D <: LTxn[D]]: TFormat[D, Access[T]] =
+    anyPathFmt.asInstanceOf[PathFmt[T, D]]
 
-  private final val anyPathSer = new PathSer[Confluent.Txn, AnyTxn]
+  private final val anyPathFmt = new PathFmt[Confluent.Txn, AnyTxn]
 
-  private final class PathSer[T <: Txn[T], D1 <: LTxn[D1]] // (implicit system: S { type D = D1 })
-    extends WritableSerializer[D1, Access[T]] {
+  private final class PathFmt[T <: Txn[T], D1 <: LTxn[D1]] // (implicit system: S { type D = D1 })
+    extends WritableFormat[D1, Access[T]] {
 
     override def readT(in: DataInput)(implicit tx: D1): Access[T] =
       confluent.Access.read(in) // system.readPath(in)
@@ -50,17 +50,17 @@ object CursorImpl {
 
   def newData[T <: Txn[T], D <: LTxn[D]](init: Access[T] = Access.root[T])(implicit tx: D): Data[T, D] = {
     val id    = tx.newId()
-    val path  = id.newVar(init)(pathSerializer[T, D])
+    val path  = id.newVar(init)(pathFormat[T, D])
     new DataImpl[T, D](id, path)
   }
 
-  def dataSerializer[T <: Txn[T], D <: LTxn[D]]: TSerializer[D, Data[T, D]] =
-    anyDataSer.asInstanceOf[DataSer[T, D]]
+  def dataFormat[T <: Txn[T], D <: LTxn[D]]: TFormat[D, Data[T, D]] =
+    anyDataFmt.asInstanceOf[DataFmt[T, D]]
 
-  private final val anyDataSer = new DataSer[Confluent.Txn, AnyTxn]
+  private final val anyDataFmt = new DataFmt[Confluent.Txn, AnyTxn]
 
-  private final class DataSer[T <: Txn[T], D <: LTxn[D]]
-    extends WritableSerializer[D, Data[T, D]] {
+  private final class DataFmt[T <: Txn[T], D <: LTxn[D]]
+    extends WritableFormat[D, Data[T, D]] {
 
     override def readT(in: DataInput)(implicit tx: D): Data[T, D] = readData[T, D](in)
   }
@@ -68,8 +68,8 @@ object CursorImpl {
   def readData[T <: Txn[T], D <: LTxn[D]](in: DataInput)(implicit tx: D): Data[T, D] = {
     val cookie  = in.readShort()
     if (cookie != COOKIE) throw new IllegalStateException(s"Unexpected cookie $cookie (should be $COOKIE)")
-    val id      = tx.readId(in) // implicitly[Serializer[D#Tx, D#Acc, D#Id]].read(in)
-    val path    = id.readVar[Access[T]](in)(pathSerializer[T, D])
+    val id      = tx.readId(in) // implicitly[Format[D#Tx, D#Acc, D#Id]].read(in)
+    val path    = id.readVar[Access[T]](in)(pathFormat[T, D])
     new DataImpl[T, D](id, path)
   }
 

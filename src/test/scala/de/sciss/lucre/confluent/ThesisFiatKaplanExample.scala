@@ -2,8 +2,8 @@ package de.sciss.lucre.confluent
 
 import de.sciss.lucre.impl.MutableImpl
 import de.sciss.lucre.store.BerkeleyDB
-import de.sciss.lucre.{Confluent, Mutable, TSerializer, WritableSerializer, Var => LVar}
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.lucre.{Confluent, Mutable, Var => LVar}
+import de.sciss.serial.{DataInput, DataOutput, TFormat, WritableFormat}
 
 import scala.annotation.tailrec
 
@@ -19,45 +19,45 @@ import scala.annotation.tailrec
  */
 object ThesisFiatKaplanExample extends App {
   object LinkedList {
-    implicit def listSer[T <: Txn[T], A](implicit peerSer: TSerializer[T, A]): TSerializer[T, LinkedList[T, A]] =
-      new ListSer[T, A]
+    implicit def listFmt[T <: Txn[T], A](implicit peerFmt: TFormat[T, A]): TFormat[T, LinkedList[T, A]] =
+      new ListFmt[T, A]
 
-    private class ListSer[T <: Txn[T], A](implicit peer: TSerializer[T, A])
-      extends WritableSerializer[T, LinkedList[T, A]] {
+    private class ListFmt[T <: Txn[T], A](implicit peer: TFormat[T, A])
+      extends WritableFormat[T, LinkedList[T, A]] {
 
       def readT(in: DataInput)(implicit tx: T): LinkedList[T, A] = {
         new Impl[T, A] {
-          val peerSer = peer
+          val peerFmt = peer
           val id      = tx.readId(in)
-          val head    = id.readVar[Option[Cell]](in)(TSerializer.option(CellSer))
+          val head    = id.readVar[Option[Cell]](in)(TFormat.option(CellFmt))
         }
       }
     }
 
-    def apply[T <: Txn[T], A]()(implicit tx: T, peer: TSerializer[T, A]): LinkedList[T, A] =
+    def apply[T <: Txn[T], A]()(implicit tx: T, peer: TFormat[T, A]): LinkedList[T, A] =
       new Impl[T, A] {
-        val peerSer = peer
+        val peerFmt = peer
         val id      = tx.newId()
         val head    = id.newVar(Option.empty[Cell])
       }
 
     private abstract class Impl[T <: Txn[T], A] extends LinkedList[T, A] with MutableImpl[T] {
-      implicit def peerSer: TSerializer[T, A]
+      implicit def peerFmt: TFormat[T, A]
 
       def cell(init: A): Cell = new Cell {
         val next  = id.newVar(Option.empty[Cell])
         val value = init
       }
 
-      implicit object CellSer extends TSerializer[T, Cell] {
+      implicit object CellFmt extends TFormat[T, Cell] {
         def write(cell: Cell, out: DataOutput): Unit = {
           cell.next.write(out)
-          peerSer.write(cell.value, out)
+          peerFmt.write(cell.value, out)
         }
 
         def readT(in: DataInput)(implicit tx: T): Cell = new Cell {
           val next  = id.readVar[Option[Cell]](in)
-          val value = peerSer.readT(in)
+          val value = peerFmt.readT(in)
         }
       }
 

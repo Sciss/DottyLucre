@@ -14,7 +14,8 @@
 package de.sciss.lucre.confluent
 
 import de.sciss.lucre
-import de.sciss.lucre.{ConfluentLike, DurableLike, ConstantSerializer, TSerializer, confluent}
+import de.sciss.lucre.{ConfluentLike, DurableLike, confluent}
+import de.sciss.serial.{ConstFormat, TFormat}
 
 trait Txn[T <: Txn[T]] extends lucre.Txn[T] {
   def system: ConfluentLike[T]
@@ -39,16 +40,16 @@ trait Txn[T <: Txn[T]] extends lucre.Txn[T] {
   def isRetroactive: Boolean
 
   /** The confluent handle is enhanced with the `meld` method. */
-  def newHandleM[A](value: A)(implicit serializer: TSerializer[T, A]): TSource[T, A]
+  def newHandleM[A](value: A)(implicit format: TFormat[T, A]): TSource[T, A]
 
   private[confluent] def readTreeVertexLevel(term: Long): Int
   private[confluent] def addInputVersion(path: Acc): Unit
 
-  private[confluent] def putTxn   [A](id: Id, value: A)(implicit ser: TSerializer[T, A]): Unit
-  private[confluent] def putNonTxn[A](id: Id, value: A)(implicit ser: ConstantSerializer[A]): Unit
+  private[confluent] def putTxn   [A](id: Id, value: A)(implicit format: TFormat[T, A]): Unit
+  private[confluent] def putNonTxn[A](id: Id, value: A)(implicit format: ConstFormat[A]): Unit
 
-  private[confluent] def getTxn   [A](id: Id)(implicit ser: TSerializer[T, A]): A
-  private[confluent] def getNonTxn[A](id: Id)(implicit ser: ConstantSerializer[A]): A
+  private[confluent] def getTxn   [A](id: Id)(implicit format: TFormat[T, A]): A
+  private[confluent] def getNonTxn[A](id: Id)(implicit format: ConstFormat[A]): A
 
   private[confluent] def removeFromCache(id: Id): Unit
 

@@ -14,7 +14,7 @@
 package de.sciss.lucre
 package geom
 
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.{ConstFormat, DataInput, DataOutput}
 
 import scala.annotation.tailrec
 
@@ -48,7 +48,7 @@ object LongSpace {
     }
 
 
-    implicit object pointSerializer extends ConstantSerializer[LongPoint2D] {
+    implicit object pointFormat extends ConstFormat[LongPoint2D] {
       def read(in: DataInput): LongPoint2D = {
         val x = in.readLong()
         val y = in.readLong()
@@ -61,7 +61,7 @@ object LongSpace {
       }
     }
 
-    implicit object hyperCubeSerializer extends ConstantSerializer[LongSquare] {
+    implicit object hyperCubeFormat extends ConstFormat[LongSquare] {
       def read(in: DataInput): LongSquare = {
         val cx = in.readLong()
         val cy = in.readLong()

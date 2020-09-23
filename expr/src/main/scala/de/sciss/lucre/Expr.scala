@@ -15,7 +15,7 @@ package de.sciss.lucre
 
 import de.sciss.lucre
 import de.sciss.model.Change
-import de.sciss.serial.{DataInput, ImmutableSerializer}
+import de.sciss.serial.{ConstFormat, DataInput, TFormat}
 
 import scala.language.implicitConversions
 
@@ -54,10 +54,10 @@ object Expr {
 
     def read[T <: Txn[T]](in: DataInput)(implicit tx: T): Repr[T]
 
-    implicit def serializer   [T <: Txn[T]]: TSerializer[T, Repr[T]]
-    implicit def varSerializer[T <: Txn[T]]: TSerializer[T, Var [T]]
+    implicit def format   [T <: Txn[T]]: TFormat[T, Repr[T]]
+    implicit def varFormat[T <: Txn[T]]: TFormat[T, Var [T]]
 
-    implicit def valueSerializer: ConstantSerializer[A]
+    implicit def valueFormat: ConstFormat[A]
 
     // ---- public ----
 

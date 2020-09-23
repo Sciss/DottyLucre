@@ -15,7 +15,7 @@ package de.sciss.lucre
 package impl
 
 import de.sciss.lucre
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.{DataInput, DataOutput, TFormat, WritableFormat}
 
 import scala.annotation.switch
 import scala.language.implicitConversions
@@ -53,11 +53,11 @@ trait ExprTypeImpl[A1, Repr[~ <: Txn[~]] <: Expr[~, A1]] extends Expr.Type[A1, R
   protected def readCookie[T <: Txn[T]](in: DataInput, cookie: Byte)(implicit tx: T): E[T] =  // sub-class may need tx
     sys.error(s"Unexpected cookie $cookie")
 
-  implicit final def serializer[T <: Txn[T]]: TSerializer[T, E[T]] /* EventLikeSerializer[S, Repr[T]] */ =
-    anySer.asInstanceOf[Ser[T]]
+  implicit final def format[T <: Txn[T]]: TFormat[T, E[T]] /* EventLikeFormat[S, Repr[T]] */ =
+    anyFmt.asInstanceOf[Fmt[T]]
 
-  implicit final def varSerializer[T <: Txn[T]]: TSerializer[T, Var[T]] /* Serializer[T, S#Acc, ReprVar[T]] */ =
-    anyVarSer.asInstanceOf[VarSer[T]]
+  implicit final def varFormat[T <: Txn[T]]: TFormat[T, Var[T]] /* Format[T, S#Acc, ReprVar[T]] */ =
+    anyVarFmt.asInstanceOf[VarFmt[T]]
 
   // repeat `implicit` here because IntelliJ IDEA will not recognise it otherwise (SCL-9076)
   implicit final def newConst[T <: Txn[T]](value: A)(implicit tx: T): Const[T] =
@@ -73,7 +73,7 @@ trait ExprTypeImpl[A1, Repr[~ <: Txn[~]] <: Expr[~, A1]] extends Expr.Type[A1, R
   protected def mkVar  [T <: Txn[T]](targets: Event.Targets[T], vr: lucre.Var[E[T]], connect: Boolean)(implicit tx: T): Var[T]
 
   override final def read[T <: Txn[T]](in: DataInput)(implicit tx: T): E[T] =
-    serializer[T].readT(in)
+    format[T].readT(in)
 
   override final def readConst[T <: Txn[T]](in: DataInput)(implicit tx: T): Const[T] = {
     val tpe = in.readInt()
@@ -86,7 +86,7 @@ trait ExprTypeImpl[A1, Repr[~ <: Txn[~]] <: Expr[~, A1]] extends Expr.Type[A1, R
   @inline
   private[this] def readIdentifiedConst[T <: Txn[T]](in: DataInput)(implicit tx: T): Const[T] = {
     val id      = tx.readId(in)
-    val value   = valueSerializer.read(in)
+    val value   = valueFormat.read(in)
     mkConst[T](id, value)(tx)
   }
 
@@ -113,7 +113,7 @@ trait ExprTypeImpl[A1, Repr[~ <: Txn[~]] <: Expr[~, A1]] extends Expr.Type[A1, R
 
     final def tpe: Obj.Type = self
 
-    final protected def writeData(out: DataOutput): Unit = valueSerializer.write(constValue, out)
+    final protected def writeData(out: DataOutput): Unit = valueFormat.write(constValue, out)
 
     private[lucre] def copy[Out <: Txn[Out]]()(implicit txOut: Out, context: Copy[T, Out]): Elem[Out] =
       mkConst[Out](txOut.newId(), constValue)
@@ -131,14 +131,14 @@ trait ExprTypeImpl[A1, Repr[~ <: Txn[~]] <: Expr[~, A1]] extends Expr.Type[A1, R
     }
   }
 
-  private[this] val anySer    = new Ser   [AnyTxn]
-  private[this] val anyVarSer = new VarSer[AnyTxn]
+  private[this] val anyFmt    = new Fmt   [AnyTxn]
+  private[this] val anyVarFmt = new VarFmt[AnyTxn]
 
-  private[this] final class VarSer[T <: Txn[T]] extends WritableSerializer[T, Var[T]] {
+  private[this] final class VarFmt[T <: Txn[T]] extends WritableFormat[T, Var[T]] {
     override def readT(in: DataInput)(implicit tx: T): Var[T] = readVar[T](in)
   }
 
-  private[this] final class Ser[T <: Txn[T]] extends WritableSerializer[T, E[T]] {
+  private[this] final class Fmt[T <: Txn[T]] extends WritableFormat[T, E[T]] {
     override def readT(in: DataInput)(implicit tx: T): E[T] = {
       val tpe = in.readInt()
       if (tpe != typeId) sys.error(s"Type mismatch, expected $typeId but found $tpe")

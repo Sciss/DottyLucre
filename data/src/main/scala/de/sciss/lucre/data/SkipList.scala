@@ -14,7 +14,7 @@
 package de.sciss.lucre
 package data
 
-import de.sciss.serial.DataInput
+import de.sciss.serial.{ConstFormat, DataInput, TFormat, WritableFormat}
 
 import scala.collection.immutable.{IndexedSeq => Vec}
 import scala.language.implicitConversions
@@ -23,7 +23,7 @@ object SkipList {
   /** A trait for observing the promotion and demotion of a key
    * in the skip list's level hierarchy
    */
-  trait KeyObserver[-Tx, /* @spec(KeySpec) */ -A] {
+  trait KeyObserver[-Tx, -A] {
     /** Notifies the observer that a given key
      * is promoted to a higher (more sparse) level
      */
@@ -45,71 +45,71 @@ object SkipList {
 
   object Set {
     def empty[T <: Exec[T], A](implicit tx: T, ord: Ordering[A],
-                               keySerializer: TSerializer[T, A]): SkipList.Set[T, A] =
+                               keyFormat: TFormat[T, A]): SkipList.Set[T, A] =
       HASkipList.Set.empty[T, A]
 
     def empty[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
-                              (implicit tx: T, ord: Ordering[/*T,*/ A],
-                               keySerializer: TSerializer[T, A]): SkipList.Set[T, A] =
+                              (implicit tx: T, ord: Ordering[A],
+                               keyFormat: TFormat[T, A]): SkipList.Set[T, A] =
       HASkipList.Set.empty[T, A](keyObserver = keyObserver)
 
     def read[T <: Exec[T], A](in: DataInput, keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
-                             (implicit tx: T, ord: Ordering[/*T,*/ A],
-                              keySerializer: TSerializer[T, A]): SkipList.Set[T, A] =
+                             (implicit tx: T, ord: Ordering[A],
+                              keyFormat: TFormat[T, A]): SkipList.Set[T, A] =
       HASkipList.Set.read[T, A](in, keyObserver)
 
-    implicit def serializer[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
+    implicit def format[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
                                             (implicit ord: Ordering[/*T,*/ A],
-                                             keySerializer: TSerializer[T, A]): TSerializer[T, Set[T, A]] =
-      new SetSer[T, A](keyObserver)
+                                             keyFormat: TFormat[T, A]): TFormat[T, Set[T, A]] =
+      new SetFmt[T, A](keyObserver)
 
-    private final class SetSer[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A])
+    private final class SetFmt[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A])
                                                (implicit ord: Ordering[/*T,*/ A],
-                                                keySerializer: TSerializer[T, A])
-      extends WritableSerializer[T, Set[T, A]] {
+                                                keyFormat: TFormat[T, A])
+      extends WritableFormat[T, Set[T, A]] {
 
       override def readT(in: DataInput)(implicit tx: T): Set[T, A] =
         Set.read[T, A](in, keyObserver)
 
-      override def toString = "SkipList.Set.serializer"
+      override def toString = "SkipList.Set.format"
     }
   }
 
   object Map {
     def empty[T <: Exec[T], A, B](implicit tx: T, ord: Ordering[A],
-                                  keySerializer: ConstantSerializer[A],
-                                  valueSerializer: TSerializer[T, B]): SkipList.Map[T, A, B] =
+                                  keyFormat: ConstFormat[A],
+                                  valueFormat: TFormat[T, B]): SkipList.Map[T, A, B] =
       HASkipList.Map.empty[T, A, B]
 
     def empty[T <: Exec[T], A, B](keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
                                  (implicit tx: T, ord: Ordering[A],
-                                  keySerializer: ConstantSerializer[A],
-                                  valueSerializer: TSerializer[T, B]): SkipList.Map[T, A, B] =
+                                  keyFormat: ConstFormat[A],
+                                  valueFormat: TFormat[T, B]): SkipList.Map[T, A, B] =
       HASkipList.Map.empty[T, A, B](keyObserver = keyObserver)
 
     def read[T <: Exec[T], A, B](in: DataInput,
                                  keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
                                 (implicit tx: T, ord: Ordering[A],
-                                 keySerializer: ConstantSerializer[A],
-                                 valueSerializer: TSerializer[T, B]): SkipList.Map[T, A, B] =
+                                 keyFormat: ConstFormat[A],
+                                 valueFormat: TFormat[T, B]): SkipList.Map[T, A, B] =
       HASkipList.Map.read[T, A, B](in, keyObserver)
 
-    def serializer[T <: Exec[T], A, B](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
+    def format[T <: Exec[T], A, B](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
                                       (implicit ord: Ordering[A],
-                                       keySerializer: ConstantSerializer[A],
-                                       valueSerializer: TSerializer[T, B]): TSerializer[T, Map[T, A, B]] =
-      new MapSer[T, A, B](keyObserver)
+                                       keyFormat: ConstFormat[A],
+                                       valueFormat: TFormat[T, B]): TFormat[T, Map[T, A, B]] =
+      new MapFmt[T, A, B](keyObserver)
 
-    private final class MapSer[T <: Exec[T], A, B](keyObserver: SkipList.KeyObserver[T, A])
+    private final class MapFmt[T <: Exec[T], A, B](keyObserver: SkipList.KeyObserver[T, A])
                                                   (implicit ord: Ordering[A],
-                                                   keySerializer: ConstantSerializer[A],
-                                                   valueSerializer: TSerializer[T, B])
-      extends WritableSerializer[T, Map[T, A, B]] {
+                                                   keyFormat: ConstFormat[A],
+                                                   valueFormat: TFormat[T, B])
+      extends WritableFormat[T, Map[T, A, B]] {
 
       override def readT(in: DataInput)(implicit tx: T): Map[T, A, B] =
         Map.read[T, A, B](in, keyObserver)
 
-      override def toString = "SkipList.Map.serializer"
+      override def toString = "SkipList.Map.format"
     }
   }
 
@@ -238,7 +238,7 @@ trait SkipList[T <: Exec[T], A, E] extends Mutable[T] {
 
   def debugPrint(): String
 
-  def keySerializer: TSerializer[T, A]
+  def keyFormat: TFormat[T, A]
 
   /** The number of levels in the skip list. */
   def height: Int

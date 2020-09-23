@@ -15,7 +15,7 @@ package de.sciss.lucre
 package impl
 
 import de.sciss.equal.Implicits._
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.{DataInput, DataOutput, TFormat}
 
 import scala.concurrent.stm.{InTxn, TxnExecutor, Ref => ScalaRef}
 
@@ -40,7 +40,7 @@ object InMemoryImpl {
       res
     }
 
-    final def root[A](init: T => A)(implicit serializer: TSerializer[T, A]): TSource[T, A] =
+    final def root[A](init: T => A)(implicit format: TFormat[T, A]): TSource[T, A] =
       step { implicit tx =>
 //        val id  = tx.newId()
         val v   = init(tx)
@@ -49,7 +49,7 @@ object InMemoryImpl {
       }
 
     // may nest
-    def rootJoin[A](init: T => A)(implicit tx: TxnLike, serializer: TSerializer[T, A]): TSource[T, A] =
+    def rootJoin[A](init: T => A)(implicit tx: TxnLike, format: TFormat[T, A]): TSource[T, A] =
       root(init)
 
     final def close(): Unit = ()
@@ -82,7 +82,7 @@ object InMemoryImpl {
       this
     }
 
-    def newVar[A](init: A)(implicit serializer: TSerializer[T, A]): Var[A] = {
+    def newVar[A](init: A)(implicit format: TFormat[T, A]): Var[A] = {
       val peer = ScalaRef(init)
       new SysInMemoryRef[A](peer, tx.peer)
     }
@@ -102,7 +102,7 @@ object InMemoryImpl {
       new SysInMemoryRef[Long](peer, tx.peer)
     }
 
-    def readVar[A](in: DataInput)(implicit serializer: TSerializer[T, A]): Var[A] =
+    def readVar[A](in: DataInput)(implicit format: TFormat[T, A]): Var[A] =
       opNotSupported("readVar")
 
     def readBooleanVar(in: DataInput): Var[Boolean] =
@@ -136,7 +136,7 @@ object InMemoryImpl {
 
     final def newId(): Id = new IdImpl[T](this)(system.newIdValue()(this))
 
-    final def newHandle[A](value: A)(implicit serializer: TSerializer[T, A]): TSource[T, A] =
+    final def newHandle[A](value: A)(implicit format: TFormat[T, A]): TSource[T, A] =
       new EphemeralTSource(value)
 
     private[lucre] def getVar[A](vr: Var[A]): A = {
