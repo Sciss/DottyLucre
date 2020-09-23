@@ -115,6 +115,8 @@ object Txn {
 trait Txn[T <: Txn[T]] extends Exec[T] with TxnLike {
   //  def inMemory: S#I#Tx
 
+  override def system: Sys
+
   // ---- completion ----
 
   def beforeCommit(fun: T => Unit): Unit

@@ -15,12 +15,13 @@ package de.sciss.lucre
 package impl
 
 import de.sciss.lucre
+import de.sciss.lucre.Event.Targets
 import de.sciss.serial.{DataInput, DataOutput, TFormat, WritableFormat}
 
 import scala.annotation.switch
 import scala.language.implicitConversions
 
-trait ExprTypeImpl[A1, Repr[~ <: Txn[~]] <: Expr[~, A1]] extends Expr.Type[A1, Repr] /*with TypeImpl1[Repr]*/ { self =>
+trait ExprTypeImpl[A1, Repr[~ <: Txn[~]] <: Expr[~, A1]] extends Expr.Type[A1, Repr] with ExprTypeExtensibleImpl1[Repr] { self =>
   // ---- public ----
 
   implicit final def tpe: Expr.Type[A1, Repr] = this
@@ -43,7 +44,7 @@ trait ExprTypeImpl[A1, Repr[~ <: Txn[~]] <: Expr[~, A1]] extends Expr.Type[A1, R
   protected def readNode[T <: Txn[T]](in: DataInput, targets: Event.Targets[T])
                                      (implicit tx: T): E[T] = {
     val opId = in.readInt()
-    ??? // readExtension(op = opId, in = in, access = access, targets = targets)
+    readExtension(op = opId, in = in, targets = targets)
   }
 
   /** Reads an identified object whose cookie is neither `3` (constant) nor `0` (node).
@@ -144,5 +145,62 @@ trait ExprTypeImpl[A1, Repr[~ <: Txn[~]] <: Expr[~, A1]] extends Expr.Type[A1, R
       if (tpe != typeId) sys.error(s"Type mismatch, expected $typeId but found $tpe")
       readIdentifiedObj(in)
     }
+  }
+}
+
+trait ExprTypeExtensible[Ext >: Null <: Expr.Type.Extension] {
+  protected def mkExtArray(size: Int): Array[Ext]
+
+  private[this] var extensions = mkExtArray(0) // new Array[Ext](0)
+
+  final protected def addExtension(extensions: Array[Ext], ext: Ext): Array[Ext] = {
+    val opLo = ext.opLo
+    val opHi = ext.opHi
+    require (opLo <= opHi, s"Lo ($opLo) must be less than or equal hi ($opHi)")
+    val idx0  = extensions.indexWhere(_.opLo > opHi)
+    val idx   = if (idx0 < 0) extensions.length else idx0
+    if (idx > 0) {
+      val pred = extensions(idx - 1)
+      require(pred.opHi < opLo, s"Extension overlap for $pred versus $ext")
+    }
+    val len   = extensions.length
+    val extensions1 = mkExtArray(len + 1) // new Array[Ext](len + 1)
+    System.arraycopy(extensions, 0, extensions1, 0, len)
+    extensions1(len) = ext
+    extensions1
+  }
+
+  final protected def findExt(extensions: Array[Ext], op: Int): Ext = {
+    var index = 0
+    var low   = 0
+    var high  = extensions.length - 1
+    while ({
+      index = (high + low) >> 1
+      low  <= high
+    }) {
+      val ext = extensions(index)
+      if (ext.opLo <= op) {
+        if (ext.opHi >= op) return ext
+        low = index + 1
+      } else {
+        high = index - 1
+      }
+    }
+    null
+  }
+
+  final def registerExtension(ext: Ext): Unit = extensions = addExtension(extensions, ext)
+
+  final protected def findExt(op: Int): Ext = findExt(extensions, op)
+}
+
+trait ExprTypeExtensibleImpl1[Repr[~ <: Txn[~]]] extends ExprTypeExtensible[Expr.Type.Extension1[Repr]] {
+  protected def mkExtArray(size: Int): Array[Expr.Type.Extension1[Repr]] = new Array(size)
+
+  final protected def readExtension[T <: Txn[T]](op: Int, in: DataInput, targets: Targets[T])
+                                                (implicit tx: T): Repr[T] = {
+    val ext = findExt(op)
+    if (ext == null) sys.error(s"Unknown extension operator $op")
+    ext.readExtension[T](op, in, targets)
   }
 }

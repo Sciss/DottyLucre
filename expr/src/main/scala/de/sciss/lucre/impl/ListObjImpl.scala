@@ -53,8 +53,7 @@ object ListObjImpl {
     ListObjImpl.read(in, targets)
   }
 
-  private def read[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]](in: DataInput, _targets: Targets[T])
-                                                          (implicit tx: T): Impl1[T, E] =
+  private def read[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]](in: DataInput, _targets: Targets[T]): Impl1[T, E] =
     new Impl1[T, E] {
       protected val targets: Targets[T]   = _targets
       protected val sizeRef: Var[T, Int]  = id.readIntVar(in)

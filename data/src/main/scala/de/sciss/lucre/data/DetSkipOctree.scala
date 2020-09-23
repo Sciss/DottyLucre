@@ -1770,7 +1770,7 @@ object DetSkipOctree {
     /*
      * Serialization-id: 2
      */
-    private[this] def readLeftTopBranch(in: DataInput, id: Ident[T])(implicit tx: T): LeftTopBranch = {
+    private[this] def readLeftTopBranch(in: DataInput, id: Ident[T]): LeftTopBranch = {
       val sz  = numOrthants
       val ch  = new Array[Var[T, LeftChild]](sz)
       var i = 0
@@ -1785,8 +1785,7 @@ object DetSkipOctree {
     /*
      * Serialization-id: 3
      */
-    private[this] def readLeftChildBranch(in: DataInput, id: Ident[T])
-                                         (implicit tx: T): LeftChildBranch = {
+    private[this] def readLeftChildBranch(in: DataInput, id: Ident[T]): LeftChildBranch = {
       val parentRef   = id.readVar[LeftBranch](in)
       val hc          = space.hyperCubeFormat.read(in)
       val sz          = numOrthants

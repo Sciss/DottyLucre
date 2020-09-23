@@ -14,15 +14,19 @@
 package de.sciss.lucre
 
 import de.sciss.lucre
+import de.sciss.lucre.Event.Targets
+import de.sciss.lucre.expr.LongExtensions
+import de.sciss.lucre.expr.impl.{ExObjBridgeImpl, ExSeqObjBridgeImpl}
 import de.sciss.model.Change
 import de.sciss.serial.{ConstFormat, DataInput, TFormat}
 
+import scala.collection.immutable.{IndexedSeq => Vec}
 import scala.language.implicitConversions
 
 object Expr {
   // XXX TODO -- we need to rethink this type
-  //  trait Var[T <: Txn[T], A, E[~ <: Sys[~]] <: Expr[~, A]] extends Expr[S, A] with stm.Var[T, E[T]]
-//  trait Var[T <: Txn[T], A] extends Expr[T, A] with lucre.Var[Expr[T, A]]
+  //  trait Var[T <: Txn[T], A, E[~ <: Txn[~]] <: Expr[~, A]] extends Expr[S, A] with stm.Var[T, E[T]]
+  //  trait Var[T <: Txn[T], A] extends Expr[T, A] with lucre.Var[Expr[T, A]]
 
   object Const {
     def unapply[T <: Txn[T], A](expr: Expr[T, A]): Option[A] =
@@ -42,11 +46,66 @@ object Expr {
 
   def isConst(expr: Expr[_, _]): Boolean = expr.isInstanceOf[Const[_, _]]
 
+  object Type {
+    trait Extension {
+      def name: String
+
+      /** Lowest id of handled operators */
+      val opLo : Int
+      /** Highest id of handled operators. Note: This value is _inclusive_ */
+      val opHi : Int
+
+      override def toString = s"$name [lo = $opLo, hi = $opHi]"
+    }
+
+    trait Extension1[+Repr[~ <: Txn[~]]] extends Extension {
+      def readExtension[T <: Txn[T]](opId: Int, in: DataInput, targets: Targets[T])
+                                    (implicit tx: T): Repr[T]
+    }
+
+    trait Extension2[+Repr[~ <: Txn[~], _]] extends Extension {
+      def readExtension[T <: Txn[T], T1](opId: Int, in: DataInput, targets: Targets[T])
+                                        (implicit tx: T): Repr[T, T1]
+    }
+
+    trait Extension3[+Repr[~ <: Txn[~], _, _]] extends Extension {
+      def readExtension[T <: Txn[T], T1, T2](opId: Int, in: DataInput, targets: Targets[T])
+                                            (implicit tx: T): Repr[T, T1, T2]
+    }
+
+    private lazy val _init: Unit = {
+      Adjunct.addFactory(Type.ObjBridge)
+      Adjunct.addFactory(Type.SeqObjBridge)
+    }
+
+    def init(): Unit = _init
+
+    object ObjBridge extends Adjunct.Factory {
+      final val id = 1000
+
+      def readIdentifiedAdjunct(in: DataInput): Adjunct = {
+        val typeId  = in.readInt()
+        val peer    = Obj.getType(typeId)
+        new ExObjBridgeImpl(peer.asInstanceOf[Expr.Type[Any, ({ type R[~ <: Txn[~]] <: Expr[~, Any] }) # R]])
+      }
+    }
+
+    object SeqObjBridge extends Adjunct.Factory {
+      final val id = 1010
+
+      def readIdentifiedAdjunct(in: DataInput): Adjunct = {
+        val typeId  = in.readInt()
+        val peer    = Obj.getType(typeId)
+        new ExSeqObjBridgeImpl(peer.asInstanceOf[Expr.Type[Vec[Any], ({ type R[~ <: Txn[~]] <: Expr[~, Vec[Any]] }) # R]])
+      }
+    }
+  }
+
   trait Type[A1, Repr[~ <: Txn[~]] <: Expr[~, A1]] extends Obj.Type {
     type A = A1
     type E[T <: Txn[T]] = Repr[T] // yeah, well, we're waiting for Dotty
     // N.B.: this causes trouble:
-    //     type Var  [T <: Txn[T]] = Repr[T] with expr.Expr.Var  [S, A, _Ex]
+    //     type Var  [T <: Txn[T]] = Repr[T] with _Expr.Var  [S, A, _Ex]
     type Var  [T <: Txn[T]] = Repr[T] with lucre.Var[T, Repr[T]]
     type Const[T <: Txn[T]] = Repr[T] with Expr.Const[T, A]
 
@@ -79,6 +138,16 @@ object Expr {
 
     def tryParse(value: Any): Option[A]
   }
+  
+  // ---- Ops ----
+
+//  implicit def intObjOps      [T <: Txn[T]](obj: IntObj     [T]): IntExtensions     .Ops[T] = new IntExtensions     .Ops(obj)
+  implicit def longObjOps     [T <: Txn[T]](obj: LongObj    [T]): LongExtensions    .Ops[T] = new LongExtensions    .Ops(obj)
+//  implicit def doubleObjOps   [T <: Txn[T]](obj: DoubleObj  [T]): DoubleExtensions  .Ops[T] = new DoubleExtensions  .Ops(obj)
+//  implicit def booleanObjOps  [T <: Txn[T]](obj: BooleanObj [T]): BooleanExtensions .Ops[T] = new BooleanExtensions .Ops(obj)
+//  implicit def stringObjOps   [T <: Txn[T]](obj: StringObj  [T]): StringExtensions  .Ops[T] = new StringExtensions  .Ops(obj)
+//  implicit def spanLikeObjOps [T <: Txn[T]](obj: SpanLikeObj[T]): SpanLikeExtensions.Ops[T] = new SpanLikeExtensions.Ops(obj)
+//  implicit def spanObjOps     [T <: Txn[T]](obj: SpanObj    [T]): SpanExtensions    .Ops[T] = new SpanExtensions    .Ops(obj)
 }
 
 /** An expression is a computation that reduces to a single value of type `A`.

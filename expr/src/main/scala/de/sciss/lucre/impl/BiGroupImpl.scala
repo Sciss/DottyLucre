@@ -20,7 +20,7 @@ import de.sciss.lucre.data.{DetSkipOctree, SkipOctree}
 import de.sciss.lucre.geom.LongSpace.TwoDim
 import de.sciss.lucre.geom.{DistanceMeasure, LongDistanceMeasure2D, LongPoint2D, LongPoint2DLike, LongRectangle, LongSquare}
 import de.sciss.model.Change
-import de.sciss.serial.{ConstFormat, DataInput, DataOutput, TFormat}
+import de.sciss.serial.{DataInput, DataOutput, TFormat}
 import de.sciss.span.{Span, SpanLike}
 
 import scala.annotation.elidable
@@ -142,8 +142,6 @@ object BiGroupImpl {
     if (showLog) println(s"<bigroup> $what")
 
   type Tree    [T <: Txn[T], A] = SkipOctree[T, LongPoint2DLike, LongSquare, A]
-
-  implicit def spanLikeFormat: ConstFormat[SpanLike] = ??? // XXX TODO
 
   type LeafImpl[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]] = (SpanLike, Vec[Entry[T, E[T]]])
 

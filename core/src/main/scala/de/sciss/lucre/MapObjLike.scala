@@ -17,11 +17,11 @@ import de.sciss.lucre.MapObjLike.Update
 import de.sciss.lucre.{Disposable, Observable, Txn}
 
 object MapObjLike {
-  trait Update[/*T <: Txn[T],*/ K, V /*Repr[~ <: Txn[~]]*/] {
-    def changes: scala.List[Change[/*T,*/ K, V /*Repr[T]*/]]
+  trait Update[K, V] {
+    def changes: scala.List[Change[K, V]]
   }
 
-  sealed trait Change[/*T <: Txn[T],*/ K, V] {
+  sealed trait Change[K, V] {
     def key  : K
     def value: V
   }

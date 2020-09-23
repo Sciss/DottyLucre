@@ -64,14 +64,14 @@ object Obj {
 
   type AttrMap    [T <: Txn[T]]             = MapObj.Modifiable[T, String, Obj]
 
-//  type AttrUpdate [T <: Txn[T]]             = evt.Map.Update [T, String, Obj]
-//  val  AttrAdded    : evt.Map.Added.type    = evt.Map.Added
-//  type AttrAdded  [T <: Txn[T]]             = evt.Map.Added  [T, String, Obj[T]]
-//  val  AttrRemoved  : evt.Map.Removed.type  = evt.Map.Removed
-//  type AttrRemoved[T <: Txn[T]]             = evt.Map.Removed[T, String, Obj[T]]
-//  val  AttrReplaced : evt.Map.Replaced.type = evt.Map.Replaced
-//  type AttrReplaced[T <: Txn[T]]            = evt.Map.Replaced[T, String, Obj[T]]
-//
+  type AttrUpdate [T <: Txn[T]]             = MapObj.Update [T, String, Obj]
+  val  AttrAdded    : MapObj.Added.type     = MapObj.Added
+  type AttrAdded  [T <: Txn[T]]             = MapObj.Added    [String, Obj[T]]
+  val  AttrRemoved  : MapObj.Removed.type   = MapObj.Removed
+  type AttrRemoved[T <: Txn[T]]             = MapObj.Removed  [String, Obj[T]]
+  val  AttrReplaced : MapObj.Replaced.type  = MapObj.Replaced
+  type AttrReplaced[T <: Txn[T]]            = MapObj.Replaced [String, Obj[T]]
+
   /* implicit */ def attrMapFormat[T <: Txn[T]]: TFormat[T, AttrMap[T]] =
     anyAttrMapFmt.asInstanceOf[TFormat[T, AttrMap[T]]]
 
@@ -83,7 +83,7 @@ object Obj {
 /** An `Obj` is a type of element that has an `S#Id` identifier and
  * an attribute map. It can be the origin of event dispatch.
  */
-trait Obj[T <: Txn[T]] extends Elem[T] with Mutable[/*Ident[T],*/ T] {
+trait Obj[T <: Txn[T]] extends Elem[T] with Mutable[T] {
   override def toString = s"Obj$id"
 
   override def tpe: Obj.Type

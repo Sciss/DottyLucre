@@ -18,6 +18,8 @@ import de.sciss.serial.{DataInput, TFormat}
 trait Exec[T <: Exec[T]] {
   type Id <: Ident[T]
 
+  def system: Base
+
   def newId(): Id
 
   //  def newRef[A](init: A): Ref[T, A]
