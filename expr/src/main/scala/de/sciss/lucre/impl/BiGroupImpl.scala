@@ -141,19 +141,19 @@ object BiGroupImpl {
   @elidable(elidable.CONFIG) private def log(what: => String): Unit =
     if (showLog) println(s"<bigroup> $what")
 
-  type Tree    [T <: Txn[T], A] = SkipOctree[T, LongPoint2DLike, LongPoint2D, LongSquare, A]
+  type Tree    [T <: Txn[T], A] = SkipOctree[T, LongPoint2DLike, LongSquare, A]
 
   implicit def spanLikeFormat: ConstFormat[SpanLike] = ??? // XXX TODO
 
   type LeafImpl[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]] = (SpanLike, Vec[Entry[T, E[T]]])
 
-  type TreeImpl[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]] = SkipOctree[T, LongPoint2DLike, LongPoint2D, LongSquare, LeafImpl[T, E]]
+  type TreeImpl[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]] = SkipOctree[T, LongPoint2DLike, LongSquare, LeafImpl[T, E]]
 
   def verifyConsistency[T <: Txn[T], A](group: BiGroup[T, A], reportOnly: Boolean)(implicit tx: T): Vec[String] =
     group match {
       case impl: Impl[T, _, _] =>   // wrong warning
         impl.treeHandle match {
-          case t: DetSkipOctree[T, _, _, _, _] =>
+          case t: DetSkipOctree[T, _, _, _] =>
             t.verifyConsistency(reportOnly)
           case _ => sys.error("Not a deterministic octree implementation")
         }
@@ -276,11 +276,11 @@ object BiGroupImpl {
 
     // Note: must be after `EntryFmt`
     protected final def newTree()(implicit tx: T): TreeImpl[T, E] =
-      SkipOctree.empty[T, LongPoint2DLike, LongPoint2D, LongSquare, LeafImpl[T, E]](BiGroup.MaxSquare)
+      SkipOctree.empty[T, LongPoint2DLike, LongSquare, LeafImpl[T, E]](BiGroup.MaxSquare)
 
     // Note: must be after `EntryFmt`
     protected final def readTree(in: DataInput)(implicit tx: T): TreeImpl[T, E] =
-      SkipOctree.read[T, LongPoint2DLike, LongPoint2D, LongSquare, LeafImpl[T, E]](in)
+      SkipOctree.read[T, LongPoint2DLike, LongSquare, LeafImpl[T, E]](in)
 
     // ---- event behaviour ----
 

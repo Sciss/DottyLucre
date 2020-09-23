@@ -178,8 +178,6 @@ object InMemoryImpl {
   }
 
   private final class System extends Mixin[InMemory.Txn] with InMemory {
-    private type S = InMemory     // scalac bug -- it _is_ used
-
     def inMemory: I = this
     def inMemoryTx(tx: T): T = tx
 

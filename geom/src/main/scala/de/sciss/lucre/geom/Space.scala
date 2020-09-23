@@ -27,7 +27,7 @@ object Space {
   * Big thanks to Aleksey Nikiforov for figuring out
   * how to plug the types together...
   */
-trait Space[PL, P, /*HL,*/ H] {
+trait Space[PL, P, H] {
   /** Given that the space is limited, this represents the farthest
     * point in the space, typically which each coordinate component
     * equal to `Int.MaxValue`.

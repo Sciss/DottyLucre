@@ -40,7 +40,7 @@ class OctreeSuite extends AnyFeatureSpec with GivenWhenThen {
       val t = cursor.step { implicit tx =>
         import ThreeDim.pointFormat
         implicit val pointView: (IntPoint3D, Any) => IntPoint3D = (p, _) => p
-        DetSkipOctree.empty[T, IntPoint3DLike, IntPoint3D, IntCube, IntPoint3D](cube)
+        DetSkipOctree.empty[T, IntPoint3DLike, IntCube, IntPoint3D](cube)
       }
       (cursor, t, succ => sysCleanUp(system, succ))
     })
@@ -76,7 +76,7 @@ class OctreeSuite extends AnyFeatureSpec with GivenWhenThen {
 
   val pointFun3D: Int => IntPoint3D = mask => IntPoint3D(rnd.nextInt() & mask, rnd.nextInt() & mask, rnd.nextInt() & mask)
 
-  def randFill[T <: Txn[T], PL, P, H](t: SkipOctree[T, PL, P, H, P], m: MSet[P],
+  def randFill[T <: Txn[T], PL, P, H](t: SkipOctree[T, PL, H, P], m: MSet[P],
                                            pointFun: Int => P)(implicit cursor: Cursor[T]): Unit = {
     Given("a randomly filled structure")
 
@@ -89,7 +89,7 @@ class OctreeSuite extends AnyFeatureSpec with GivenWhenThen {
     }
   }
 
-  def verifyConsistency[T <: Txn[T], PL, P, H](t: DetSkipOctree[T, PL, P, H, P])
+  def verifyConsistency[T <: Txn[T], PL, P, H](t: DetSkipOctree[T, PL, H, P])
                                                    (implicit cursor: Cursor[T]): Unit = {
     When("the internals of the structure are checked")
     Then("they should be consistent with the underlying algorithm")
@@ -98,7 +98,7 @@ class OctreeSuite extends AnyFeatureSpec with GivenWhenThen {
     assert(res.isEmpty, res.mkString("\n"))
   }
 
-  def verifyElems[T <: Txn[T], PL, P, H](t: SkipOctree[T, PL, P, H, P],
+  def verifyElems[T <: Txn[T], PL, P, H](t: SkipOctree[T, PL, H, P],
                                               m: MSet[P])(implicit cursor: Cursor[T]): Unit = {
     When( "the structure t is compared to an independently maintained map m" )
     val onlyInM = cursor.step { implicit tx =>
@@ -117,7 +117,7 @@ class OctreeSuite extends AnyFeatureSpec with GivenWhenThen {
     assert(szT == szM, "octree has size " + szT + " / map has size " + szM)
   }
 
-  def verifyContainsNot[T <: Txn[T], PL, P, H](t: SkipOctree[T, PL, P, H, P],
+  def verifyContainsNot[T <: Txn[T], PL, P, H](t: SkipOctree[T, PL, H, P],
                                                     m: MSet[P],
                                                     pointFun: Int => P)
                                                    (implicit cursor: Cursor[T]): Unit = {
@@ -136,7 +136,7 @@ class OctreeSuite extends AnyFeatureSpec with GivenWhenThen {
     assert(inT.isEmpty, inT.take(10).toString())
   }
 
-  def verifyAddRemoveAll[T <: Txn[T], PL, P <: PL, H](t: SkipOctree[T, PL, P, H, P],
+  def verifyAddRemoveAll[T <: Txn[T], PL, P <: PL, H](t: SkipOctree[T, PL, H, P],
                                                      m: MSet[P])
                                                     (implicit cursor: Cursor[T]): Unit = {
     When("all elements of the independently maintained map are added again to t")
@@ -164,7 +164,7 @@ class OctreeSuite extends AnyFeatureSpec with GivenWhenThen {
 
   val sortFun3D: IntPoint3DLike => (Int, Int, Int) = p => (p.x, p.y, p.z)
 
-  def verifyRangeSearch[T <: Txn[T], A, PL, P <: PL, H, Sort](t: SkipOctree[T, PL, P, H, P], m: MSet[P],
+  def verifyRangeSearch[T <: Txn[T], A, PL, P <: PL, H, Sort](t: SkipOctree[T, PL, H, P], m: MSet[P],
                                                              queryFun: (Int, Int, Int) => QueryShape[A, PL, H],
                                                              sortFun: PL => Sort)
                                                             (implicit ord: math.Ordering[Sort], cursor: Cursor[T]): Unit = {
@@ -192,7 +192,7 @@ class OctreeSuite extends AnyFeatureSpec with GivenWhenThen {
 
   val euclideanDist3D: MS = IntDistanceMeasure3D.euclideanSq
 
-  def verifyNN[T <: Txn[T], M, PL, P <: PL, H](t: SkipOctree[T, PL, P, H, P], m: MSet[P], pointFun: Int => P,
+  def verifyNN[T <: Txn[T], M, PL, P <: PL, H](t: SkipOctree[T, PL, H, P], m: MSet[P], pointFun: Int => P,
                                               pointFilter: PL => Boolean,
                                               euclideanDist: DistanceMeasure[M, PL, H])
                                              (implicit ord: math.Ordering[M], cursor: Cursor[T]): Unit = {
@@ -218,7 +218,7 @@ class OctreeSuite extends AnyFeatureSpec with GivenWhenThen {
 
   def withTree[T <: Txn[T]](name: String,
                             tf: () => (Cursor[T],
-                              DetSkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, IntPoint3D], Boolean => Unit)): Unit = {
+                              DetSkipOctree[T, IntPoint3DLike, IntCube, IntPoint3D], Boolean => Unit)): Unit = {
     Feature("The " + name + " octree structure should be consistent") {
       info("Several mass operations on the structure")
       info("are tried and expected behaviour verified")

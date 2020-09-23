@@ -318,7 +318,7 @@ object Ancestor {
     protected def preList:   SkipList  .Set[T, M]
     protected def postList:  SkipList  .Set[T, M]
 
-    private[Ancestor] def skip: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, M]
+    private[Ancestor] def skip: SkipOctree[T, IntPoint3DLike, IntCube, M]
 
     // ---- implementation ----
 
@@ -523,9 +523,9 @@ object Ancestor {
     protected val postOrder: TotalOrder.Map[T, M] =
       TotalOrder.Map.empty[T, M](me, _.post, rootTag = Int.MaxValue)(tx0, markFormat)
 
-    private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, M] = {
+    private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntCube, M] = {
       val pointView = (p: M, tx: T) => p.toPoint(tx)
-      SkipOctree.empty[T, IntPoint3DLike, IntPoint3D, IntCube, M](cube)(tx0, pointView, IntSpace.ThreeDim, markFormat)
+      SkipOctree.empty[T, IntPoint3DLike, IntCube, M](cube)(tx0, pointView, IntSpace.ThreeDim, markFormat)
     }
 
     protected val root: M = {
@@ -589,9 +589,9 @@ object Ancestor {
       SkipList.Set.read[T, M](in)
     }
 
-    private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, M] = {
+    private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntCube, M] = {
       val pointView = (p: M, tx: T) => p.toPoint(tx)
-      SkipOctree.read[T, IntPoint3DLike, IntPoint3D, IntCube, M](in)(tx0, pointView, IntSpace.ThreeDim, markFormat)
+      SkipOctree.read[T, IntPoint3DLike, IntCube, M](in)(tx0, pointView, IntSpace.ThreeDim, markFormat)
     }
   }
 

@@ -23,27 +23,27 @@ object SkipOctree {
   implicit def nonTxnPointView[P, A](implicit view: A => P): (A, Any) => P =
     (a, _) => view(a)
 
-  def empty[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](hyperCube: H)
-                                      (implicit tx: T, pointView: (A, T) => PL, space: Space[PL, P, H],
-                                       keyFormat: TFormat[T, A]): SkipOctree[T, PL, P, H, A] =
-    DetSkipOctree.empty[T, PL, P, H, A](hyperCube)
+  def empty[T <: Exec[T], PL, H <: HyperCube[PL, H], A](hyperCube: H)
+                                      (implicit tx: T, pointView: (A, T) => PL, space: Space[PL, _, H],
+                                       keyFormat: TFormat[T, A]): SkipOctree[T, PL, H, A] =
+    DetSkipOctree.empty[T, PL, H, A](hyperCube)
 
-  def read[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](in: DataInput)
+  def read[T <: Exec[T], PL, H <: HyperCube[PL, H], A](in: DataInput)
                                                          (implicit tx: T, pointView: (A, T) => PL,
-                                                          space: Space[PL, P, H],
-                                                          keyFormat: TFormat[T, A]): SkipOctree[T, PL, P, H, A] =
-    DetSkipOctree.read[T, PL, P, H, A](in)
+                                                          space: Space[PL, _, H],
+                                                          keyFormat: TFormat[T, A]): SkipOctree[T, PL, H, A] =
+    DetSkipOctree.read[T, PL, H, A](in)
 
   implicit def format[T <: Exec[T], PL, P,
-    H <: HyperCube[PL, H], A](implicit view: (A) => PL, space: Space[PL, P, H],
-                              keyFormat: TFormat[T, A]): TFormat[T, SkipOctree[T, PL, P, H, A]] =
-    new Fmt[T, PL, P, H, A]
+    H <: HyperCube[PL, H], A](implicit view: (A) => PL, space: Space[PL, _, H],
+                              keyFormat: TFormat[T, A]): TFormat[T, SkipOctree[T, PL, H, A]] =
+    new Fmt[T, PL, H, A]
 
-  private final class Fmt[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A) => PL, space: Space[PL, P, H],
+  private final class Fmt[T <: Exec[T], PL, H <: HyperCube[PL, H], A](implicit view: (A) => PL, space: Space[PL, _, H],
                                                                          keyFormat: TFormat[T, A])
-    extends WritableFormat[T, SkipOctree[T, PL, P, H, A]] {
+    extends WritableFormat[T, SkipOctree[T, PL, H, A]] {
 
-    override def readT(in: DataInput)(implicit tx: T): SkipOctree[T, PL, P, H, A] =
+    override def readT(in: DataInput)(implicit tx: T): SkipOctree[T, PL, H, A] =
       DetSkipOctree.read(in)
 
     override def toString = "SkipOctree.format"
@@ -55,9 +55,9 @@ object SkipOctree {
  * of Scala's mutable `Map` and adds further operations such
  * as range requires and nearest neighbour search.
  */
-trait SkipOctree[T <: Exec[T], PL, P, H, A] extends Mutable[T] {
+trait SkipOctree[T <: Exec[T], PL, H, A] extends Mutable[T] {
   /** The space (i.e., resolution and dimensionality) underlying the tree. */
-  def space: Space[PL, P, H]
+  def space: Space[PL, _, H]
 
   /** A function which maps an element (possibly through transactional access) to a geometric point coordinate. */
   def pointView: (A, T) => PL

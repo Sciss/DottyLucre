@@ -25,7 +25,7 @@ class PathologicalSuite extends AnyFunSpec {
 
       i.step { implicit tx =>
         val cube  = IntSquare(j >> 1, j >> 1, j >> 1)
-        val tree  = SkipOctree.empty[T, IntPoint2DLike, IntPoint2D, IntSquare, IntPoint2D](cube)
+        val tree  = SkipOctree.empty[T, IntPoint2DLike, IntSquare, IntPoint2D](cube)
         val ins   = (0 until j).map { i => IntPoint2D(j >> 1, i) }
         // val v     = IntPoint2D(j - 1, 0)
 

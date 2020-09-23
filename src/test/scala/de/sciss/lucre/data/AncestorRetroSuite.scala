@@ -131,8 +131,8 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
       new FullTree[T] {
 //        val system: T = tx.system
         val cube: IntCube = IntCube(0x40000000, 0x40000000, 0x40000000, 0x40000000)
-        val t: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, FullVertex[T]] =
-          SkipOctree.empty[T, IntPoint3DLike, IntPoint3D, IntCube, FullVertex[T]](cube)
+        val t: SkipOctree[T, IntPoint3DLike, IntCube, FullVertex[T]] =
+          SkipOctree.empty[T, IntPoint3DLike, IntCube, FullVertex[T]](cube)
 
         val orderObserver = new RelabelObserver[ T, FullVertex[ T ]]( "full", t )
         val preOrder : TotalOrder.Map[T, FullVertexPre[T]] = TotalOrder.Map.empty(orderObserver, _.order, 0)
@@ -175,7 +175,7 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
   sealed trait FullTree[T <: Txn[T]] {
 //    def system: T
 
-    def t: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, FullVertex[T]]
+    def t: SkipOctree[T, IntPoint3DLike, IntCube, FullVertex[T]]
 
     def root: FullVertex[T]
 
@@ -326,7 +326,7 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
   //   }
 
   final class RelabelObserver[T <: Txn[T], V <: VertexLike[T, V]](name: String,
-                                                                  t: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, V])
+                                                                  t: SkipOctree[T, IntPoint3DLike, IntCube, V])
     extends TotalOrder.Map.RelabelObserver[ T, VertexSource[ T, V ]] {
     def beforeRelabeling(/* v0s: VertexSource[ V ], */ iter: Iterator[VertexSource[T, V]])
                         (implicit tx: T): Unit = {
@@ -457,7 +457,7 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
       }
       lazy val t = {
         implicit val keyFmt: TFormat[T, MarkVertex[T]] = _vertexFmt
-        SkipOctree.empty[T, IntPoint3DLike, IntPoint3D, IntCube, MarkVertex[T]](ft.t.hyperCube)
+        SkipOctree.empty[T, IntPoint3DLike, IntCube, MarkVertex[T]](ft.t.hyperCube)
       }
       t += root
 
@@ -487,7 +487,7 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
   }
 
   final class MarkTree[T <: Txn[T]] private(val ft: FullTree[T],
-                                            val t: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, MarkVertex[T]],
+                                            val t: SkipOctree[T, IntPoint3DLike, IntCube, MarkVertex[T]],
                                             val root: MarkRootVertex[T], val preList: SkipList.Set[T, MarkVertex[T]],
                                             val postList: SkipList.Set[T, MarkVertex[T]]) {
     type V = MarkVertex[T]
