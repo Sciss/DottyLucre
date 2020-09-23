@@ -23,27 +23,27 @@ object SkipOctree {
   implicit def nonTxnPointView[P, A](implicit view: A => P): (A, Any) => P =
     (a, _) => view(a)
 
-  def empty[T <: Exec[T], PL, H <: HyperCube[PL, H], A](hyperCube: H)
-                                      (implicit tx: T, pointView: (A, T) => PL, space: Space[PL, _, H],
-                                       keyFormat: TFormat[T, A]): SkipOctree[T, PL, H, A] =
-    DetSkipOctree.empty[T, PL, H, A](hyperCube)
+  def empty[T <: Exec[T], P, H <: HyperCube[P, H], A](hyperCube: H)
+                                      (implicit tx: T, pointView: (A, T) => P, space: Space[P, H],
+                                       keyFormat: TFormat[T, A]): SkipOctree[T, P, H, A] =
+    DetSkipOctree.empty[T, P, H, A](hyperCube)
 
-  def read[T <: Exec[T], PL, H <: HyperCube[PL, H], A](in: DataInput)
-                                                         (implicit tx: T, pointView: (A, T) => PL,
-                                                          space: Space[PL, _, H],
-                                                          keyFormat: TFormat[T, A]): SkipOctree[T, PL, H, A] =
-    DetSkipOctree.read[T, PL, H, A](in)
+  def read[T <: Exec[T], P, H <: HyperCube[P, H], A](in: DataInput)
+                                                         (implicit tx: T, pointView: (A, T) => P,
+                                                          space: Space[P, H],
+                                                          keyFormat: TFormat[T, A]): SkipOctree[T, P, H, A] =
+    DetSkipOctree.read[T, P, H, A](in)
 
-  implicit def format[T <: Exec[T], PL, P,
-    H <: HyperCube[PL, H], A](implicit view: (A) => PL, space: Space[PL, _, H],
-                              keyFormat: TFormat[T, A]): TFormat[T, SkipOctree[T, PL, H, A]] =
-    new Fmt[T, PL, H, A]
+  implicit def format[T <: Exec[T], P,
+    H <: HyperCube[P, H], A](implicit view: (A) => P, space: Space[P, H],
+                              keyFormat: TFormat[T, A]): TFormat[T, SkipOctree[T, P, H, A]] =
+    new Fmt[T, P, H, A]
 
-  private final class Fmt[T <: Exec[T], PL, H <: HyperCube[PL, H], A](implicit view: (A) => PL, space: Space[PL, _, H],
+  private final class Fmt[T <: Exec[T], P, H <: HyperCube[P, H], A](implicit view: (A) => P, space: Space[P, H],
                                                                          keyFormat: TFormat[T, A])
-    extends WritableFormat[T, SkipOctree[T, PL, H, A]] {
+    extends WritableFormat[T, SkipOctree[T, P, H, A]] {
 
-    override def readT(in: DataInput)(implicit tx: T): SkipOctree[T, PL, H, A] =
+    override def readT(in: DataInput)(implicit tx: T): SkipOctree[T, P, H, A] =
       DetSkipOctree.read(in)
 
     override def toString = "SkipOctree.format"
@@ -55,12 +55,12 @@ object SkipOctree {
  * of Scala's mutable `Map` and adds further operations such
  * as range requires and nearest neighbour search.
  */
-trait SkipOctree[T <: Exec[T], PL, H, A] extends Mutable[T] {
+trait SkipOctree[T <: Exec[T], P, H, A] extends Mutable[T] {
   /** The space (i.e., resolution and dimensionality) underlying the tree. */
-  def space: Space[PL, _, H]
+  def space: Space[P, H]
 
   /** A function which maps an element (possibly through transactional access) to a geometric point coordinate. */
-  def pointView: (A, T) => PL
+  def pointView: (A, T) => P
 
   /** The base square of the tree. No point can lie outside this square (or hyper-cube). */
   def hyperCube: H
@@ -79,14 +79,14 @@ trait SkipOctree[T <: Exec[T], PL, H, A] extends Mutable[T] {
    * @param point  the point to look up.
    * @return `Some` element if found, `None` if the point was not present.
    */
-  def get(point: PL)(implicit tx: T): Option[A]
+  def get(point: P)(implicit tx: T): Option[A]
 
   /** Queries whether an element is stored at a given point.
    *
    * @param point  the point to query
    * @return   `true` if an element is associated with the query point, `false` otherwise
    */
-  def isDefinedAt(point: PL)(implicit tx: T): Boolean
+  def isDefinedAt(point: P)(implicit tx: T): Boolean
 
   /** Removes the element stored under a given point view.
    *
@@ -94,7 +94,7 @@ trait SkipOctree[T <: Exec[T], PL, H, A] extends Mutable[T] {
    * @return  the element removed, wrapped as `Some`, or `None` if no element was
    *          found for the given point.
    */
-  def removeAt(point: PL)(implicit tx: T): Option[A]
+  def removeAt(point: P)(implicit tx: T): Option[A]
 
   /** Queries the number of leaves in the tree. This may be a very costly action,
    * so it is recommended to only use it for debugging purposes.
@@ -120,7 +120,7 @@ trait SkipOctree[T <: Exec[T], PL, H, A] extends Mutable[T] {
    *             (in this case, if an element was previously stored, it is removed)
    * @return     the previously stored element (if any)
    */
-  def transformAt(point: PL)(fun: Option[A] => Option[A])(implicit tx: T): Option[A]
+  def transformAt(point: P)(fun: Option[A] => Option[A])(implicit tx: T): Option[A]
 
   /** Removes an element from the tree
    *
@@ -136,7 +136,7 @@ trait SkipOctree[T <: Exec[T], PL, H, A] extends Mutable[T] {
    */
   def update(elem: A)(implicit tx: T): Option[A]
 
-  def rangeQuery[Area](qs: QueryShape[Area, PL, H])(implicit tx: T): Iterator[A]
+  def rangeQuery[Area](qs: QueryShape[Area, P, H])(implicit tx: T): Iterator[A]
 
   /** Tests whether the tree contains an element. */
   def contains(elem: A)(implicit tx: T): Boolean
@@ -184,12 +184,12 @@ trait SkipOctree[T <: Exec[T], PL, H, A] extends Mutable[T] {
    *
    * @throws  NoSuchElementException  if the tree is empty
    */
-  def nearestNeighbor[M](point: PL, metric: DistanceMeasure[M, PL, H])(implicit tx: T): A
+  def nearestNeighbor[M](point: P, metric: DistanceMeasure[M, P, H])(implicit tx: T): A
 
   /** Same as `nearestNeighbor` but returning an `Option`, thus not throwing an exception
    * if no neighbor is found.
    */
-  def nearestNeighborOption[M](point: PL, metric: DistanceMeasure[M, PL, H])(implicit tx: T): Option[A]
+  def nearestNeighborOption[M](point: P, metric: DistanceMeasure[M, P, H])(implicit tx: T): Option[A]
 
   /** An `Iterator` which iterates over the points stored
    * in the octree, using an in-order traversal directed

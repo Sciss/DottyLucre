@@ -19,7 +19,7 @@ import de.sciss.serial.{ConstFormat, DataInput, DataOutput}
 import scala.annotation.tailrec
 
 object IntSpace {
-  sealed trait TwoDim extends Space[IntPoint2DLike, IntPoint2D, IntSquare] {
+  sealed trait TwoDim extends Space[IntPoint2DLike, IntSquare] {
     type PointLike      = IntPoint2DLike
     type Point          = IntPoint2D
     type HyperCubeLike  = IntSquareLike
@@ -71,7 +71,7 @@ object IntSpace {
     }
   }
 
-  sealed trait ThreeDim extends Space[IntPoint3DLike, IntPoint3D, IntCube] {
+  sealed trait ThreeDim extends Space[IntPoint3DLike, IntCube] {
     type PointLike      = IntPoint3DLike
     type Point          = IntPoint3D
     type HyperCubeLike  = IntCubeLike
@@ -176,7 +176,7 @@ object IntSpace {
       }
     }
   }
-  final case class NDim(dim: Int) extends Space[IntPointNLike, IntPointN, IntHyperCubeN] {
+  final case class NDim(dim: Int) extends Space[IntPointNLike, IntHyperCubeN] {
     space =>
 
     type PointLike      = IntPointNLike

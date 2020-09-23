@@ -23,22 +23,21 @@ object Space {
 
 /** A `Space` abstracts over the number of dimensions
   * that are used for point and hypercube operations.
-  *
-  * Big thanks to Aleksey Nikiforov for figuring out
-  * how to plug the types together...
   */
-trait Space[PL, P, H] {
+trait Space[P, H] {
+  type Point <: P
+
   /** Given that the space is limited, this represents the farthest
     * point in the space, typically which each coordinate component
     * equal to `Int.MaxValue`.
     */
-  def maxPoint: P
+  def maxPoint: Point
 
   /** The number of dimensions in the space. */
   def dim: Int
 
-  implicit def lexicalOrder: Ordering[PL]
+  implicit def lexicalOrder: Ordering[P]
 
-  implicit def pointFormat    : ConstFormat[P]
+  implicit def pointFormat    : ConstFormat[Point]
   implicit def hyperCubeFormat: ConstFormat[H]
 }

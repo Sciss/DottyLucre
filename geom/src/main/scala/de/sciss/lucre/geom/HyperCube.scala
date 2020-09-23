@@ -14,7 +14,7 @@
 package de.sciss.lucre
 package geom
 
-trait HyperCube[P, H] {
+trait HyperCube[-P, H] {
 
   def orthant(idx: Int): H
 

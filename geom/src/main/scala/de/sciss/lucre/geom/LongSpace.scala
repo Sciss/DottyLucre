@@ -24,7 +24,7 @@ import scala.annotation.tailrec
   * they should be >= -0x2000000000000000L and < 0x2000000000000000L
   */
 object LongSpace {
-  sealed trait TwoDim extends Space[LongPoint2DLike, LongPoint2D, LongSquare] {
+  sealed trait TwoDim extends Space[LongPoint2DLike, LongSquare] {
     type PointLike      = LongPoint2DLike
     type Point          = LongPoint2D
     type HyperCubeLike  = LongSquareLike
