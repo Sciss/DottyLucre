@@ -191,7 +191,7 @@ object SpanLikeObj extends impl.ExprTypeImpl[SpanLike, SpanLikeObj] {
   import lucre.{SpanLikeObj => Repr}
 
   final val typeId = 9
-  final val valueFormat = ??? // SpanLike.format
+  final val valueFormat = SpanLike.format
 
   override def toString = "SpanLikeObj"
 
@@ -222,7 +222,7 @@ object SpanObj extends impl.ExprTypeImpl[Span, SpanObj] {
   import lucre.{SpanObj => Repr}
 
   final val typeId = 10
-  final val valueFormat = ??? // Span.format
+  final val valueFormat = Span.format
 
   override def toString = "SpanObj"
 
@@ -253,12 +253,12 @@ object IntVector extends impl.ExprTypeImpl[Vec[Int], IntVector] {
   import lucre.{IntVector => Repr}
 
   final val typeId = 0x2002 //  0x2000 | IntObj.typeId
-  final val valueFormat: ConstFormat[Vec[Int]] = ??? // ConstFormat.vec
+  final val valueFormat: ConstFormat[Vec[Int]] = ConstFormat.vec
 
   override def toString = "IntVector"
 
   def tryParse(in: Any): Option[Vec[Int]] = in match {
-    case xs: Vec[_] =>
+    case xs: Vec[Any] =>
       val ok = xs.forall {
         case _: Int => true
       }
@@ -289,12 +289,12 @@ object DoubleVector extends impl.ExprTypeImpl[Vec[Double], DoubleVector] {
   import lucre.{DoubleVector => Repr}
 
   final val typeId = 0x2005 //  0x2000 | DoubleObj.typeId
-  final val valueFormat: ConstFormat[Vec[Double]] = ??? // ConstFormat.vec
+  final val valueFormat: ConstFormat[Vec[Double]] = ConstFormat.vec
 
   override def toString = "DoubleVector"
 
   def tryParse(in: Any): Option[Vec[Double]] = in match {
-    case xs: Vec[_] =>
+    case xs: Vec[Any] =>
       val ok = xs.forall {
         case _: Double => true  // don't bother looking for `Float` now
       }

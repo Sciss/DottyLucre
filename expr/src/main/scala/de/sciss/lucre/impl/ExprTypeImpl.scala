@@ -23,7 +23,7 @@ import scala.language.implicitConversions
 trait ExprTypeImpl[A1, Repr[~ <: Txn[~]] <: Expr[~, A1]] extends Expr.Type[A1, Repr] /*with TypeImpl1[Repr]*/ { self =>
   // ---- public ----
 
-//  implicit final def tpe: Type.Expr[A1, Repr] = this
+  implicit final def tpe: Expr.Type[A1, Repr] = this
 
   override def readIdentifiedObj[T <: Txn[T]](in: DataInput)(implicit tx: T): E[T] =
     (in.readByte(): @switch) match {
