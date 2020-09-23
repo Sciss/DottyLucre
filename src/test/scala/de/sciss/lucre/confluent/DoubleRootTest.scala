@@ -21,7 +21,7 @@ object DoubleRootTest extends App {
   println("Second iteration")
   iterate()
 
-  class Data(val id: Ident[T], val vr: LVar[Int])
+  class Data(val id: Ident[T], val vr: LVar[T, Int])
 
   implicit object DataFmt extends TFormat[T, Data] {
     override def write(v: Data, out: DataOutput): Unit = {

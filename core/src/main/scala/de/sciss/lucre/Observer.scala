@@ -58,6 +58,6 @@ object Observer {
     }
   }
 }
-trait Observer[T <: Exec[T], -A] extends TDisposable[T] {
+trait Observer[T <: Exec[T], -A] extends Disposable[T] {
   def apply(update: A)(implicit tx: T): Unit
 }

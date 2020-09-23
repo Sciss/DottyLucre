@@ -19,18 +19,16 @@ import de.sciss.model.Change
 import de.sciss.serial.DataOutput
 
 trait ExprVarImpl[T <: Txn[T], A, Repr <: Expr[T, A]]
-  extends Expr[T, A] with ExprNodeImpl[T, A] with lucre.Var[Repr] { self =>
+  extends Expr[T, A] with ExprNodeImpl[T, A] with lucre.Var[T, Repr] { self =>
   
-  protected def tx: T
-
   // ---- abstract ----
 
-  protected def ref: Var[Repr]
+  protected def ref: Var[T, Repr]
 
   // ---- implemented ----
 
   object changed extends Changed with GeneratorEvent[T, Change[A]] {
-    private[lucre] def pullUpdate(pull: Pull[T]): Option[Change[A]] =
+    private[lucre] def pullUpdate(pull: Pull[T])(implicit tx: T): Option[Change[A]] =
       if (pull.parents(this).isEmpty) {
         Some(pull.resolve[Change[A]])
       } else {
@@ -43,21 +41,21 @@ trait ExprVarImpl[T <: Txn[T], A, Repr <: Expr[T, A]]
     ref.write(out)
   }
 
-  final protected def disposeData(): Unit = {
+  final protected def disposeData()(implicit tx: T): Unit = {
     disconnect()
     ref.dispose()
   }
 
-  final def connect(): this.type = {
+  final def connect()(implicit tx: T): this.type = {
     ref().changed ---> changed
     this
   }
 
-  private[this] def disconnect(): Unit = ref().changed -/-> changed
+  private[this] def disconnect()(implicit tx: T): Unit = ref().changed -/-> changed
 
-  final def apply(): Repr = ref()
+  final def apply()(implicit tx: T): Repr = ref()
 
-  final def update(expr: Repr): Unit = {
+  final def update(expr: Repr)(implicit tx: T): Unit = {
     val before = ref()
     if (before != expr) {
       before.changed -/-> this.changed
@@ -70,13 +68,13 @@ trait ExprVarImpl[T <: Txn[T], A, Repr <: Expr[T, A]]
     }
   }
 
-  final def swap(expr: Repr): Repr = {
+  final def swap(expr: Repr)(implicit tx: T): Repr = {
     val res = apply()
     update(expr)
     res
   }
 
-  final def value: A = ref().value
+  final def value(implicit tx: T): A = ref().value
 
   override def toString = s"Expr.Var$id"
 }

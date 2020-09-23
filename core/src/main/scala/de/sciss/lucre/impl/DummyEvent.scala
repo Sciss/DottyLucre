@@ -17,10 +17,10 @@ object DummyEvent {
 trait DummyEvent[T <: Txn[T], +A] extends EventLike[T, A] {
   import DummyEvent._
 
-  final def ---> (sink: Event[T, Any]): Unit = ()
-  final def -/-> (sink: Event[T, Any]): Unit = ()
+  final def ---> (sink: Event[T, Any])(implicit tx: T): Unit = ()
+  final def -/-> (sink: Event[T, Any])(implicit tx: T): Unit = ()
 
-  final def react(fun: T => A => Unit)(implicit tx: T): TDisposable[T] = TDisposable.empty[T]
+  final def react(fun: T => A => Unit)(implicit tx: T): Disposable[T] = Disposable.empty[T]
 
-  private[lucre] final def pullUpdate(pull: Pull[T]): Option[A] = opNotSupported
+  private[lucre] final def pullUpdate(pull: Pull[T])(implicit tx: T): Option[A] = opNotSupported
 }

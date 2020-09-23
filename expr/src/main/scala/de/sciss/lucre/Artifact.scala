@@ -16,7 +16,7 @@ package de.sciss.lucre
 import java.io.File
 
 import de.sciss.lucre.impl.{ArtifactImpl => Impl}
-import de.sciss.serial.{DataInput, Format, TFormat}
+import de.sciss.serial.{DataInput, TFormat}
 
 import scala.annotation.tailrec
 
@@ -70,7 +70,7 @@ object Artifact extends Obj.Type {
     implicit def format[T <: Txn[T]]: TFormat[T, Modifiable[T]] = Impl.modFormat
   }
   trait Modifiable[T <: Txn[T]] extends Artifact[T] {
-    def child_=(value: Child): Unit
+    def child_=(value: Child)(implicit tx: T): Unit
   }
 
   final case class Child(path: String)
@@ -85,6 +85,8 @@ trait Artifact[T <: Txn[T]] extends Expr[T, Artifact.Value] {
   import Artifact.{Child, Modifiable}
 
   def location: ArtifactLocation[T]
+
   def modifiableOption: Option[Modifiable[T]]
-  def child: Child
+
+  def child(implicit tx: T): Child
 }

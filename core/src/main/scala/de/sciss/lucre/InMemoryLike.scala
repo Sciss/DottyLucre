@@ -27,14 +27,14 @@ object InMemoryLike {
 
     //    private[stm] def intId(id: Id): Int
 
-    final type Var[A] = InMemoryLike.Var[/*T,*/ A]
+    final type Var[A] = InMemoryLike.Var[T, A]
     final type Id     = InMemoryLike.Id[T]
 
-    private[lucre] def getVar[A](vr: InMemoryLike.Var[/*T,*/ A]): A
-    private[lucre] def putVar[A](vr: InMemoryLike.Var[/*T,*/ A], value: A): Unit
+    private[lucre] def getVar[A](vr: InMemoryLike.Var[T, A]): A
+    private[lucre] def putVar[A](vr: InMemoryLike.Var[T, A], value: A): Unit
   }
 
-  trait Var[/*T <: experiment.Txn[T],*/ A] extends lucre.Var[/*T,*/ A] {
+  trait Var[T, A] extends lucre.Var[T, A] {
     private[lucre] def peer: STMRef[A]
   }
 }

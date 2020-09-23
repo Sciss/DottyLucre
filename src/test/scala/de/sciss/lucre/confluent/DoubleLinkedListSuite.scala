@@ -167,32 +167,32 @@ class  DoubleLinkedListSuite extends AnyFunSpec with GivenWhenThen {
         }
 
         private def readData(in: DataInput, _id: Ident[T])(implicit tx: T): Node = new Node with MutableImpl[T] {
-          val id    : Ident[T]            = _id
-          val name  : String              = in.readUTF()
-          val value : LVar[Int]           = id.readIntVar(in)
-          val prev  : LVar[Option[Node]]  = id.readVar[Option[Node]](in)
-          val next  : LVar[Option[Node]]  = id.readVar[Option[Node]](in)
+          val id    : Ident[T]              = _id
+          val name  : String                = in.readUTF()
+          val value : LVar[T, Int]          = id.readIntVar(in)
+          val prev  : LVar[T, Option[Node]] = id.readVar[Option[Node]](in)
+          val next  : LVar[T, Option[Node]] = id.readVar[Option[Node]](in)
         }
       }
 
       def apply(_name: String, init: Int)(implicit tx: T): Node = new Node with MutableImpl[T] {
-        val id    : Ident[T]            = tx.newId()
-        val name  : String              = _name
-        val value : LVar[Int]           = id.newIntVar(init)
-        val prev  : LVar[Option[Node]]  = id.newVar[Option[Node]](None)
-        val next  : LVar[Option[Node]]  = id.newVar[Option[Node]](None)
+        val id    : Ident[T]              = tx.newId()
+        val name  : String                = _name
+        val value : LVar[T, Int]          = id.newIntVar(init)
+        val prev  : LVar[T, Option[Node]] = id.newVar[Option[Node]](None)
+        val next  : LVar[T, Option[Node]] = id.newVar[Option[Node]](None)
       }
     }
 
     trait Node extends Mutable[T] {
       def name: String
 
-      def value: LVar[Int]
+      def value: LVar[T, Int]
 
-      def prev: LVar[Option[Node]]
-      def next: LVar[Option[Node]]
+      def prev: LVar[T, Option[Node]]
+      def next: LVar[T, Option[Node]]
 
-      protected def disposeData(): Unit = {
+      protected def disposeData()(implicit tx: T): Unit = {
         value.dispose()
         prev .dispose()
         next .dispose()
@@ -208,7 +208,7 @@ class  DoubleLinkedListSuite extends AnyFunSpec with GivenWhenThen {
       override def toString = s"Node($name, $id)"
     }
 
-    def toList(next: Option[Node]): List[(String, Int)] = next match {
+    def toList(next: Option[Node])(implicit tx: T): List[(String, Int)] = next match {
       case Some(n)  => (n.name, n.value()) :: toList(n.next())
       case _        => Nil
     }

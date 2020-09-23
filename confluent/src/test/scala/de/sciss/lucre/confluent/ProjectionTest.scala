@@ -19,7 +19,7 @@ trait ProjectionTest {
 
   trait KTemp extends KTempLike[KTemp] {
     final type Tx = KTx[KTemp]
-    final type Var[@specialized ~] = LVar[/*KTemp#Tx,*/ ~]
+    final type Var[@specialized ~] = LVar[Tx, ~]
   }
 
   trait BiTx extends KTx[BiTemp]
@@ -40,8 +40,8 @@ trait ProjectionTest {
   ////      x.set( 33 )
   //   }
 
-  def test3[T, S <: LSys /*[S]*/, Time](dynVar: LVar[/*Time,*/ Int])(implicit tx: T, dynView: T => Time): Unit = {
-//    implicit val dtx: Time = dynView(tx)
+  def test3[T, S <: LSys /*[S]*/, Time](dynVar: LVar[Time, Int])(implicit tx: T, dynView: T => Time): Unit = {
+    implicit val dtx: Time = dynView(tx)
     // dynVar.transform(_ + 33)(tx)
     dynVar() = dynVar() + 33
   }
@@ -52,16 +52,18 @@ trait ProjectionTest {
     def peer: Tx
   }
 
-  class DynamicVar[-Tx, A](tx: PCursor[Tx]) extends LVar[/*PCursor[Tx],*/ A] {
-    def apply(): A = getAt(tx.time) // (tx.peer)
+  class DynamicVar[/*-*/Tx, A](tx: PCursor[Tx]) extends LVar[PCursor[Tx], A] {
+    type T = PCursor[Tx]
+
+    def apply()(implicit tx: T): A = getAt(tx.time) // (tx.peer)
 
     def getAt(time: Double): A = notImplemented()
 
-    def transform(fun: A => A): Unit = this() = fun(this())
+    def transform(fun: A => A)(implicit tx: T): Unit = this() = fun(this())
 
-    def update(v: A): Unit = setAt(tx.time, v) // (tx.peer)
+    def update(v: A)(implicit tx: T): Unit = setAt(tx.time, v) // (tx.peer)
 
-    def swap(v: A): A = {
+    def swap(v: A)(implicit tx: T): A = {
       val res = apply()
       update(v)
       res
@@ -69,7 +71,7 @@ trait ProjectionTest {
 
     def setAt(time: Double, v: A): Unit = notImplemented()
 
-    def dispose(): Unit = ()
+    def dispose()(implicit tx: T): Unit = ()
 
     def write(out: DataOutput): Unit = ()
 

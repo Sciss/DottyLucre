@@ -16,19 +16,23 @@ package impl
 
 import de.sciss.serial.DataOutput
 
-import scala.concurrent.stm.{InTxn, Ref => ScalaRef}
+import scala.concurrent.stm.{Ref => ScalaRef}
 
-final class SysInMemoryRef[A](val peer: ScalaRef[A], itx: InTxn)
-  extends InMemoryLike.Var[A] {
+final class SysInMemoryRef[A](val peer: ScalaRef[A])
+  extends InMemoryLike.Var[TxnLike, A] {
+
+  type T = TxnLike
+
+  import TxnLike.{peer => itx}
 
   override def toString = s"Var<${hashCode().toHexString}>"
 
-  def apply()     : A    = peer.get    (itx)
-  def update(v: A): Unit = peer.set (v)(itx)
-  def swap  (v: A): A    = peer.swap(v)(itx)
+  def apply()     (implicit tx: T): A    = peer.get
+  def update(v: A)(implicit tx: T): Unit = peer.set (v)
+  def swap  (v: A)(implicit tx: T): A    = peer.swap(v)
 
   def write(out: DataOutput): Unit = ()
 
-  def dispose(): Unit =
-    peer.set(null.asInstanceOf[A])(itx)
+  def dispose()(implicit tx: T): Unit =
+    peer.set(null.asInstanceOf[A])
 }

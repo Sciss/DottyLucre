@@ -16,7 +16,7 @@ package impl
 
 import java.util.concurrent.atomic.AtomicLong
 
-object TRandomImpl {
+object RandomImpl {
   private final val multiplier  = 0x5DEECE66DL
   private final val mask        = (1L << 48) - 1
   private final val addend      = 11L
@@ -44,9 +44,9 @@ object TRandomImpl {
 //  def apply[T <: Exec[T]](id: Ident[T], seed: Long)(implicit tx: T): TRandom[T] =
 //    new SysImpl[T](id.newLongVar(initialScramble(seed)))
 
-  def wrap[Tx](peer: TVar[Tx, Long]): TRandom[Tx] = new SysImpl[Tx](peer)
+  def wrap[Tx](peer: Var[Tx, Long]): Random[Tx] = new SysImpl[Tx](peer)
 
-  abstract class BaseImpl[Tx] extends TRandom[Tx] {
+  abstract class BaseImpl[Tx] extends Random[Tx] {
 
     def nextBoolean()(implicit tx: Tx): Boolean = next(1) != 0
 
@@ -88,11 +88,11 @@ object TRandomImpl {
   }
 
   abstract class SysLike[Tx] extends BaseImpl[Tx] {
-    protected def seedRef: TVar[Tx, Long]
+    protected def seedRef: Var[Tx, Long]
 
     final def rawSeed_=(value: Long)(implicit tx: Tx): Unit = seedRef() = value
     final def rawSeed               (implicit tx: Tx): Long = seedRef()
   }
 
-  private final class SysImpl[Tx](protected val seedRef: TVar[Tx, Long]) extends SysLike[Tx]
+  private final class SysImpl[Tx](protected val seedRef: Var[Tx, Long]) extends SysLike[Tx]
 }

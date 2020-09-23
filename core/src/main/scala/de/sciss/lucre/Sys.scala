@@ -30,10 +30,10 @@ trait Sys /*[S <: Sys[S]]*/ extends Base /*[S]*/ {
    * or provides a newly initialized one via the `init` argument,
    * if no root has been stored yet.
    */
-  def root[A](init: T => A)(implicit format: TFormat[T, A]): TSource[T, A]
+  def root[A](init: T => A)(implicit format: TFormat[T, A]): Source[T, A]
 
   private[lucre] def rootJoin[A](init: T => A)
-                                (implicit tx: TxnLike, format: TFormat[T, A]): TSource[T, A]
+                                (implicit tx: TxnLike, format: TFormat[T, A]): Source[T, A]
 
   // ---- event ----
 

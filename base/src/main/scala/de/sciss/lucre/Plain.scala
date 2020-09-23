@@ -23,7 +23,7 @@ object Plain {
 }
 trait Plain extends Base with Cursor[Plain] with Exec[Plain] {
   type Tx     = Plain
-  type Var[A] = lucre.Var[A]
+  type Var[A] = lucre.Var[Tx, A]
   type Id     = Plain.Id
   type I      = Plain
 }

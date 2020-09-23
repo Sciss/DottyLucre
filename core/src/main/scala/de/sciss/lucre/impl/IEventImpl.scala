@@ -23,6 +23,6 @@ trait IEventImpl[T <: Exec[T], +A] extends IEvent[T, A] {
   def -/->(sink: IEvent[T, Any])(implicit tx: T): Unit =
     targets.remove(this, sink)
 
-  def react(fun: T => A => Unit)(implicit tx: T): TDisposable[T] =
+  def react(fun: T => A => Unit)(implicit tx: T): Disposable[T] =
     Observer(this, fun)(tx, targets)
 }

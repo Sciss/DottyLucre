@@ -15,7 +15,7 @@ package de.sciss.lucre
 package impl
 
 import de.sciss.equal.Implicits._
-import de.sciss.lucre.TMap.Key
+import de.sciss.lucre.MapObj.Key
 import de.sciss.lucre.data.SkipList
 import de.sciss.serial.{DataInput, DataOutput, TFormat}
 
@@ -23,30 +23,30 @@ import scala.reflect.ClassTag
 
 object TMapImpl {
   def apply[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]]()(implicit tx: T, 
-                                                            keyType: Key[K]): TMap.Modifiable[T, K, Repr] = {
+                                                            keyType: Key[K]): MapObj.Modifiable[T, K, Repr] = {
     val targets = Event.Targets[T]()
-    new Impl[T, K, Repr](tx)(targets) { self =>
+    new Impl[T, K, Repr](targets) { self =>
       val peer: SkipList.Map[T, K, List[Entry[K, V]]] = SkipList.Map.empty(tx, keyOrdering, self.keyType.format,
         TFormat.list(entryFormat))
     }
   }
 
-  def format[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]]: TFormat[T, TMap[T, K, Repr]] =
+  def format[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]]: TFormat[T, MapObj[T, K, Repr]] =
     new Fmt[T, K, Repr]
 
-  def modFormat[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]]: TFormat[T, TMap.Modifiable[T, K, Repr]] =
+  def modFormat[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]]: TFormat[T, MapObj.Modifiable[T, K, Repr]] =
     new ModFmt[T, K, Repr]
 
   private class Fmt[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]] // (implicit keyType: Key[K])
-    extends ObjFormat[T, TMap[T, K, Repr]] {
+    extends ObjFormat[T, MapObj[T, K, Repr]] {
 
-    def tpe: Obj.Type = TMap
+    def tpe: Obj.Type = MapObj
   }
 
   private class ModFmt[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]] // (implicit keyType: Key[K])
-    extends ObjFormat[T, TMap.Modifiable[T, K, Repr]] {
+    extends ObjFormat[T, MapObj.Modifiable[T, K, Repr]] {
 
-    def tpe: Obj.Type = TMap
+    def tpe: Obj.Type = MapObj
   }
 
   def readIdentifiedObj[T <: Txn[T]](in: DataInput)(implicit tx: T): Obj[T] = {
@@ -58,7 +58,7 @@ object TMapImpl {
 
   private def mkRead[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]](in: DataInput, targets: Event.Targets[T])
                                                                   (implicit tx: T, keyType: Key[K]): Impl[T, K, Repr] =
-    new Impl[T, K, Repr](tx)(targets) { self =>
+    new Impl[T, K, Repr](targets) { self =>
       val peer: SkipList.Map[T, K, List[Entry[K, V]]] =
         SkipList.Map.read[T, K, List[Entry[K, V]]](in)(tx, keyOrdering, self.keyType.format,
           TFormat.list(entryFormat))
@@ -66,13 +66,12 @@ object TMapImpl {
 
   private final class Entry[K, V](val key: K, val value: V)
 
-  private abstract class Impl[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]](tx: T)
-                                                                           (protected val targets: Event.Targets[T])
+  private abstract class Impl[T <: Txn[T], K, Repr[~ <: Txn[~]] <: Elem[~]](protected val targets: Event.Targets[T])
                                                                            (implicit val keyType: Key[K])
-    extends TMap.Modifiable[T, K, Repr] with SingleEventNode[T, TMap.Update[T, K, Repr]] {
+    extends MapObj.Modifiable[T, K, Repr] with SingleEventNode[T, MapObj.Update[T, K, Repr]] {
     map =>
 
-    final def tpe: Obj.Type = TMap
+    final def tpe: Obj.Type = MapObj
 
     // ---- abstract ----
 
@@ -80,8 +79,8 @@ object TMapImpl {
 
     // ---- implemented ----
 
-    private[lucre] def copy[Out <: Txn[Out]]()(implicit txOut: Out, context: Copy[T, Out]): Elem[Out] = {
-      val res = TMap.Modifiable[Out, K, Elem /* Repr */]()
+    private[lucre] def copy[Out <: Txn[Out]]()(implicit txIn: T, txOut: Out, context: Copy[T, Out]): Elem[Out] = {
+      val res = MapObj.Modifiable[Out, K, Elem]()
       iterator.foreach { case (k, v) =>
         res.put(k, context(v))
       }
@@ -109,20 +108,20 @@ object TMapImpl {
       }
     }
 
-    final def contains(key: K): Boolean    = peer.get(key).exists(vec => vec.exists(_.key === key))
-    final def get     (key: K): Option[V]  = peer.get(key).flatMap { vec =>
+    final def contains(key: K)(implicit tx: T): Boolean    = peer.get(key).exists(vec => vec.exists(_.key === key))
+    final def get     (key: K)(implicit tx: T): Option[V]  = peer.get(key).flatMap { vec =>
       vec.collectFirst {
         case entry if entry.key === key => entry.value
       }
     }
 
-    final def iterator: Iterator[(K, V)] = peer.iterator.flatMap {
+    final def iterator(implicit tx: T): Iterator[(K, V)] = peer.iterator.flatMap {
       case (key, vec) => vec.map(entry => key -> entry.value)
     }
-    final def keysIterator  : Iterator[K] = peer.valuesIterator.flatMap(_.map(_.key  ))
-    final def valuesIterator: Iterator[V] = peer.valuesIterator.flatMap(_.map(_.value))
+    final def keysIterator  (implicit tx: T): Iterator[K] = peer.valuesIterator.flatMap(_.map(_.key  ))
+    final def valuesIterator(implicit tx: T): Iterator[V] = peer.valuesIterator.flatMap(_.map(_.value))
 
-    final def $[R[~ <: Txn[~]] <: Repr[~]](key: K)(implicit ct: ClassTag[R[T]]): Option[R[T]] =
+    final def $[R[~ <: Txn[~]] <: Repr[~]](key: K)(implicit tx: T, ct: ClassTag[R[T]]): Option[R[T]] =
       peer.get(key).flatMap { vec =>
         vec.collectFirst {
           case entry if entry.key === key && ct.runtimeClass.isAssignableFrom(entry.value.getClass) =>
@@ -130,52 +129,52 @@ object TMapImpl {
         }
       }
 
-    final def size: Int = {
+    final def size(implicit tx: T): Int = {
       // XXX TODO: a bit ugly...
       var res = 0
       peer.valuesIterator.foreach(res += _.size)
       res
     }
-    final def nonEmpty: Boolean  = peer.nonEmpty
-    final def isEmpty : Boolean  = peer.isEmpty
+    final def nonEmpty(implicit tx: T): Boolean  = peer.nonEmpty
+    final def isEmpty (implicit tx: T): Boolean  = peer.isEmpty
 
-    final def modifiableOption: Option[TMap.Modifiable[T, K, Repr]] = Some(this)
+    final def modifiableOption: Option[MapObj.Modifiable[T, K, Repr]] = Some(this)
 
     protected final def writeData(out: DataOutput): Unit = {
       out.writeInt(keyType.typeId)
       peer.write(out)
     }
 
-    protected final def disposeData(): Unit = peer.dispose()
+    protected final def disposeData()(implicit tx: T): Unit = peer.dispose()
 
     override def toString = s"Map$id"
 
-    protected final def foreach(fun: Entry[K, V] => Unit): Unit =
+    protected final def foreach(fun: Entry[K, V] => Unit)(implicit tx: T): Unit =
       peer.valuesIterator.foreach(_.foreach(fun))
 
     object changed extends Changed
-      with RootGeneratorEvent[T, TMap.Update[T, K, Repr]]
+      with RootGeneratorEvent[T, MapObj.Update[T, K, Repr]]
 
-    private def fireAdded(key: K, value: V): Unit =
-      changed.fire(TMap.Update[T, K, Repr](map, TMap.Added[/*T,*/ K, V](key, value) :: Nil))(tx)
+    private def fireAdded(key: K, value: V)(implicit tx: T): Unit =
+      changed.fire(MapObj.Update[T, K, Repr](map, MapObj.Added[K, V](key, value) :: Nil))
 
-    private def fireRemoved(key: K, value: V): Unit =
-      changed.fire(TMap.Update[T, K, Repr](map, TMap.Removed[/*T,*/ K, V](key, value) :: Nil))(tx)
+    private def fireRemoved(key: K, value: V)(implicit tx: T): Unit =
+      changed.fire(MapObj.Update[T, K, Repr](map, MapObj.Removed[K, V](key, value) :: Nil))
 
-    private def fireReplaced(key: K, before: V, now: V): Unit =
-      changed.fire(TMap.Update[T, K, Repr](map, TMap.Replaced[/*T,*/ K, V](key, before = before, now = now) :: Nil))(tx)
+    private def fireReplaced(key: K, before: V, now: V)(implicit tx: T): Unit =
+      changed.fire(MapObj.Update[T, K, Repr](map, MapObj.Replaced[K, V](key, before = before, now = now) :: Nil))
 
-    final def +=(kv: (K, V)): this.type = {
+    final def +=(kv: (K, V))(implicit tx: T): this.type = {
       put(kv._1, kv._2)
       this
     }
 
-    final def -=(key: K): this.type = {
+    final def -=(key: K)(implicit tx: T): this.type = {
       remove(key)
       this
     }
 
-    final def put(key: K, value: V): Option[V] = {
+    final def put(key: K, value: V)(implicit tx: T): Option[V] = {
       val entry     = new Entry[K, V](key, value)
       val oldVec    = peer.get(key).getOrElse(Nil)
       val idx       = oldVec.indexWhere(_.key === key)
@@ -193,7 +192,7 @@ object TMapImpl {
       if (found) Some(oldVec(idx).value) else None
     }
 
-    final def remove(key: K): Option[V] = {
+    final def remove(key: K)(implicit tx: T): Option[V] = {
       val oldVec  = peer.get(key).getOrElse(Nil)
       val idx     = oldVec.indexWhere(_.key === key)
       if (idx < 0) return None

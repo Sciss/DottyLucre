@@ -110,7 +110,7 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
 
     override def toString = s"$source<pre>"
 
-    def debugString = s"$this@${source.pre.tag}"
+    def debugString(implicit tx: T) = s"$this@${source.pre.tag}"
   }
 
   final class FullVertexPreTail[T <: Txn[T]](val source: FullVertex[T])
@@ -122,12 +122,12 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
 
     override def toString = s"$source<pre-tail>"
 
-    def debugString = s"$this@${source.preTail.tag}"
+    def debugString(implicit tx: T) = s"$this@${source.preTail.tag}"
   }
 
   object FullTree {
     def apply[T <: Txn[T]]()(implicit tx: T): FullTree[T] = {
-      implicit val pointView: (FullVertex[T] /*, T*/) => IntPoint3D = (p /*, tx*/) => p.toPoint // (tx)
+      implicit val pointView: (FullVertex[T], T) => IntPoint3D = (p, tx) => p.toPoint(tx)
       new FullTree[T] {
 //        val system: T = tx.system
         val cube: IntCube = IntCube(0x40000000, 0x40000000, 0x40000000, 0x40000000)
@@ -279,13 +279,13 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
   sealed trait VertexSource[T <: Txn[T], V] {
     def source: V
 
-    def debugString: String
+    def debugString(implicit tx: T): String
   }
 
   sealed trait VertexLike[T <: Txn[T], Repr] extends Writable with VertexSource[T, Repr] {
     def version: Int
 
-    def toPoint: IntPoint3D
+    def toPoint(implicit tx: T): IntPoint3D
   }
 
   sealed trait FullVertex[T <: Txn[T]] extends VertexLike[T, FullVertex[T]] {
@@ -312,9 +312,9 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
     //      final def y : Int = system.step { implicit tx => post.tag }
     //      final def z : Int = version
 
-    final def toPoint: IntPoint3D = IntPoint3D(pre.tag, post.tag, version)
+    final def toPoint(implicit tx: T): IntPoint3D = IntPoint3D(pre.tag, post.tag, version)
 
-    final def debugString = s"$toString<post>@${post.tag}"
+    final def debugString(implicit tx: T) = s"$toString<post>@${post.tag}"
 
     override def toString = s"Full($version)"
   }
@@ -411,11 +411,11 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
       post.write(out)
     }
 
-    final def toPoint: IntPoint3D = IntPoint3D(pre.tag, post.tag, version)
+    final def toPoint(implicit tx: T): IntPoint3D = IntPoint3D(pre.tag, post.tag, version)
 
     override def toString = s"Mark($version)"
 
-    def debugString: String = toString
+    def debugString(implicit tx: T): String = toString
 
     override def equals(that: Any): Boolean =
       that.isInstanceOf[MarkVertex[_]] && (that.asInstanceOf[MarkVertex[_]].version == version)
@@ -430,7 +430,7 @@ class AncestorRetroSuite extends AnyFeatureSpec with GivenWhenThen {
 
   object MarkTree {
     def apply[T <: Txn[T]](ft: FullTree[T])(implicit tx: T): MarkTree[T] = {
-      implicit val pointView: (MarkVertex[T] /*, T*/) => IntPoint3D = (p /*, tx*/) => p.toPoint // (tx)
+      implicit val pointView: (MarkVertex[T], T) => IntPoint3D = (p, tx) => p.toPoint(tx)
 
       lazy val orderObserver = new RelabelObserver[T, MarkVertex[T]]("mark", t)
 

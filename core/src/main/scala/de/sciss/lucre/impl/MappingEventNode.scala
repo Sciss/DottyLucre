@@ -21,10 +21,10 @@ trait MappingEventNode[T <: Txn[T], A, B]
   protected def inputEvent: EventLike[T, B]
 
   /** Folds a new input event, by combining it with an optional previous output event. */
-  protected def foldUpdate(generated: Option[A], input: B): Option[A]
+  protected def foldUpdate(generated: Option[A], input: B)(implicit tx: T): Option[A]
 
   trait Mapped extends GeneratorEvent[T, A] {
-    private[lucre] final def pullUpdate(pull: Pull[T]): Option[A] = {
+    private[lucre] final def pullUpdate(pull: Pull[T])(implicit tx: T): Option[A] = {
       val gen = if (pull.isOrigin(this)) Some(pull.resolve[A]) else None
       if (pull.contains(inputEvent)) pull(inputEvent) match {
         case Some(e)  => foldUpdate(gen, e)

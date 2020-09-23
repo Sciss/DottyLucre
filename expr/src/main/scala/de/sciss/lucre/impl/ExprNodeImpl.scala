@@ -20,7 +20,5 @@ trait ExprNodeImpl[T <: Txn[T], A]
   extends Expr[T, A]
     with SingleEventNode[T, Change[A]] { self =>
   
-  def valueT(implicit tx: T): A = value
-  
   override def toString = s"Expr$id"
 }

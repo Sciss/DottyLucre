@@ -24,10 +24,10 @@ class Nodes[T <: LTxn[T]] {
     }
   }
   trait Node extends Mutable[T] {
-    def value : LVar[Int]
-    def next  : LVar[Option[Node]]
+    def value : LVar[T, Int]
+    def next  : LVar[T, Option[Node]]
 
-    def disposeData(): Unit = {
+    def disposeData()(implicit tx: T): Unit = {
       value.dispose()
       next .dispose()
     }

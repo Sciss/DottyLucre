@@ -45,24 +45,24 @@ object DurableImpl {
       new CachedIntVar[T](0, _idCnt)
     }
 
-    def root[A](init: T => A)(implicit format: TFormat[T, A]): TSource[T, A] =
+    def root[A](init: T => A)(implicit format: TFormat[T, A]): Source[T, A] =
       step { implicit tx =>
         rootBody(init)
       }
 
-    def rootJoin[A](init: T => A)(implicit tx: TxnLike, format: TFormat[T, A]): TSource[T, A] =
+    def rootJoin[A](init: T => A)(implicit tx: TxnLike, format: TFormat[T, A]): Source[T, A] =
       rootBody(init)(wrap(tx.peer), format)
 
     private[this] def rootBody[A](init: T => A)
-                                 (implicit tx: T, format: TFormat[T, A]): TSource[T, A] = {
+                                 (implicit tx: T, format: TFormat[T, A]): Source[T, A] = {
       val rootId = 2 // 1 == reaction map!!!
       if (exists(rootId)) {
-        new TVarImpl[T, A](rootId, format)
+        new VarImpl[T, A](rootId, format)
       } else {
         val id = newIdValue()
         require(id === rootId,
           s"Root can only be initialized on an empty database (expected id count is $rootId but found $id)")
-        val res = new TVarImpl[T, A](id, format)
+        val res = new VarImpl[T, A](id, format)
         res.setInit(init(tx))
         res
       }
@@ -76,14 +76,14 @@ object DurableImpl {
       fun(wrap(itx, systemTimeNanos))
     }
 
-    def position(implicit tx: T): Unit = ()
+//    def position(implicit tx: T): Unit = ()
 
     def debugListUserRecords()(implicit tx: T): Seq[Id] = {
       val b   = Seq.newBuilder[Id]
       val cnt = idCntVar()
       var i   = 1
       while (i <= cnt) {
-        if (exists(i)) b += new IdImpl[T](tx)(i)
+        if (exists(i)) b += new IdImpl[T](i)
         i += 1
       }
       b.result()
@@ -144,21 +144,21 @@ object DurableImpl {
 
     private[lucre] final def reactionMap: ReactionMap[T] = system.reactionMap
 
-    final def newId(): Id = new IdImpl[T](this)(system.newIdValue()(this))
+    final def newId(): Id = new IdImpl[T](system.newIdValue()(this))
     
-    final def newCachedVar[A](init: A)(implicit format: TFormat[T, A]): TVar[T, A] = {
+    final def newCachedVar[A](init: A)(implicit format: TFormat[T, A]): Var[T, A] = {
       val res = new CachedVarImpl[T, A](system.newIdValue()(this), Ref(init), format)
       res.writeInit()(this)
       res
     }
 
-    final def newCachedIntVar(init: Int): TVar[T, Int] = {
+    final def newCachedIntVar(init: Int): Var[T, Int] = {
       val res = new CachedIntVar[T](system.newIdValue()(this), Ref(init))
       res.writeInit()(this)
       res
     }
 
-    final def newCachedLongVar(init: Long): TVar[T, Long] = {
+    final def newCachedLongVar(init: Long): Var[T, Long] = {
       val res = new CachedLongVar[T](system.newIdValue()(this), Ref(init))
       res.writeInit()(this)
       res
@@ -167,21 +167,21 @@ object DurableImpl {
     final def newIdentMap[A]: IdentMap[Ident[T], T, A] =
       IdentMapImpl[Ident[T], T, A] { implicit tx => id => id.!.id }
 
-    final def readCachedVar[A](in: DataInput)(implicit format: TFormat[T, A]): TVar[T, A] = {
+    final def readCachedVar[A](in: DataInput)(implicit format: TFormat[T, A]): Var[T, A] = {
       val id = in./* PACKED */ readInt()
       val res = new CachedVarImpl[T, A](id, Ref.make[A](), format)
       res.readInit()(this)
       res
     }
 
-    final def readCachedIntVar(in: DataInput): TVar[T, Int] = {
+    final def readCachedIntVar(in: DataInput): Var[T, Int] = {
       val id = in./* PACKED */ readInt()
       val res = new CachedIntVar[T](id, Ref(0))
       res.readInit()(this)
       res
     }
 
-    final def readCachedLongVar(in: DataInput): TVar[T, Long] = {
+    final def readCachedLongVar(in: DataInput): Var[T, Long] = {
       val id = in./* PACKED */ readInt()
       val res = new CachedLongVar[T](id, Ref(0L))
       res.readInit()(this)
@@ -190,20 +190,20 @@ object DurableImpl {
 
     override final def readId(in: DataInput): Id = {
       val base = in./* PACKED */ readInt()
-      new IdImpl[T](this)(base)
+      new IdImpl[T](base)
     }
 
-    final def newHandle[A](value: A)(implicit format: TFormat[T, A]): TSource[T, A] =
-      new EphemeralTSource(value)
+    final def newHandle[A](value: A)(implicit format: TFormat[T, A]): Source[T, A] =
+      new EphemeralSource(value)
 
     // ---- attributes ----
 
     def attrMap(obj: Obj[T]): Obj.AttrMap[T] = {
       implicit val tx : T   = this
       val mId = obj.id.!.id.toLong << 32
-      val mapOpt: Option[Obj.AttrMap[T]] = system.tryRead(mId)(in => TMap.Modifiable.read[T, String, Obj](in))
+      val mapOpt: Option[Obj.AttrMap[T]] = system.tryRead(mId)(in => MapObj.Modifiable.read[T, String, Obj](in))
       mapOpt.getOrElse {
-        val map = TMap.Modifiable[T, String, Obj]()
+        val map = MapObj.Modifiable[T, String, Obj]()
         system.write(mId)(map.write)
         map
       }
@@ -212,12 +212,12 @@ object DurableImpl {
     override def attrMapOption(obj: Obj[T]): Option[Obj.AttrMap[T]] = {
       implicit val tx : T   = this
       val mId = obj.id.!.id.toLong << 32
-      system.tryRead(mId)(TMap.Modifiable.read[T, String, Obj](_))
+      system.tryRead(mId)(MapObj.Modifiable.read[T, String, Obj](_))
     }
   }
 
   // XXX DRY with InMemoryImpl.IdImpl
-  private final class IdImpl[T <: D[T]](tx: T)(val id: Int) extends DurableLike.Id[T] {
+  private final class IdImpl[T <: D[T]](val id: Int) extends DurableLike.Id[T] {
     def !(implicit tx: T): DurableLike.Id[T] = {
       // require (tx eq this.tx)
       this
@@ -232,67 +232,56 @@ object DurableImpl {
       case _ => false
     }
 
-    def dispose(): Unit = tx.system.remove(id)(tx)
+    def dispose()(implicit tx: T): Unit = tx.system.remove(id)(tx)
 
-    def newVar[A](init: A)(implicit format: TFormat[T, A]): Var[A] = {
-      val res = new VarImpl[T, A](tx)(tx.system.newIdValue()(tx), format)
-      res.setInit(init) // (this)
+    def newVar[A](init: A)(implicit tx: T, format: TFormat[T, A]): Var[T, A] = {
+      val res = new VarImpl[T, A](tx.system.newIdValue(), format)
+      res.setInit(init)
       res
     }
 
-    def newBooleanVar(init: Boolean): Var[Boolean] = {
-      val res = new BooleanVar[T](tx)(tx.system.newIdValue()(tx))
-      res.setInit(init) // (this)
+    def newBooleanVar(init: Boolean)(implicit tx: T): Var[T, Boolean] = {
+      val res = new BooleanVar[T](tx.system.newIdValue())
+      res.setInit(init)
       res
     }
 
-    def newIntVar(init: Int): Var[Int] = {
-      val res = new IntVar[T](tx)(tx.system.newIdValue()(tx))
-      res.setInit(init) // (this)
+    def newIntVar(init: Int)(implicit tx: T): Var[T, Int] = {
+      val res = new IntVar[T](tx.system.newIdValue())
+      res.setInit(init)
       res
     }
 
-    def newLongVar(init: Long): Var[Long] = {
-      val res = new LongVar[T](tx)(tx.system.newIdValue()(tx))
-      res.setInit(init) // (this)
+    def newLongVar(init: Long)(implicit tx: T): Var[T, Long] = {
+      val res = new LongVar[T](tx.system.newIdValue())
+      res.setInit(init)
       res
     }
 
-    def readVar[A](in: DataInput)(implicit format: TFormat[T, A]): Var[A] = {
+    def readVar[A](in: DataInput)(implicit tx: T, format: TFormat[T, A]): Var[T, A] = {
       val id = in./* PACKED */ readInt()
-      new VarImpl[T, A](tx)(id, format)
+      new VarImpl[T, A](id, format)
     }
 
-    def readBooleanVar(in: DataInput): Var[Boolean] = {
+    def readBooleanVar(in: DataInput)(implicit tx: T): Var[T, Boolean] = {
       val id = in./* PACKED */ readInt()
-      new BooleanVar[T](tx)(id)
+      new BooleanVar[T](id)
     }
 
-    def readIntVar(in: DataInput): Var[Int] = {
+    def readIntVar(in: DataInput)(implicit tx: T): Var[T, Int] = {
       val id = in./* PACKED */ readInt()
-      new IntVar[T](tx)(id)
+      new IntVar[T](id)
     }
 
-    def readLongVar(in: DataInput): Var[Long] = {
+    def readLongVar(in: DataInput)(implicit tx: T): Var[T, Long] = {
       val id = in./* PACKED */ readInt()
-      new LongVar[T](tx)(id)
+      new LongVar[T](id)
     }
 
     override def toString = s"<$id>"
   }
 
-  private abstract class BasicVar[T <: D[T], A](tx: T) extends Var[A] {
-    protected def id: Int
-
-    final def write(out: DataOutput): Unit = out./* PACKED */ writeInt(id)
-
-    final def dispose(): Unit = tx.system.remove(id)(tx)
-
-    @elidable(elidable.CONFIG) protected final def assertExists(): Unit =
-      require(tx.system.exists(id)(tx), s"trying to write disposed ref $id")
-  }
-
-  private abstract class BasicTVar[T <: D[T], A] extends TVar[T, A] {
+  private abstract class BasicVar[T <: D[T], A] extends Var[T, A] {
     protected def id: Int
 
     final def write(out: DataOutput): Unit = out./* PACKED */ writeInt(id)
@@ -303,34 +292,9 @@ object DurableImpl {
       require(tx.system.exists(id)(tx), s"trying to write disposed ref $id")
   }
 
-  private final class VarImpl[T <: D[T], A](tx: T)
-                                           (protected val id: Int,
+  private final class VarImpl[T <: D[T], A](protected val id: Int,
                                             protected val format: TFormat[T, A])
-    extends BasicVar[T, A](tx) {
-
-    def apply(): A =
-      tx.system.read[A](id)(format.readT(_)(tx))(tx)
-
-    def setInit(v: A): Unit =
-      tx.system.write(id)(format.write(v, _))(tx)
-
-    def update(v: A): Unit = {
-      assertExists()
-      tx.system.write(id)(format.write(v, _))(tx)
-    }
-
-//    def swap(v: A): A = {
-//      val res = apply()
-//      update(v)
-//      res
-//    }
-
-    override def toString = s"Var($id)"
-  }
-
-  private final class TVarImpl[T <: D[T], A](protected val id: Int,
-                                             protected val format: TFormat[T, A])
-    extends BasicTVar[T, A] {
+    extends BasicVar[T, A] {
 
     def apply()(implicit tx: T): A =
       tx.system.read[A](id)(format.readT(_)(tx))(tx)
@@ -342,11 +306,19 @@ object DurableImpl {
       assertExists()
       tx.system.write(id)(format.write(v, _))(tx)
     }
+
+    def swap(v: A)(implicit tx: T): A = {
+      val res = apply()
+      update(v)
+      res
+    }
+
+    override def toString = s"Var($id)"
   }
 
   private final class CachedVarImpl[T <: D[T], A](protected val id: Int, peer: Ref[A],
                                                   format: TFormat[T, A])
-    extends BasicTVar[T, A] {
+    extends BasicVar[T, A] {
 
     def apply()(implicit tx: T): A = peer.get(tx.peer)
 
@@ -363,63 +335,63 @@ object DurableImpl {
     def readInit()(implicit tx: T): Unit =
       peer.set(tx.system.read(id)(format.readT(_)(tx))(tx))(tx.peer)
 
-//    def swap(v: A): A = {
-//      val res = peer.swap(v)(tx.peer)
-//      tx.system.write(id)(ser.write(v, _))(tx)
-//      res
-//    }
+    def swap(v: A)(implicit tx: T): A = {
+      val res = peer.swap(v)(tx.peer)
+      tx.system.write(id)(format.write(v, _))(tx)
+      res
+    }
 
     override def toString = s"Var($id)"
   }
 
-  private final class BooleanVar[T <: D[T]](tx: T)(protected val id: Int)
-    extends BasicVar[T, Boolean](tx) {
+  private final class BooleanVar[T <: D[T]](protected val id: Int)
+    extends BasicVar[T, Boolean] {
 
-    def apply(): Boolean =
+    def apply()(implicit tx: T): Boolean =
       tx.system.read[Boolean](id)(_.readBoolean())(tx)
 
-    def setInit(v: Boolean): Unit =
+    def setInit(v: Boolean)(implicit tx: T): Unit =
       tx.system.write(id)(_.writeBoolean(v))(tx)
 
-    def update(v: Boolean): Unit = {
+    def update(v: Boolean)(implicit tx: T): Unit = {
       assertExists()
       tx.system.write(id)(_.writeBoolean(v))(tx)
     }
 
-//    def swap(v: Boolean): Boolean = {
-//      val res = apply()
-//      update(v)
-//      res
-//    }
+    def swap(v: Boolean)(implicit tx: T): Boolean = {
+      val res = apply()
+      update(v)
+      res
+    }
 
     override def toString = s"Var[Boolean]($id)"
   }
 
-  private final class IntVar[T <: D[T]](tx: T)(protected val id: Int)
-    extends BasicVar[T, Int](tx) {
+  private final class IntVar[T <: D[T]](protected val id: Int)
+    extends BasicVar[T, Int] {
 
-    def apply(): Int =
+    def apply()(implicit tx: T): Int =
       tx.system.read[Int](id)(_.readInt())(tx)
 
-    def setInit(v: Int): Unit =
+    def setInit(v: Int)(implicit tx: T): Unit =
       tx.system.write(id)(_.writeInt(v))(tx)
 
-    def update(v: Int): Unit = {
+    def update(v: Int)(implicit tx: T): Unit = {
       assertExists()
       tx.system.write(id)(_.writeInt(v))(tx)
     }
 
-//    def swap(v: Int): Int = {
-//      val res = apply()
-//      update(v)
-//      res
-//    }
+    def swap(v: Int)(implicit tx: T): Int = {
+      val res = apply()
+      update(v)
+      res
+    }
 
     override def toString = s"Var[Int]($id)"
   }
 
   private final class CachedIntVar[T <: D[T]](protected val id: Int, peer: Ref[Int])
-    extends BasicTVar[T, Int] {
+    extends BasicVar[T, Int] {
 
     def apply()(implicit tx: T): Int = peer.get(tx.peer)
 
@@ -436,40 +408,40 @@ object DurableImpl {
     def readInit()(implicit tx: T): Unit =
       peer.set(tx.system.read(id)(_.readInt())(tx))(tx.peer)
 
-//    def swap(v: Int): Int = {
-//      val res = peer.swap(v)(tx.peer)
-//      tx.system.write(id)(_.writeInt(v))(tx)
-//      res
-//    }
+    def swap(v: Int)(implicit tx: T): Int = {
+      val res = peer.swap(v)(tx.peer)
+      tx.system.write(id)(_.writeInt(v))(tx)
+      res
+    }
 
     override def toString = s"Var[Int]($id)"
   }
 
-  private final class LongVar[T <: D[T]](tx: T)(protected val id: Int)
-    extends BasicVar[T, Long](tx) {
+  private final class LongVar[T <: D[T]](protected val id: Int)
+    extends BasicVar[T, Long] {
 
-    def apply(): Long =
+    def apply()(implicit tx: T): Long =
       tx.system.read[Long](id)(_.readLong())(tx)
 
-    def setInit(v: Long): Unit =
+    def setInit(v: Long)(implicit tx: T): Unit =
       tx.system.write(id)(_.writeLong(v))(tx)
 
-    def update(v: Long): Unit = {
+    def update(v: Long)(implicit tx: T): Unit = {
       assertExists()
       tx.system.write(id)(_.writeLong(v))(tx)
     }
 
-//    def swap(v: Long): Long = {
-//      val res = this()
-//      this() = v
-//      res
-//    }
+    def swap(v: Long)(implicit tx: T): Long = {
+      val res = this()
+      this() = v
+      res
+    }
 
     override def toString = s"Var[Long]($id)"
   }
 
   private final class CachedLongVar[T <: D[T]](protected val id: Int, peer: Ref[Long])
-    extends BasicTVar[T, Long] {
+    extends BasicVar[T, Long] {
 
     def apply()(implicit tx: T): Long = peer.get(tx.peer)
 
@@ -486,11 +458,11 @@ object DurableImpl {
     def readInit()(implicit tx: T): Unit =
       peer.set(tx.system.read(id)(_.readLong())(tx))(tx.peer)
 
-//    def swap(v: Long): Long = {
-//      val res = peer.swap(v)(tx.peer)
-//      tx.system.write(id)(_.writeLong(v))(tx)
-//      res
-//    }
+    def swap(v: Long)(implicit tx: T): Long = {
+      val res = peer.swap(v)(tx.peer)
+      tx.system.write(id)(_.writeLong(v))(tx)
+      res
+    }
 
     override def toString = s"Var[Long]($id)"
   }

@@ -25,11 +25,11 @@ object Ancestor {
   private type TreeOrder[T <: Exec[T]] = TotalOrder.Set.Entry[T]
 
   object Vertex {
-    private[Ancestor] def toPoint[T <: Exec[T], Version](v: Vertex[T, Version]): IntPoint3D =
+    private[Ancestor] def toPoint[T <: Exec[T], Version](v: Vertex[T, Version])(implicit tx: T): IntPoint3D =
       IntPoint3D(v.pre.tag, v.post.tag, v.versionInt)
   }
 
-  sealed trait Vertex[T <: Exec[T], Version] extends Writable with Disposable {
+  sealed trait Vertex[T <: Exec[T], Version] extends Writable with Disposable[T] {
 
     // ---- abstract ----
 
@@ -41,7 +41,7 @@ object Ancestor {
 
     // ---- implementation ----
 
-    final def isAncestorOf(that: Vertex[T, Version]): Boolean =
+    final def isAncestorOf(that: Vertex[T, Version])(implicit tx: T): Boolean =
       versionInt <= that.versionInt &&
         pre .compare(that.pre ) <= 0 &&
         post.compare(that.post) >= 0
@@ -54,7 +54,7 @@ object Ancestor {
       post.write(out)
     }
 
-    final def dispose(): Unit = {
+    final def dispose()(implicit t: T): Unit = {
       pre .dispose()
       post.dispose()
     }
@@ -76,33 +76,15 @@ object Ancestor {
 
   def readTree[T <: Exec[T], Version](in: DataInput)
                                      (implicit tx: T, versionFormat: TFormat[T, Version],
-                                      intView: Version => Int): Tree[T, Version] = {
-
-    val _versionFormat  = versionFormat
-    val _intView            = intView
-
-//    new TreeRead[T, Version](in, tx)
-    new TreeImpl[T, Version] {
-      val intView           : Version => Int          = _intView
-      val versionFormat : TFormat[T, Version] = _versionFormat
-
-      {
-        val serVer = in.readByte()
-        if (serVer != SER_VERSION)
-          sys.error(s"Incompatible serialized version (found $serVer, required $SER_VERSION).")
-      }
-
-      protected val order: TotalOrder.Set[T] = TotalOrder.Set.read(in)
-      val root: K = VertexFormat.readT(in)
-    }
-  }
+                                      intView: Version => Int): Tree[T, Version] =
+    new TreeRead[T, Version](in, tx)
 
   private final class TreeFmt[T <: Exec[T], Version](implicit versionFormat: TFormat[T, Version],
                                                      versionView: Version => Int)
     extends WritableFormat[T, Tree[T, Version]] {
 
     override def readT(in: DataInput)(implicit tx: T): Tree[T, Version] =
-      readTree(in)
+      new TreeRead[T, Version](in, tx)
 
     override def toString = "Ancestor.treeFormat"
   }
@@ -134,14 +116,14 @@ object Ancestor {
       root.write(out)
     }
 
-    final def dispose(): Unit = {
+    final def dispose()(implicit tx: T): Unit = {
       order.dispose()
       root.dispose()
     }
 
     final def vertexFormat: TFormat[T, K] = VertexFormat
 
-    final def insertChild(parent: K, newChild: Version): K = new K {
+    final def insertChild(parent: K, newChild: Version)(implicit tx: T): K = new K {
       def tree: Tree[T, Version] = me
 
       val version : Version                 = newChild
@@ -149,7 +131,7 @@ object Ancestor {
       val post    : TotalOrder.Set.Entry[T] = pre       .append()
     }
 
-    final def insertRetroChild(parent: K, newChild: Version): K = new K {
+    final def insertRetroChild(parent: K, newChild: Version)(implicit tx: T): K = new K {
       def tree: Tree[T, Version] = me
 
       val version : Version                 = newChild
@@ -159,7 +141,7 @@ object Ancestor {
       override def toString = s"${super.toString}@r-ch"
     }
 
-    final def insertRetroParent(child: K, newParent: Version): K = {
+    final def insertRetroParent(child: K, newParent: Version)(implicit tx: T): K = {
       require(child != root)
       new K {
         def tree: Tree[T, Version] = me
@@ -173,37 +155,37 @@ object Ancestor {
     }
   }
 
-  private final class TreeNew[T <: Exec[T], Version](rootVersion: Version, tx: T)(
+  private final class TreeNew[T <: Exec[T], Version](rootVersion: Version, tx0: T)(
     implicit val versionFormat: TFormat[T, Version], val intView: Version => Int)
     extends TreeImpl[T, Version] {
     me =>
 
-    protected val order: TotalOrder.Set[T] = TotalOrder.Set.empty(0)(tx)
+    protected val order: TotalOrder.Set[T] = TotalOrder.Set.empty(0)(tx0)
 
     val root: K = new K {
       def tree: Tree[T, Version] = me
 
       def version : Version                 = rootVersion
       val pre     : TotalOrder.Set.Entry[T] = order.root
-      val post    : TotalOrder.Set.Entry[T] = pre.appendMax()
+      val post    : TotalOrder.Set.Entry[T] = pre.appendMax()(tx0)
     }
   }
 
-//  private final class TreeRead[T <: Exec[T], Version](in: DataInput, tx: T)(
-//    implicit val versionFormat: TFormat[T, Version], val intView: Version => Int)
-//    extends TreeImpl[T, Version] {
-//
-//    {
-//      val serVer = in.readByte()
-//      if (serVer != SER_VERSION)
-//        sys.error(s"Incompatible serialized version (found $serVer, required $SER_VERSION).")
-//    }
-//
-//    protected val order: TotalOrder.Set[T] = TotalOrder.Set.read(in, tx)
-//    val root: K = VertexFormat.read(in, tx)
-//  }
+  private final class TreeRead[T <: Exec[T], Version](in: DataInput, tx0: T)(
+    implicit val versionFormat: TFormat[T, Version], val intView: Version => Int)
+    extends TreeImpl[T, Version] {
 
-  sealed trait Tree[T <: Exec[T], Version] extends Writable with Disposable {
+    {
+      val serVer = in.readByte()
+      if (serVer != SER_VERSION)
+        sys.error(s"Incompatible serialized version (found $serVer, required $SER_VERSION).")
+    }
+
+    protected val order: TotalOrder.Set[T] = TotalOrder.Set.read(in)(tx0)
+    val root: K = VertexFormat.readT(in)(tx0)
+  }
+
+  sealed trait Tree[T <: Exec[T], Version] extends Writable with Disposable[T] {
     protected type K = Vertex[T, Version]
 
     private[Ancestor] def versionFormat: TFormat[T, Version]
@@ -213,9 +195,9 @@ object Ancestor {
 
     def root: K
 
-    def insertChild      (parent: K, newChild : Version): K
-    def insertRetroChild (parent: K, newChild : Version): K
-    def insertRetroParent(child : K, newParent: Version): K
+    def insertChild      (parent: K, newChild : Version)(implicit tx: T): K
+    def insertRetroChild (parent: K, newChild : Version)(implicit tx: T): K
+    def insertRetroParent(child : K, newParent: Version)(implicit tx: T): K
   }
 
   private type MarkOrder[T <: Exec[T], Version, A] = TotalOrder.Map.Entry[T, Mark[T, Version, A]]
@@ -271,7 +253,7 @@ object Ancestor {
 
     // ---- implementation ----
 
-    final def toPoint: IntPoint3D = IntPoint3D(pre.tag, post.tag, fullVertex.versionInt)
+    final def toPoint(implicit tx: T): IntPoint3D = IntPoint3D(pre.tag, post.tag, fullVertex.versionInt)
 
     final def write(out: DataOutput): Unit = {
       fullVertex.write(out)
@@ -280,7 +262,7 @@ object Ancestor {
       map.valueFormat.write(value, out)
     }
 
-    final def removeAndDispose(): Unit = {
+    final def removeAndDispose()(implicit tx: T): Unit = {
       map.skip.remove(this)
       pre .removeAndDispose()
       post.removeAndDispose()
@@ -289,45 +271,13 @@ object Ancestor {
     override def toString = s"Mark(${fullVertex.version} -> $value)"
   }
 
-  def newMap[T <: Exec[T], Version, /* @spec(ValueSpec) */ A](full: Tree[T, Version], rootVertex: Vertex[T, Version],
-                                                              rootValue: A)
-                                                             (implicit tx: T,
-                                                              valueFormat: TFormat[T, A]): Map[T, Version, A] = {
-
+  def newMap[T <: Exec[T], Version, A](full: Tree[T, Version], rootVertex: Vertex[T, Version], rootValue: A)
+                                      (implicit tx: T, valueFormat: TFormat[T, A]): Map[T, Version, A] =
     new MapNew[T, Version, A](full, rootVertex, rootValue, tx, valueFormat)
-  }
 
-  def readMap[T <: Exec[T], Version, /* @spec(ValueSpec) */ A](in: DataInput, tx: T, full: Tree[T, Version])(
-    implicit valueFormat: TFormat[T, A]): Map[T, Version, A] = {
-
-    val _full             = full
-    val _valueFormat  = valueFormat
-
-//    new MapRead[T, Version, A](full, in, tx, valueFormat)
-    new MapImpl[T, Version, A] {
-      me =>
-
-      val full            : Tree[T, Version]  = _full
-      val valueFormat : TFormat[T, A] = _valueFormat
-
-      {
-        val serVer = in.readByte()
-        if (serVer != SER_VERSION)
-          sys.error(s"Incompatible serialized version (found $serVer, required $SER_VERSION).")
-      }
-
-      protected val preOrder : TotalOrder.Map[T, M] = TotalOrder.Map.read[T, M](in, me, _.pre )(tx, markFormat)
-      protected val postOrder: TotalOrder.Map[T, M] = TotalOrder.Map.read[T, M](in, me, _.post)(tx, markFormat)
-
-      protected val preList  : SkipList  .Set[T, M] = SkipList  .Set.read[T, M](in)(tx, preOrdering , markFormat)
-      protected val postList : SkipList  .Set[T, M] = SkipList  .Set.read[T, M](in)(tx, postOrdering, markFormat)
-
-      private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, M] = {
-        val pointView = (p: M /*, tx: T*/) => p.toPoint // (tx)
-        SkipOctree.read[T, IntPoint3DLike, IntPoint3D, IntCube, M](in)(tx, pointView, IntSpace.ThreeDim, markFormat)
-      }
-    }
-  }
+  def readMap[T <: Exec[T], Version, A](in: DataInput, tx: T, full: Tree[T, Version])
+                                       (implicit valueFormat: TFormat[T, A]): Map[T, Version, A] =
+    new MapRead[T, Version, A](full, in, valueFormat, tx)
 
   /*
    * The result of isomorphic search (mapping full tree vertex coordinates to marked tree coordinates).
@@ -374,12 +324,12 @@ object Ancestor {
 
     override def toString = s"Ancestor.Map(tree=$full)"
 
-    protected final def preOrdering: Ordering[M] = new Ordering[M] {
-      def compare(a: M, b: M): Int = a.pre compare b.pre
+    protected final def preOrdering: TOrdering[T, M] = new TOrdering[T, M] {
+      def compare(a: M, b: M)(implicit tx: T): Int = a.pre compare b.pre
     }
 
-    protected final def postOrdering: Ordering[M] = new Ordering[M] {
-      def compare(a: M, b: M): Int = a.post compare b.post
+    protected final def postOrdering: TOrdering[T, M] = new TOrdering[T, M] {
+      def compare(a: M, b: M)(implicit tx: T): Int = a.post compare b.post
     }
 
     protected implicit object markFormat extends WritableFormat[T, M] {
@@ -405,7 +355,7 @@ object Ancestor {
       // root.write( out )
     }
 
-    final def dispose(): Unit = {
+    final def dispose()(implicit tx: T): Unit = {
       preOrder.dispose()
       postOrder.dispose()
       preList.dispose()
@@ -413,7 +363,7 @@ object Ancestor {
       skip.dispose()
     }
 
-    final def add(entry: (K, A)): Boolean = {
+    final def add(entry: (K, A))(implicit tx: T): Boolean = {
       val vertex  = entry._1
       val iso0    = query(vertex)
       val iso     = if (iso0.preCmp != 0) iso0 else {
@@ -461,12 +411,12 @@ object Ancestor {
       //      res
     }
 
-    final def +=(entry: (K, A)): this.type = {
+    final def +=(entry: (K, A))(implicit tx: T): this.type = {
       add(entry)
       this
     }
 
-    private[this] def query(vertex: K): IsoResult[T, Version, A] = {
+    private[this] def query(vertex: K)(implicit tx: T): IsoResult[T, Version, A] = {
       val cfPre = vertex.pre
       val (cmPreN, cmPreCmp) = preList.isomorphicQuery { (that: M) =>
         cfPre.compare(that.fullVertex.pre)
@@ -480,7 +430,7 @@ object Ancestor {
       new IsoResult(cmPreN, cmPreCmp, cmPostN, cmPostCmp)
     }
 
-    final def remove(vertex: K): Boolean = {
+    final def remove(vertex: K)(implicit tx: T): Boolean = {
       val iso = query(vertex)
       iso.preCmp == 0 /* && (iso.postCmp == 0) */ && {
         // assert(iso.postCmp == 0)
@@ -489,12 +439,12 @@ object Ancestor {
       }
     }
 
-    final def -=(vertex: K): this.type = {
+    final def -=(vertex: K)(implicit tx: T): this.type = {
       remove(vertex)
       this
     }
 
-    final def get(vertex: K): Option[A] = {
+    final def get(vertex: K)(implicit tx: T): Option[A] = {
       val iso = query(vertex)
       if (iso.preCmp == 0) {
         // assert(iso.postCmp == 0)
@@ -503,7 +453,7 @@ object Ancestor {
     }
 
     // XXX TODO: DRY
-    final def nearest(vertex: K): (K, A) = {
+    final def nearest(vertex: K)(implicit tx: T): (K, A) = {
       val iso = query(vertex)
       if (iso.preCmp == 0) {
         // assert(iso.postCmp == 0)
@@ -518,7 +468,7 @@ object Ancestor {
       }
     }
 
-    final def nearestOption(vertex: K): Option[(K, A)] = {
+    final def nearestOption(vertex: K)(implicit tx: T): Option[(K, A)] = {
       val iso = query(vertex)
       if (iso.preCmp == 0) {
         // assert(iso.postCmp == 0)
@@ -528,13 +478,14 @@ object Ancestor {
       }
     }
 
-    final def nearestWithFilter(vertex: K)(p: Int => Boolean): Option[(K, A)] = {
+    final def nearestWithFilter(vertex: K)(p: Int => Boolean)(implicit tx: T): Option[(K, A)] = {
       val iso = query(vertex)
       nearestWithMetric(vertex, iso, new FilterMetric(p))
     }
 
     private[this] def nearestWithMetric(vertex: K, iso: IsoResult[T, Version, A],
-                                        metric: DistanceMeasure[Long, IntPoint3DLike, IntCube]): Option[(K, A)] = {
+                                        metric: DistanceMeasure[Long, IntPoint3DLike, IntCube])
+                                       (implicit tx: T): Option[(K, A)] = {
       val preTag  = iso.pre .pre .tag
       val postTag = iso.post.post.tag
       val x       = if (iso.preCmp  < 0) preTag  - 1 else preTag
@@ -550,7 +501,7 @@ object Ancestor {
     final def afterRelabeling(iterator: Iterator[M])(implicit tx: T): Unit =
       iterator.foreach(skip += _)
 
-    final def debugPrint: String = {
+    final def debugPrint(implicit tx: T): String = {
       val s = skip.toList.map { m =>
         val v = m.fullVertex
         s"{version = ${v.versionInt}, value = ${m.value}, pre = ${v.pre.tag}, post = ${v.post.tag}}"
@@ -561,20 +512,20 @@ object Ancestor {
 
   private final class MapNew[T <: Exec[T], Version, A](val full: Tree[T, Version],
                                                        rootVertex: Vertex[T, Version],
-                                                       rootValue: A, tx: T,
+                                                       rootValue: A, tx0: T,
                                                        val valueFormat: TFormat[T, A])
     extends MapImpl[T, Version, A] {
     me =>
 
     protected val preOrder: TotalOrder.Map[T, M] =
-      TotalOrder.Map.empty[T, M](me, _.pre)(tx, markFormat)
+      TotalOrder.Map.empty[T, M](me, _.pre)(tx0, markFormat)
 
     protected val postOrder: TotalOrder.Map[T, M] =
-      TotalOrder.Map.empty[T, M](me, _.post, rootTag = Int.MaxValue)(tx, markFormat)
+      TotalOrder.Map.empty[T, M](me, _.post, rootTag = Int.MaxValue)(tx0, markFormat)
 
     private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, M] = {
-      val pointView = (p: M /*, tx: T*/) => p.toPoint // (tx)
-      SkipOctree.empty[T, IntPoint3DLike, IntPoint3D, IntCube, M](cube)(tx, pointView, IntSpace.ThreeDim, markFormat)
+      val pointView = (p: M, tx: T) => p.toPoint(tx)
+      SkipOctree.empty[T, IntPoint3DLike, IntPoint3D, IntCube, M](cube)(tx0, pointView, IntSpace.ThreeDim, markFormat)
     }
 
     protected val root: M = {
@@ -587,67 +538,69 @@ object Ancestor {
 
         override def toString = s"Root($value)"
       }
+      implicit val tx: T = tx0
       skip += res
       res
     }
 
     protected val preList: SkipList.Set[T, M] = {
-      implicit val ord: Ordering[M] = preOrdering
-      implicit val _tx: T = tx
+      implicit val ord: TOrdering[T, M] = preOrdering
+      implicit val tx: T = tx0
       val res = SkipList.Set.empty[T, M]
       res.add(root)
       res
     }
 
     protected val postList: SkipList.Set[T, M] = {
-      implicit val ord: Ordering[M] = postOrdering
-      implicit val _tx: T = tx
+      implicit val ord: TOrdering[T, M] = postOrdering
+      implicit val tx: T = tx0
       val res = SkipList.Set.empty[T, M]
       res.add(root)
       res
     }
   }
 
-//  private final class MapRead[T <: Exec[T], Version, A](val full: Tree[T, Version], in: DataInput,
-//                                                        tx: T,
-//                                                        val valueFormat: TFormat[T, A])
-//    extends MapImpl[T, Version, A] {
-//    me =>
-//
-//    {
-//      val serVer = in.readByte()
-//      if (serVer != SER_VERSION)
-//        sys.error(s"Incompatible serialized version (found $serVer, required $SER_VERSION).")
-//    }
-//
-//    protected val preOrder: TotalOrder.Map[T, M] =
-//      TotalOrder.Map.read[T, M](in, tx, me, _.pre)(access, markFormat)
-//
-//    protected val postOrder: TotalOrder.Map[T, M] =
-//      TotalOrder.Map.read[T, M](in, tx, me, _.post)(access, markFormat)
-//
-//    protected val preList: SkipList.Set[T, M] = {
-//      implicit val ord: Ordering[M] = preOrdering
-//      SkipList.Set.read[T, M](in, tx)
-//    }
-//
-//    protected val postList: SkipList.Set[T, M] = {
-//      implicit val ord: Ordering[M] = postOrdering
-//      SkipList.Set.read[T, M](in, tx)
-//    }
-//
-//    private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, M] = {
-//      val pointView = (p: M, tx: T) => p.toPoint // (tx)
-//      SkipOctree.read[T, IntPoint3DLike, IntPoint3D, IntCube, M](in, tx)(access, pointView, IntSpace.ThreeDim, markFormat)
-//    }
-//  }
+  private final class MapRead[T <: Exec[T], Version, A](val full: Tree[T, Version], in: DataInput,
+                                                        val valueFormat: TFormat[T, A], tx0: T)
+    extends MapImpl[T, Version, A] {
+    me =>
 
-  sealed trait Map[T <: Exec[T], Version, A] extends Writable with Disposable {
+    {
+      val serVer = in.readByte()
+      if (serVer != SER_VERSION)
+        sys.error(s"Incompatible serialized version (found $serVer, required $SER_VERSION).")
+    }
+
+    protected val preOrder: TotalOrder.Map[T, M] =
+      TotalOrder.Map.read[T, M](in, me, _.pre)(tx0, markFormat)
+
+    protected val postOrder: TotalOrder.Map[T, M] =
+      TotalOrder.Map.read[T, M](in, me, _.post)(tx0, markFormat)
+
+    protected val preList: SkipList.Set[T, M] = {
+      implicit val ord: TOrdering[T, M] = preOrdering
+      implicit val tx: T = tx0
+      SkipList.Set.read[T, M](in)
+    }
+
+    protected val postList: SkipList.Set[T, M] = {
+      implicit val ord: TOrdering[T, M] = postOrdering
+      implicit val tx: T = tx0
+      SkipList.Set.read[T, M](in)
+    }
+
+    private[Ancestor] val skip: SkipOctree[T, IntPoint3DLike, IntPoint3D, IntCube, M] = {
+      val pointView = (p: M, tx: T) => p.toPoint(tx)
+      SkipOctree.read[T, IntPoint3DLike, IntPoint3D, IntCube, M](in)(tx0, pointView, IntSpace.ThreeDim, markFormat)
+    }
+  }
+
+  sealed trait Map[T <: Exec[T], Version, A] extends Writable with Disposable[T] {
     type K = Vertex[T, Version]
 
     def full: Tree[T, Version]
 
-    def debugPrint: String
+    def debugPrint(implicit tx: T): String
 
     /**
      * Marks a given key with a given value.
@@ -655,13 +608,13 @@ object Ancestor {
      * @param   entry the key-value pair (where the key is a vertex in the full tree)
      * @return  `true` if the mark is new, `false` if there had been a mark for the given vertex.
      */
-    def add(entry: (K, A)): Boolean
+    def add(entry: (K, A))(implicit tx: T): Boolean
 
-    def +=(entry: (K, A)): this.type
+    def +=(entry: (K, A))(implicit tx: T): this.type
 
-    def remove(vertex: K): Boolean
+    def remove(vertex: K)(implicit tx: T): Boolean
 
-    def -=(vertex: K): this.type
+    def -=(vertex: K)(implicit tx: T): this.type
 
     /**
      * Queries for a mark at a given version vertex. Unlike `nearest`, this does
@@ -671,7 +624,7 @@ object Ancestor {
      * @param   vertex  the version vertex to look up
      * @return  the value associated with that vertex, or `None` if the vertex is unmarked.
      */
-    def get(vertex: K): Option[A]
+    def get(vertex: K)(implicit tx: T): Option[A]
 
     /**
      * Finds the nearest marked ancestor of a given version key.
@@ -687,9 +640,9 @@ object Ancestor {
      *          it has been marked. If the query `version` vertex was marked, it will be
      *          that vertex which is returned, and not an ancestor.
      */
-    def nearest(vertex: K): (K, A)
+    def nearest(vertex: K)(implicit tx: T): (K, A)
 
-    def nearestOption(vertex: K): Option[(K, A)]
+    def nearestOption(vertex: K)(implicit tx: T): Option[(K, A)]
 
     /**
      * Searches for the nearest marked ancestor, where version control is handed over
@@ -706,7 +659,7 @@ object Ancestor {
      * @param vertex  the query vertex
      * @param p       the predicate function for the integer view of the vertex versions
      */
-    def nearestWithFilter(vertex: K)(p: Int => Boolean): Option[(K, A)]
+    def nearestWithFilter(vertex: K)(p: Int => Boolean)(implicit tx: T): Option[(K, A)]
 
     def valueFormat: TFormat[T, A]
   }

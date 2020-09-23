@@ -47,7 +47,7 @@ final class CopyImpl[In <: Txn[In], Out <: Txn[Out]](implicit txIn: In, txOut: O
 
   private def copyImpl[Repr[~ <: Txn[~]] <: Elem[~]](in: Repr[In]): Repr[Out] = {
     stateMap.put(in, Busy)
-    val out = in.copy()(/*txIn,*/ txOut, this)
+    val out = in.copy()(txIn, txOut, this)
     stateMap.put(in, Done(out))
     out.asInstanceOf[Repr[Out]]
   }

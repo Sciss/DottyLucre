@@ -31,7 +31,7 @@ object ElemImpl {
   @field private[this] final val anyFmt = new Fmt[AnyTxn]
 
   // @volatile private var map = Map.empty[Int, Elem.Type]
-  @volatile private var map = Map[Int, Elem.Type](TMap.typeId -> TMap)
+  @volatile private var map = Map[Int, Elem.Type](MapObj.typeId -> MapObj)
 
   def addType(tpe: Elem.Type): Unit = sync.synchronized {
     val typeId = tpe.typeId

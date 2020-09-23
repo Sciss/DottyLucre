@@ -38,7 +38,7 @@ class CopySpec extends FixtureAnyFlatSpec with Matchers {
       tx.newHandle(num1)
     }
 
-    val num2H = Txn.copy[T, T, TSource[T, IntObj[T]]] { (tx1, tx2) =>
+    val num2H = Txn.copy[T, T, Source[T, IntObj[T]]] { (tx1, tx2) =>
       val num1 = num1H()(tx1)
       val num2 = Obj.copy[T, T, IntObj](num1)(tx1, tx2)
       tx2.newHandle(num2)

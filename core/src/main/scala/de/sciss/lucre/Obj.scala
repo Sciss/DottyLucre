@@ -62,7 +62,7 @@ object Obj {
 
   // ---- attributes ----
 
-  type AttrMap    [T <: Txn[T]]             = TMap.Modifiable[T, String, Obj]
+  type AttrMap    [T <: Txn[T]]             = MapObj.Modifiable[T, String, Obj]
 
 //  type AttrUpdate [T <: Txn[T]]             = evt.Map.Update [T, String, Obj]
 //  val  AttrAdded    : evt.Map.Added.type    = evt.Map.Added
@@ -75,7 +75,7 @@ object Obj {
   /* implicit */ def attrMapFormat[T <: Txn[T]]: TFormat[T, AttrMap[T]] =
     anyAttrMapFmt.asInstanceOf[TFormat[T, AttrMap[T]]]
 
-  private[this] val anyAttrMapFmt = TMap.Modifiable.format[AnyTxn, String, Obj]
+  private[this] val anyAttrMapFmt = MapObj.Modifiable.format[AnyTxn, String, Obj]
 
   final val attrName = "name"
 }

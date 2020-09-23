@@ -14,7 +14,7 @@
 package de.sciss.lucre.confluent
 
 import de.sciss.lucre.confluent.impl.{CursorImpl => Impl}
-import de.sciss.lucre.{ConfluentLike, DurableLike, Ident, TDisposable, Cursor => LCursor, Txn => LTxn, Var => LVar}
+import de.sciss.lucre.{ConfluentLike, DurableLike, Ident, Disposable, Cursor => LCursor, Txn => LTxn, Var => LVar}
 import de.sciss.serial.{DataInput, TFormat, Writable}
 
 object Cursor {
@@ -43,13 +43,13 @@ object Cursor {
     implicit def format[T <: Txn[T], D <: LTxn[D]]: TFormat[D, Data[T, D]] =
       Impl.dataFormat[T, D]
   }
-  trait Data[T <: Txn[T], D <: LTxn[D]] extends TDisposable[D] with Writable {
+  trait Data[T <: Txn[T], D <: LTxn[D]] extends Disposable[D] with Writable {
     def id  : Ident[D] // D#Id
-    def path: LVar[Access[T]] // D#Var[S#Acc]
+    def path: LVar[D, Access[T]] // D#Var[S#Acc]
   }
 }
 trait Cursor[T <: Txn[T], D <: LTxn[D]]
-  extends LCursor[T] with TDisposable[D] with Writable {
+  extends LCursor[T] with Disposable[D] with Writable {
 
   def data: Cursor.Data[T, D]
 

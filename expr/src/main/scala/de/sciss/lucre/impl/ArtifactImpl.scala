@@ -30,10 +30,10 @@ object ArtifactImpl {
   // ---- artifact ----
 
   def apply[T <: Txn[T]](location: Location[T], child: Child)(implicit tx: T): Artifact.Modifiable[T] = {
-    val targets = Targets[T]
+    val targets = Targets[T]()
     val id      = targets.id
     val _child  = id.newVar(child.path)
-    new Impl[T](tx, targets, location, _child) // .connect()
+    new Impl[T](targets, location, _child) // .connect()
   }
 
   def copy[T <: Txn[T]](from: Artifact[T])(implicit tx: T): Artifact.Modifiable[T] =
@@ -51,7 +51,7 @@ object ArtifactImpl {
     val location  = Location.read(in)
     val id        = targets.id
     val _child    = id.readVar[String](in)
-    new Impl[T](tx, targets, location, _child)
+    new Impl[T](targets, location, _child)
   }
 
   def format   [T <: Txn[T]]: TFormat[T, Artifact           [T]] = anyFmt   .asInstanceOf[Fmt   [T]]
@@ -68,8 +68,8 @@ object ArtifactImpl {
     def tpe: Obj.Type = Artifact
   }
 
-  private final class Impl[T <: Txn[T]](tx: T, protected val targets: Targets[T],
-                                        val location: Location[T], _child: Var[String])
+  private final class Impl[T <: Txn[T]](protected val targets: Targets[T],
+                                        val location: Location[T], _child: Var[T, String])
     extends Artifact.Modifiable[T]
       with MappingEventNode[T, Change[File], Change[File]]
       with SingleEventNode[T, Change[File]] {
@@ -78,14 +78,14 @@ object ArtifactImpl {
 
     override def toString = s"Artifact$id"
 
-    private[lucre] override def copy[Out <: Txn[Out]]()(implicit txOut: Out, context: Copy[T, Out]): Elem[Out] =
+    private[lucre] override def copy[Out <: Txn[Out]]()(implicit txIn: T, txOut: Out, context: Copy[T, Out]): Elem[Out] =
       ArtifactImpl(context(location), child)
 
     def modifiableOption: Option[Modifiable[T]] = Some(this)
 
-    def child: Child = Child(_child())
+    def child(implicit tx: T): Child = Child(_child())
 
-    def child_=(value: Child): Unit = {
+    def child_=(value: Child)(implicit tx: T): Unit = {
       val oldP  = _child()
       val newP  = value.path
       if (oldP != newP) {
@@ -100,7 +100,8 @@ object ArtifactImpl {
 
     protected def inputEvent: EventLike[T, Change[File]] = location.changed
 
-    protected def foldUpdate(generated: Option[Change[File]], input: Change[File]): Option[Change[File]] =
+    protected def foldUpdate(generated: Option[Change[File]], input: Change[File])
+                            (implicit tx: T): Option[Change[File]] =
       generated.orElse {
         input match {
           case Change(oldBase, newBase) =>
@@ -112,15 +113,13 @@ object ArtifactImpl {
         }
       }
 
-    def value: Value = {
+    def value(implicit tx: T): Value = {
       val base   = location.value // directory
       val child  = _child()
       new File(base, child)
     }
 
-    def valueT(implicit tx: T): Value = value
-
-    protected def disposeData(): Unit =
+    protected def disposeData()(implicit tx: T): Unit =
       _child.dispose()
 
     protected def writeData(out: DataOutput): Unit = {

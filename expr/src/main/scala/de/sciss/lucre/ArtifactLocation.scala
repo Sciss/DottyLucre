@@ -33,17 +33,17 @@ object ArtifactLocation extends ExprTypeImpl[File, ArtifactLocation] {
     newConst(dir)
   }
 
-  implicit override def valueFormat: ConstFormat[File] = TFormat.File
+  implicit def valueFormat: ConstFormat[File] = TFormat.File
 
   def tryParse(value: Any): Option[File] = value match {
     case loc: File  => Some(loc)
     case _          => None
   }
 
-  protected override def mkConst[T <: Txn[T]](id: Ident[T], value: A)(implicit tx: T): Const[T] =
+  protected def mkConst[T <: Txn[T]](id: Ident[T], value: A)(implicit tx: T): Const[T] =
     new _Const[T](id, value)
 
-  protected override def mkVar[T <: Txn[T]](targets: Targets[T], vr: lucre.Var[E[T]], connect: Boolean)
+  protected def mkVar[T <: Txn[T]](targets: Targets[T], vr: lucre.Var[T, E[T]], connect: Boolean)
                                   (implicit tx: T): Var[T] = {
     val res = new _Var[T](tx, targets, vr)
     if (connect) res.connect()
@@ -53,11 +53,11 @@ object ArtifactLocation extends ExprTypeImpl[File, ArtifactLocation] {
   private[this] final class _Const[T <: Txn[T]](val id: Ident[T], val constValue: A)
     extends ConstImpl[T] with Repr[T]
 
-  private[this] final class _Var[T <: Txn[T]](val tx: T, val targets: Targets[T], val ref: lucre.Var[E[T]])
+  private[this] final class _Var[T <: Txn[T]](val tx: T, val targets: Targets[T], val ref: lucre.Var[T, E[T]])
     extends VarImpl[T] with Repr[T]
 }
 /** An artifact location is a directory on an external storage. */
 trait ArtifactLocation[T <: Txn[T]] extends Expr[T, File] {
   /** Alias for `value` */
-  def directory: File = value
+  def directory(implicit tx: T): File = value
 }

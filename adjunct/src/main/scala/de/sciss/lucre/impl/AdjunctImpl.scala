@@ -97,9 +97,9 @@ trait SeqLikeNum[A] extends SeqLikeOrd[A] with Num[Seq[A]] {
   final def zero : In = peer.zero :: Nil
   final def one  : In = peer.one  :: Nil
 
-  final def rand [Tx](a: In       )(implicit r: TRandom[Tx], tx: Tx): In = unOp (a   )(peer.rand [Tx])
-  final def rand2[Tx](a: In       )(implicit r: TRandom[Tx], tx: Tx): In = unOp (a   )(peer.rand2[Tx])
-  final def rangeRand[Tx](a: In, b: In)(implicit r: TRandom[Tx], tx: Tx): In = binOp(a, b)(peer.rangeRand[Tx])
+  final def rand [Tx](a: In       )(implicit r: Random[Tx], tx: Tx): In = unOp (a   )(peer.rand [Tx])
+  final def rand2[Tx](a: In       )(implicit r: Random[Tx], tx: Tx): In = unOp (a   )(peer.rand2[Tx])
+  final def rangeRand[Tx](a: In, b: In)(implicit r: Random[Tx], tx: Tx): In = binOp(a, b)(peer.rangeRand[Tx])
 
   final def fold(a: In, lo: In, hi: In): In = ternOp(a, lo, hi)(peer.fold)
   final def clip(a: In, lo: In, hi: In): In = ternOp(a, lo, hi)(peer.clip)
@@ -149,7 +149,7 @@ trait SeqLikeNumDouble[A] extends SeqLikeNumFrac[A] with NumDouble[Seq[A]] {
   final def hypotApx  (a: In, b: In): In = binOp(a, b)(peer.hypotApx)
   final def pow       (a: In, b: In): In = binOp(a, b)(peer.pow   )
 
-  def coin[Tx](a: In)(implicit r: TRandom[Tx], tx: Tx): Boolean = unOp(a)(peer.coin[Tx]) // IntelliJ highlight bug
+  def coin[Tx](a: In)(implicit r: Random[Tx], tx: Tx): Boolean = unOp(a)(peer.coin[Tx]) // IntelliJ highlight bug
 }
 
 trait SeqLikeToNum[A] extends SeqLike[A] with ToNum[Seq[A]] {

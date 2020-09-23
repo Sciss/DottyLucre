@@ -13,10 +13,10 @@
 
 package de.sciss.lucre
 
-import de.sciss.lucre.TMapLike.Update
+import de.sciss.lucre.MapObjLike.Update
 import de.sciss.lucre.{Disposable, Observable, Txn}
 
-object TMapLike {
+object MapObjLike {
   trait Update[/*T <: Txn[T],*/ K, V /*Repr[~ <: Txn[~]]*/] {
     def changes: scala.List[Change[/*T,*/ K, V /*Repr[T]*/]]
   }
@@ -26,32 +26,32 @@ object TMapLike {
     def value: V
   }
 
-  final case class Added   [/*T <: Txn[T],*/ K, V](key: K, value: V) extends Change[/*T,*/ K, V]
-  final case class Removed [/*T <: Txn[T],*/ K, V](key: K, value: V) extends Change[/*T,*/ K, V]
-  final case class Replaced[/*T <: Txn[T],*/ K, V](key: K, before: V, now: V) extends Change[/*T,*/ K, V] {
+  final case class Added   [K, V](key: K, value: V)           extends Change[K, V]
+  final case class Removed [K, V](key: K, value: V)           extends Change[K, V]
+  final case class Replaced[K, V](key: K, before: V, now: V)  extends Change[K, V] {
     def value: V = now
   }
 }
-trait TMapLike[T <: Txn[T], K, V /*Repr[~ <: Txn[~]]*/] extends Disposable {
+trait MapObjLike[T <: Txn[T], K, V] extends Disposable[T] {
 
 //  type V = Repr[T]
 
-  def isEmpty : Boolean
-  def nonEmpty: Boolean
+  def isEmpty (implicit tx: T): Boolean
+  def nonEmpty(implicit tx: T): Boolean
 
-  def changed: Observable[T, Update[/*T,*/ K, V /*Repr*/]]
+  def changed: Observable[T, Update[K, V]]
 
   /** Searches for the map for a given key.
    *
    * @param   key   the key to search for
    * @return  `true` if the key is in the map, `false` otherwise
    */
-  def contains(key: K): Boolean
+  def contains(key: K)(implicit tx: T): Boolean
 
   /** Queries the value for a given key.
    *
    * @param key  the key to look for
    * @return     the value if it was found at the key, otherwise `None`
    */
-  def get(key: K): Option[V]
+  def get(key: K)(implicit tx: T): Option[V]
 }

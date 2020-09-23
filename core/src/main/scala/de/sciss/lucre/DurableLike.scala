@@ -28,12 +28,12 @@ object DurableLike {
 
     final type Id     = DurableLike.Id[T]
 
-    def newCachedVar[A](  init: A    )(implicit format: TFormat[T, A]): TVar[T, A]
-    def newCachedIntVar(  init: Int  ): TVar[T, Int ]
-    def newCachedLongVar( init: Long ): TVar[T, Long]
-    def readCachedVar[A]( in: DataInput)(implicit format: TFormat[T, A]): TVar[T, A]
-    def readCachedIntVar( in: DataInput): TVar[T, Int ]
-    def readCachedLongVar(in: DataInput): TVar[T, Long]
+    def newCachedVar[A](  init: A    )(implicit format: TFormat[T, A]): Var[T, A]
+    def newCachedIntVar(  init: Int  ): Var[T, Int ]
+    def newCachedLongVar( init: Long ): Var[T, Long]
+    def readCachedVar[A]( in: DataInput)(implicit format: TFormat[T, A]): Var[T, A]
+    def readCachedIntVar( in: DataInput): Var[T, Int ]
+    def readCachedLongVar(in: DataInput): Var[T, Long]
   }
 }
 trait DurableLike[Tx <: DurableLike.Txn[Tx]] extends Sys /*[S]*/ with Cursor[Tx] {

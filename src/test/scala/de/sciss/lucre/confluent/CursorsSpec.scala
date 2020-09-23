@@ -44,14 +44,15 @@ class CursorsSpec extends ConfluentSpec {
     }
   }
 
-  class Entity(val id: Ident[T], val field: LVar[Int], cursorsVar: LVar[Vec[Cursor[T, D]]])
+  class Entity(val id: Ident[T], val field: LVar[T, Int], cursorsVar: LVar[T, Vec[Cursor[T, D]]])
     extends MutableImpl[T] {
-    protected def disposeData(): Unit = {
+
+    protected def disposeData()(implicit tx: T): Unit = {
       field     .dispose()
       cursorsVar.dispose()
     }
 
-    def cursors: Vec[Cursor[T, D]] = {
+    def cursors(implicit tx: T): Vec[Cursor[T, D]] = {
       cursorsVar()
     }
 

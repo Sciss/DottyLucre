@@ -13,8 +13,6 @@
 
 package de.sciss.lucre
 
-import de.sciss.lucre.Exec
-
 trait Cursor[T <: Exec[T]] {
   /** Issues a new transaction (executor), runs the function argument on it,
    * and returns the result.

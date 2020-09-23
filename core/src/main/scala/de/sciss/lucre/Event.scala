@@ -25,12 +25,12 @@ trait EventLike[T <: Txn[T], +A] extends Observable[T, A] {
   /** Connects the given selector to this event. That is, this event will
    * adds the selector to its propagation targets.
    */
-  def ---> (sink: Event[T, Any]): Unit
+  def ---> (sink: Event[T, Any])(implicit tx: T): Unit
 
   /** Disconnects the given selector from this event. That is, this event will
    * remove the selector from its propagation targets.
    */
-  def -/-> (sink: Event[T, Any]): Unit
+  def -/-> (sink: Event[T, Any])(implicit tx: T): Unit
 
   /** Involves this event in the pull-phase of event delivery. The event should check
    * the source of the originally fired event, and if it identifies itself with that
@@ -42,7 +42,7 @@ trait EventLike[T <: Txn[T], +A] extends Observable[T, A] {
    *          originate from this part of the dependency graph or was absorbed by
    *          a filtering function
    */
-  private[lucre] def pullUpdate(pull: Pull[T]): Option[A]
+  private[lucre] def pullUpdate(pull: Pull[T])(implicit tx: T): Option[A]
 }
 
 object Event {
@@ -109,7 +109,7 @@ object Event {
       new Impl[T](0, id, children)
     }
 
-    private final class Impl[T <: Txn[T]](cookie: Int, val id: Ident[T], childrenVar: /* event. */ Var[/*T,*/ Children[T]])
+    private final class Impl[T <: Txn[T]](cookie: Int, val id: Ident[T], childrenVar: Var[T, Children[T]])
       extends Targets[T] {
 
       def write(out: DataOutput): Unit = {
@@ -118,17 +118,17 @@ object Event {
         childrenVar.write(out)
       }
 
-      override def dispose(): Unit = {
+      def dispose()(implicit tx: T): Unit = {
         if (children.nonEmpty) throw new IllegalStateException("Disposing a event reactor which is still being observed")
         id         .dispose()
         childrenVar.dispose()
       }
 
-      private[lucre] def children: Children[T] = childrenVar() // .getOrElse(NoChildren)
+      private[lucre] def children(implicit tx: T): Children[T] = childrenVar() // .getOrElse(NoChildren)
 
       override def toString = s"Targets$id"
 
-      private[lucre] def add(slot: Int, sel: Event[T, Any]): Boolean = {
+      private[lucre] def add(slot: Int, sel: Event[T, Any])(implicit tx: T): Boolean = {
         logEvent(s"$this.add($slot, $sel)")
         val tup = (slot.toByte, sel)
         val seq = childrenVar() // .get // .getFresh
@@ -137,7 +137,7 @@ object Event {
         !seq.exists(_._1.toInt === slot)
       }
 
-      private[lucre] def remove(slot: Int, sel: Event[T, Any]): Boolean = {
+      private[lucre] def remove(slot: Int, sel: Event[T, Any])(implicit tx: T): Boolean = {
         logEvent(s"$this.remove($slot, $sel)")
         val tup = (slot, sel)
         val xs = childrenVar() // .getOrElse(NoChildren)
@@ -153,8 +153,8 @@ object Event {
         }
       }
 
-      def isEmpty : Boolean = children.isEmpty   // XXX TODO this is expensive
-      def nonEmpty: Boolean = children.nonEmpty  // XXX TODO this is expensive
+      def isEmpty (implicit tx: T): Boolean = children.isEmpty   // XXX TODO this is expensive
+      def nonEmpty(implicit tx: T): Boolean = children.nonEmpty  // XXX TODO this is expensive
 
 //      private[lucre] def _targets: Targets[T] = this
     }
@@ -166,7 +166,7 @@ object Event {
    * `propagate` a fired event.
    */
   sealed trait Targets[T <: Txn[T]] extends Mutable[/*Ident[T],*/ T] /* extends Reactor[T] */ {
-    private[lucre] def children: Children[T]
+    private[lucre] def children(implicit tx: T): Children[T]
 
     /** Adds a dependant to this node target.
      *
@@ -175,10 +175,10 @@ object Event {
      *
      * @return  `true` if this was the first dependant registered with the given slot, `false` otherwise
      */
-    private[lucre] def add(slot: Int, sel: Event[T, Any]): Boolean
+    private[lucre] def add(slot: Int, sel: Event[T, Any])(implicit tx: T): Boolean
 
-    def isEmpty : Boolean
-    def nonEmpty: Boolean
+    def isEmpty (implicit tx: T): Boolean
+    def nonEmpty(implicit tx: T): Boolean
 
     /** Removes a dependant from this node target.
      *
@@ -187,7 +187,7 @@ object Event {
      *
      * @return  `true` if this was the last dependant unregistered with the given slot, `false` otherwise
      */
-    private[lucre] def remove(slot: Int, sel: Event[T, Any]): Boolean
+    private[lucre] def remove(slot: Int, sel: Event[T, Any])(implicit tx: T): Boolean
   }
 
   /** XXX TODO -- this documentation is outdated.
@@ -203,12 +203,12 @@ object Event {
    * This trait also implements `equals` and `hashCode` in terms of the `id` inherited from the
    * targets.
    */
-  trait Node[T <: Txn[T]] extends Elem[T] with Mutable[/*Ident[T],*/ T] /* Obj[T] */ {
+  trait Node[T <: Txn[T]] extends Elem[T] with Mutable[T] {
     override def toString = s"Node$id"
 
     protected def targets: Targets[T]
     protected def writeData(out: DataOutput): Unit
-    protected def disposeData(): Unit
+    protected def disposeData()(implicit tx: T): Unit
 
     private[lucre] final def _targets: Targets[T] = targets
 
@@ -220,7 +220,7 @@ object Event {
       writeData(out)
     }
 
-    final def dispose(): Unit = {
+    final def dispose()(implicit tx: T): Unit = {
       disposeData() // call this first, as it may release events
       targets.dispose()
     }
@@ -240,10 +240,10 @@ trait Event[T <: Txn[T], +A] extends EventLike[T, A] with Writable {
 
   // ---- implemented ----
 
-  final def ---> (sink: Event[T, Any]): Unit =
+  final def ---> (sink: Event[T, Any])(implicit tx: T): Unit =
     node._targets.add(slot, sink)
 
-  final def -/-> (sink: Event[T, Any]): Unit =
+  final def -/-> (sink: Event[T, Any])(implicit tx: T): Unit =
     node._targets.remove(slot, sink)
 
   final def write(out: DataOutput): Unit = {
@@ -264,5 +264,5 @@ trait Event[T <: Txn[T], +A] extends EventLike[T, A] with Writable {
     case _ => super.equals(that)
   }
 
-  final def react(fun: T => A => Unit)(implicit tx: T): TDisposable[T] = Observer(this, fun)
+  final def react(fun: T => A => Unit)(implicit tx: T): Disposable[T] = Observer(this, fun)
 }

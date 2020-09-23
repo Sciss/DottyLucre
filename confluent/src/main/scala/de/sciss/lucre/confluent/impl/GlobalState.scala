@@ -53,5 +53,5 @@ private[impl] object GlobalState {
 }
 
 private[impl] final case class GlobalState[T <: Txn[T], D <: DurableLike.Txn[D]](
-    durRootId: Int, idCnt: TVar[D, Int], versionLinear: TVar[D, Int], versionRandom: TVar[D, Long],
-    partialTree:  Ancestor.Tree[D, Long])
+                                                                                  durRootId: Int, idCnt: Var[D, Int], versionLinear: Var[D, Int], versionRandom: Var[D, Long],
+                                                                                  partialTree:  Ancestor.Tree[D, Long])

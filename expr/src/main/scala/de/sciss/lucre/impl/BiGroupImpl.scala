@@ -45,7 +45,7 @@ object BiGroupImpl {
     case Span.Void          => LongPoint2D(MaxCoordinate, MinCoordinate    ) // ?? what to do with this case ?? forbid?
   }
 
-  final def intersectTime[T <: Txn[T], A](tree: Tree[T, A])(time: Long): Iterator[A] = {
+  final def intersectTime[T <: Txn[T], A](tree: Tree[T, A])(time: Long)(implicit tx: T): Iterator[A] = {
     val start = time
     val stop = time + 1
     //         val shape = Rectangle( ti, MinCoordinate, MaxCoordinate - ti + 1, ti - MinCoordinate + 1 )
@@ -55,7 +55,7 @@ object BiGroupImpl {
     tree.rangeQuery(shape)
   }
 
-  final def intersectSpan[T <: Txn[T], A](tree: Tree[T, A])(span: SpanLike): Iterator[A] = {
+  final def intersectSpan[T <: Txn[T], A](tree: Tree[T, A])(span: SpanLike)(implicit tx: T): Iterator[A] = {
     // horizontally: until query_stop; vertically: from query_start
     span match {
       case Span(start, stop) =>
@@ -75,7 +75,8 @@ object BiGroupImpl {
     }
   }
 
-  final def rangeSearch[T <: Txn[T], A](tree: Tree[T, A])(start: SpanLike, stop: SpanLike): Iterator[A] = {
+  final def rangeSearch[T <: Txn[T], A](tree: Tree[T, A])(start: SpanLike, stop: SpanLike)
+                                       (implicit tx: T): Iterator[A] = {
     if (start === Span.Void || stop === Span.Void) return Iterator.empty
 
     val startP = searchSpanToPoint(start)
@@ -86,13 +87,13 @@ object BiGroupImpl {
   }
 
   // this can be easily implemented with two rectangular range searches
-  final def eventsAt[T <: Txn[T], A](tree: Tree[T, A])(time: Long): (Iterator[A], Iterator[A]) = {
+  final def eventsAt[T <: Txn[T], A](tree: Tree[T, A])(time: Long)(implicit tx: T): (Iterator[A], Iterator[A]) = {
     val startShape = LongRectangle(time, MinCoordinate, 1, MaxSide)
     val stopShape  = LongRectangle(MinCoordinate, time, MaxSide, 1)
     (tree.rangeQuery(startShape), tree.rangeQuery(stopShape))
   }
 
-  final def eventAfter[T <: Txn[T], T2](tree: Tree[T, (SpanLike, T2)])(time: Long): Option[Long] = {
+  final def eventAfter[T <: Txn[T], T2](tree: Tree[T, (SpanLike, T2)])(time: Long)(implicit tx: T): Option[Long] = {
     val t1    = time + 1
     val point = LongPoint2D(t1, t1) // + 1
     val span  = tree.nearestNeighborOption(point, AdvanceNextNeighborMetric).map(_._1).getOrElse(Span.Void)
@@ -110,7 +111,7 @@ object BiGroupImpl {
     }
   }
 
-  final def eventBefore[T <: Txn[T], T2](tree: Tree[T, (SpanLike, T2)])(time: Long): Option[Long] = {
+  final def eventBefore[T <: Txn[T], T2](tree: Tree[T, (SpanLike, T2)])(time: Long)(implicit tx: T): Option[Long] = {
     val t1    = time - 1
     val point = LongPoint2D(t1, t1)
     val span  = tree.nearestNeighborOption(point, RegressNextNeighborMetric).map(_._1).getOrElse(Span.Void)
@@ -148,7 +149,7 @@ object BiGroupImpl {
 
   type TreeImpl[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]] = SkipOctree[T, LongPoint2DLike, LongPoint2D, LongSquare, LeafImpl[T, E]]
 
-  def verifyConsistency[T <: Txn[T], A](group: BiGroup[T, A], reportOnly: Boolean): Vec[String] =
+  def verifyConsistency[T <: Txn[T], A](group: BiGroup[T, A], reportOnly: Boolean)(implicit tx: T): Vec[String] =
     group match {
       case impl: Impl[T, _, _] =>   // wrong warning
         impl.treeHandle match {
@@ -197,7 +198,7 @@ object BiGroupImpl {
 
     object changed extends Changed with RootEvent[T, Change[SpanLike]]
 
-    private[lucre] override def copy[Out <: Txn[Out]]()(implicit txOut: Out, context: Copy[T, Out]): Elem[Out] =
+    private[lucre] override def copy[Out <: Txn[Out]]()(implicit txIn: T, txOut: Out, context: Copy[T, Out]): Elem[Out] =
       new EntryImpl(Targets[Out](), context(span), context[Elem](value)).connect()
 
     protected def writeData(out: DataOutput): Unit = {
@@ -205,15 +206,15 @@ object BiGroupImpl {
       value.write(out)
     }
 
-    protected def disposeData(): Unit = disconnect()
+    protected def disposeData()(implicit tx: T): Unit = disconnect()
 
-    def connect(): this.type = {
+    def connect()(implicit tx: T): this.type = {
       log(s"$this.connect()")
       span.changed ---> changed
       this
     }
 
-    private[this] def disconnect(): Unit = {
+    private[this] def disconnect()(implicit tx: T): Unit = {
       log(s"$this.disconnect()")
       span.changed -/-> changed
     }
@@ -258,11 +259,9 @@ object BiGroupImpl {
 
     // ---- abstract ----
 
-    implicit final def pointView: (Leaf[T, A] /*, T*/) => LongPoint2DLike = (tup /*, tx */) => spanToPoint(tup._1)
+    implicit final def pointView: (Leaf[T, A], T) => LongPoint2DLike = (tup, _) => spanToPoint(tup._1)
 
     protected def tree: TreeImpl[T, E]
-
-    protected def tx: T
 
     // ---- implemented ----
 
@@ -270,8 +269,8 @@ object BiGroupImpl {
     // USED AS A MIXIN, E.G. BY TIMELINE
     // final def tpe: Obj.Type = BiGroup
 
-    final def isEmpty : Boolean = tree.isEmpty
-    final def nonEmpty: Boolean = !isEmpty
+    final def isEmpty (implicit tx: T): Boolean = tree.isEmpty
+    final def nonEmpty(implicit tx: T): Boolean = !isEmpty
 
     final def treeHandle: TreeImpl[T, E] = tree
 
@@ -287,10 +286,10 @@ object BiGroupImpl {
 
     object changed extends Changed with GeneratorEvent[T, BiGroup.Update[T, A, Repr]] with Caching {
 
-      def += (entry: Entry[T, A]): Unit = entry.changed ---> this
-      def -= (entry: Entry[T, A]): Unit = entry.changed -/-> this
+      def += (entry: Entry[T, A])(implicit tx: T): Unit = entry.changed ---> this
+      def -= (entry: Entry[T, A])(implicit tx: T): Unit = entry.changed -/-> this
 
-      override def pullUpdate(pull: Pull[T]): Option[BiGroup.Update[T, A, Repr]] = {
+      override def pullUpdate(pull: Pull[T])(implicit tx: T): Option[BiGroup.Update[T, A, Repr]] = {
         if (pull.isOrigin(this)) return Some(pull.resolve)
 
         val par = pull.parents(this)
@@ -312,7 +311,7 @@ object BiGroupImpl {
       }
     }
 
-    final protected def disposeData(): Unit = {
+    final protected def disposeData()(implicit tx: T): Unit = {
       tree.iterator.foreach { case (_, xs) =>
         xs.foreach(_.dispose())
       }
@@ -323,7 +322,7 @@ object BiGroupImpl {
 
     // ---- collection behaviour ----
 
-    final def clear(): Unit = {
+    final def clear()(implicit tx: T): Unit = {
       val changes = tree.iterator.toList.flatMap {
         case (spanVal, seq) =>
           seq.map {
@@ -334,7 +333,7 @@ object BiGroupImpl {
       if (changes.nonEmpty) changed.fire(BiGroup.Update(group, changes))(tx)
     }
 
-    final def add(span: SpanLikeObj[T], elem: A): Entry[T, A] = {
+    final def add(span: SpanLikeObj[T], elem: A)(implicit tx: T): Entry[T, A] = {
       log(s"$this.add($span, $elem)")
       val spanVal = span.value
       val tgt     = Targets[T]()(tx)
@@ -347,7 +346,7 @@ object BiGroupImpl {
       entry
     }
 
-    private def addNoFire(spanVal: SpanLike, entry: Entry[T, A]): Unit = {
+    private def addNoFire(spanVal: SpanLike, entry: Entry[T, A])(implicit tx: T): Unit = {
       val point = spanToPoint(spanVal)
       //if( showLog ) println( "add at point " + point )
       //         val entry   = (span, elem)
@@ -357,7 +356,7 @@ object BiGroupImpl {
       }
     }
 
-    final def recoverSpan(spanVal: SpanLike, elem: A): Option[SpanLikeObj[T]] = {
+    final def recoverSpan(spanVal: SpanLike, elem: A)(implicit tx: T): Option[SpanLikeObj[T]] = {
       val point = spanToPoint(spanVal)
       tree.get(point).flatMap { case (_, vec) =>
         vec.collectFirst {
@@ -366,12 +365,12 @@ object BiGroupImpl {
       }
     }
 
-    final def get(spanVal: SpanLike): Vec[BiGroup.Entry[T, A]] = {
+    final def get(spanVal: SpanLike)(implicit tx: T): Vec[BiGroup.Entry[T, A]] = {
       val point = spanToPoint(spanVal)
       tree.get(point).fold[Vec[BiGroup.Entry[T, A]]](Vector.empty)(_._2)
     }
 
-    final def remove(span: SpanLikeObj[T], elem: A): Boolean = {
+    final def remove(span: SpanLikeObj[T], elem: A)(implicit tx: T): Boolean = {
       val spanVal   = span.value
       val point     = spanToPoint(spanVal)
       val entryOpt  = tree.get(point).flatMap {
@@ -401,7 +400,7 @@ object BiGroupImpl {
       entryOpt.isDefined
     }
 
-    private def removeNoFire(spanVal: SpanLike, entry: Entry[T, A]): Boolean = {
+    private def removeNoFire(spanVal: SpanLike, entry: Entry[T, A])(implicit tx: T): Boolean = {
       val point = spanToPoint(spanVal)
       val found = tree.get(point)
       found match {
@@ -424,55 +423,55 @@ object BiGroupImpl {
       }
     }
 
-    final def debugList: List[(SpanLike, A)] =
+    final def debugList(implicit tx: T): List[(SpanLike, A)] =
       tree.toList.flatMap {
         case (span, seq) => seq.map(span -> _.value)
       }
 
-    final def debugPrint: String = tree.debugPrint()
+    final def debugPrint(implicit tx: T): String = tree.debugPrint()
 
-    final def iterator: Iterator[Leaf[T, A]] = tree.iterator
+    final def iterator(implicit tx: T): Iterator[Leaf[T, A]] = tree.iterator
 
-    final def intersect(time: Long): Iterator[Leaf[T, A]] =
+    final def intersect(time: Long)(implicit tx: T): Iterator[Leaf[T, A]] =
       BiGroupImpl.intersectTime(tree)(time)
 
-    final def intersect(span: SpanLike): Iterator[Leaf[T, A]] =
+    final def intersect(span: SpanLike)(implicit tx: T): Iterator[Leaf[T, A]] =
       BiGroupImpl.intersectSpan(tree)(span)
 
-    final def rangeSearch(start: SpanLike, stop: SpanLike): Iterator[Leaf[T, A]] =
+    final def rangeSearch(start: SpanLike, stop: SpanLike)(implicit tx: T): Iterator[Leaf[T, A]] =
       BiGroupImpl.rangeSearch(tree)(start, stop)
 
     // this can be easily implemented with two rectangular range searches
-    final def eventsAt(time: Long): (Iterator[Leaf[T, A]], Iterator[Leaf[T, A]]) =
+    final def eventsAt(time: Long)(implicit tx: T): (Iterator[Leaf[T, A]], Iterator[Leaf[T, A]]) =
       BiGroupImpl.eventsAt(tree)(time)
 
-    final def eventAfter(time: Long): Option[Long] =
+    final def eventAfter(time: Long)(implicit tx: T): Option[Long] =
       BiGroupImpl.eventAfter(tree)(time)
 
-    final def eventBefore(time: Long): Option[Long] =
+    final def eventBefore(time: Long)(implicit tx: T): Option[Long] =
       BiGroupImpl.eventBefore(tree)(time)
 
-    final def firstEvent: Option[Long] =
+    final def firstEvent(implicit tx: T): Option[Long] =
       BiGroupImpl.eventAfter(tree)(BiGroup.MinCoordinate)
 
-    final def lastEvent: Option[Long] =
+    final def lastEvent(implicit tx: T): Option[Long] =
       BiGroupImpl.eventBefore(tree)(BiGroup.MaxCoordinate)
 
     protected type GroupAux[~ <: Txn[~]] = BiGroup[~, E[~]]
   }
 
   def newModifiable[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]](implicit tx: T): Modifiable[T, E[T]] =
-    new Impl1[T, E](tx, Targets[T]) {
+    new Impl1[T, E](Targets[T]()) {
       val tree: TreeImpl[T, E] = newTree()(tx)
     }
 
   private def read[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]](in: DataInput, _targets: Targets[T])
                                                           (implicit tx: T): Impl[T, E, Impl1[T, E]] =
-    new Impl1[T, E](tx, _targets) {
+    new Impl1[T, E](_targets) {
       val tree: TreeImpl[T, E] = readTree(in)(tx)
     }
 
-  private abstract class Impl1[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]](val tx: T, protected val targets: Targets[T])
+  private abstract class Impl1[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]](protected val targets: Targets[T])
     extends Impl[T, E, Impl1[T, E]] { in =>
 
     final def tpe: Obj.Type = BiGroup
@@ -481,9 +480,8 @@ object BiGroupImpl {
 
     def modifiableOption: Option[BiGroup.Modifiable[T, A]] = Some(this)
 
-    private[lucre] override def copy[Out <: Txn[Out]]()(implicit txOut: Out, context: Copy[T, Out]): Elem[Out] = {
-      implicit val txIn: T = tx
-      new Impl1[Out, E](txOut, Targets[Out]()) { out =>
+    private[lucre] override def copy[Out <: Txn[Out]]()(implicit txIn: T, txOut: Out, context: Copy[T, Out]): Elem[Out] = {
+      new Impl1[Out, E](Targets[Out]()) { out =>
         val tree: TreeImpl[Out, E] = out.newTree()
         context.defer[GroupAux](in, out)(copyTree[T, Out, E, Impl1[Out, E]](in.tree, out.tree, out))
         // connect()

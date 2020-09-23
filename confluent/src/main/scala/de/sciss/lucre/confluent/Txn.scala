@@ -14,7 +14,7 @@
 package de.sciss.lucre.confluent
 
 import de.sciss.lucre
-import de.sciss.lucre.{ConfluentLike, DurableLike, confluent}
+import de.sciss.lucre.{ConfluentLike, DurableLike}
 import de.sciss.serial.{ConstFormat, TFormat}
 
 trait Txn[T <: Txn[T]] extends lucre.Txn[T] {
@@ -26,7 +26,7 @@ trait Txn[T <: Txn[T]] extends lucre.Txn[T] {
 
   type Id     = Ident[T]
   type Acc    = Access[T]
-  type Var[A] = confluent.Var[A]
+  type Var[A] = lucre.Var[T, A] // confluent.Var[A]
 
   def inputAccess: Acc
 
@@ -40,7 +40,7 @@ trait Txn[T <: Txn[T]] extends lucre.Txn[T] {
   def isRetroactive: Boolean
 
   /** The confluent handle is enhanced with the `meld` method. */
-  def newHandleM[A](value: A)(implicit format: TFormat[T, A]): TSource[T, A]
+  def newHandleM[A](value: A)(implicit format: TFormat[T, A]): Source[T, A]
 
   private[confluent] def readTreeVertexLevel(term: Long): Int
   private[confluent] def addInputVersion(path: Acc): Unit

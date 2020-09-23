@@ -13,9 +13,9 @@
 
 package de.sciss.lucre.impl
 
-import de.sciss.lucre.TSource
+import de.sciss.lucre.Source
 
-final class EphemeralTSource[Tx, A](value: A) extends TSource[Tx, A] {
+final class EphemeralSource[Tx, A](value: A) extends Source[Tx, A] {
   override def toString = s"handle: $value"
 
   def apply()(implicit tx: Tx): A = value

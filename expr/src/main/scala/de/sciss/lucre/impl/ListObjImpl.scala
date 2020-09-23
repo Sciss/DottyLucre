@@ -14,22 +14,20 @@
 package de.sciss.lucre
 package impl
 
-import de.sciss.serial.{DataInput, DataOutput, Format, TFormat}
-import Event.Targets
+import de.sciss.lucre.Event.Targets
+import de.sciss.serial.{DataInput, DataOutput, TFormat}
 
 import scala.annotation.{switch, tailrec}
 
 object ListObjImpl {
   import ListObj.Modifiable
 
-  def newModifiable[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]](implicit _tx: T): Modifiable[T, E[T]] =
+  def newModifiable[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]](implicit tx: T): Modifiable[T, E[T]] =
     new Impl1[T, E] {
-      protected val tx: T = _tx
-
-      protected val targets: Targets[T] = Targets[T]()
-      protected val sizeRef: Var[Int]   = id.newIntVar(0)
-      protected val headRef: Var[C]     = id.newVar[C](null)(CellFmt)
-      protected val lastRef: Var[C]     = id.newVar[C](null)(CellFmt)
+      protected val targets: Targets[T]   = Targets[T]()
+      protected val sizeRef: Var[T, Int]  = id.newIntVar(0)
+      protected val headRef: Var[T, C]    = id.newVar[C](null)(tx, CellFmt)
+      protected val lastRef: Var[T, C]    = id.newVar[C](null)(tx, CellFmt)
     }
 
   def format[T <: Txn[T], A <: Elem[T]]: TFormat[T, ListObj[T, A]] =
@@ -56,21 +54,19 @@ object ListObjImpl {
   }
 
   private def read[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]](in: DataInput, _targets: Targets[T])
-                                                          (implicit _tx: T): Impl1[T, E] =
+                                                          (implicit tx: T): Impl1[T, E] =
     new Impl1[T, E] {
-      protected val tx: T = _tx
-
-      protected val targets: Targets[T] = _targets
-      protected val sizeRef: Var[Int]   = id.readIntVar(in)
-      protected val headRef: Var[C]     = id.readVar[C](in)
-      protected val lastRef: Var[C]     = id.readVar[C](in)
+      protected val targets: Targets[T]   = _targets
+      protected val sizeRef: Var[T, Int]  = id.readIntVar(in)
+      protected val headRef: Var[T, C]    = id.readVar[C](in)
+      protected val lastRef: Var[T, C]    = id.readVar[C](in)
     }
 
   final class Cell[T <: Txn[T], A](val elem: A,
-                                   val pred: Var[Cell[T, A]],
-                                   val succ: Var[Cell[T, A]])
+                                   val pred: Var[T, Cell[T, A]],
+                                   val succ: Var[T, Cell[T, A]])
 
-  private final class Iter[T <: Txn[T], A](private var cell: Cell[T, A]) extends Iterator[A] {
+  private final class Iter[T <: Txn[T], A](private var cell: Cell[T, A])(implicit tx: T) extends Iterator[A] {
     override def toString: String = if (cell == null) "empty iterator" else "non-empty iterator"
 
     def hasNext: Boolean = cell != null
@@ -102,11 +98,9 @@ object ListObjImpl {
 
     final protected type C = Cell[T, A]
 
-    protected def headRef: Var[C]
-    protected def lastRef: Var[C]
-    protected def sizeRef: Var[Int]
-
-    protected def tx: T
+    protected def headRef: Var[T, C]
+    protected def lastRef: Var[T, C]
+    protected def sizeRef: Var[T, Int]
 
     // ---- event behaviour ----
 
@@ -125,8 +119,8 @@ object ListObjImpl {
         (in.readByte: @switch) match {
           case 1 =>
             val elem = Elem.read(in).asInstanceOf[A]
-            val pred = id.readVar[C](in)(self)
-            val succ = id.readVar[C](in)(self)
+            val pred = id.readVar[C](in)(tx, self)
+            val succ = id.readVar[C](in)(tx, self)
             new Cell[T, A](elem, pred, succ)
           case 0 => null
           case cookie => sys.error(s"Unexpected cookie $cookie")
@@ -138,7 +132,7 @@ object ListObjImpl {
     object changed extends Changed
       with RootGeneratorEvent[T, ListObj.Update[T, A, Repr]]
 
-    final def indexOf(elem: A): Int = {
+    final def indexOf(elem: A)(implicit tx: T): Int = {
       var idx = 0
       var rec = headRef()
       while (rec != null) {
@@ -149,10 +143,10 @@ object ListObjImpl {
       -1
     }
 
-    final def apply(idx: Int): A =
+    final def apply(idx: Int)(implicit tx: T): A =
       get(idx).getOrElse(throw new IndexOutOfBoundsException(idx.toString))
 
-    final def get(idx: Int): Option[A] = {
+    final def get(idx: Int)(implicit tx: T): Option[A] = {
       if (idx < 0) return None
       var left = idx
       var rec = headRef()
@@ -163,21 +157,21 @@ object ListObjImpl {
       if (rec == null) None else Some(rec.elem)
     }
 
-    final def addLast(elem: A): Unit = {
+    final def addLast(elem: A)(implicit tx: T): Unit = {
       val pred      = lastRef()
       val succ      = null
       val idx       = sizeRef()
       insert(elem, pred, succ, idx)
     }
 
-    final def addHead(elem: A): Unit = {
+    final def addHead(elem: A)(implicit tx: T): Unit = {
       val pred      = null
       val succ      = headRef()
       val idx       = 0
       insert(elem, pred, succ, idx)
     }
 
-    def insert(index: Int, elem: A): Unit = {
+    def insert(index: Int, elem: A)(implicit tx: T): Unit = {
       if (index < 0)      throw new IndexOutOfBoundsException(index.toString)
       var pred      = null: C
       var succ      = headRef()
@@ -191,7 +185,7 @@ object ListObjImpl {
       insert(elem, pred, succ, idx)
     }
 
-    private[this] def insert(elem: A, pred: C, succ: C, idx: Int): Unit = {
+    private[this] def insert(elem: A, pred: C, succ: C, idx: Int)(implicit tx: T): Unit = {
       val recPred   = id.newVar[C](pred)
       val recSucc   = id.newVar[C](succ)
       val rec       = new Cell[T, A](elem, recPred, recSucc)
@@ -214,13 +208,13 @@ object ListObjImpl {
       loop(headRef())
     }
 
-    private[this] def fireAdded(idx: Int, elem: A): Unit =
-      changed.fire(ListObj.Update(list, Vector(ListObj.Added(idx, elem))))(tx)
+    private[this] def fireAdded(idx: Int, elem: A)(implicit tx: T): Unit =
+      changed.fire(ListObj.Update(list, Vector(ListObj.Added(idx, elem))))
 
-    private[this] def fireRemoved(idx: Int, elem: A): Unit =
-      changed.fire(ListObj.Update(list, Vector(ListObj.Removed(idx, elem))))(tx)
+    private[this] def fireRemoved(idx: Int, elem: A)(implicit tx: T): Unit =
+      changed.fire(ListObj.Update(list, Vector(ListObj.Removed(idx, elem))))
 
-    final def remove(elem: A): Boolean = {
+    final def remove(elem: A)(implicit tx: T): Boolean = {
       var rec = headRef()
       var idx = 0
       while (rec != null) {
@@ -235,7 +229,7 @@ object ListObjImpl {
       false
     }
 
-    final def removeAt(index: Int): A = {
+    final def removeAt(index: Int)(implicit tx: T): A = {
       if (index < 0) throw new IndexOutOfBoundsException(index.toString)
       var rec = headRef()
       if (rec == null) throw new IndexOutOfBoundsException(index.toString)
@@ -253,7 +247,7 @@ object ListObjImpl {
     }
 
     // unlinks a cell and disposes it. does not fire. decrements sizeRef
-    private[this] def removeCell(cell: C): Unit = {
+    private[this] def removeCell(cell: C)(implicit tx: T): Unit = {
       val pred = cell.pred()
       val succ = cell.succ()
       if (pred != null) {
@@ -270,7 +264,7 @@ object ListObjImpl {
       disposeCell(cell)
     }
 
-    final def removeLast(): A = {
+    final def removeLast()(implicit tx: T): A = {
       val rec = lastRef()
       if (rec == null) throw new NoSuchElementException("last of empty list")
 
@@ -289,7 +283,7 @@ object ListObjImpl {
       e
     }
 
-    final def removeHead(): A = {
+    final def removeHead()(implicit tx: T): A = {
       val rec = headRef()
       if (rec == null) throw new NoSuchElementException("head of empty list")
 
@@ -307,17 +301,17 @@ object ListObjImpl {
       e
     }
 
-    final def clear(): Unit =
+    final def clear()(implicit tx: T): Unit =
       while (nonEmpty) removeLast()
 
     // deregisters element event. disposes cell contents, but does not unlink, nor fire.
-    private[this] def disposeCell(cell: C): Unit = {
+    private[this] def disposeCell(cell: C)(implicit tx: T): Unit = {
       // unregisterAent(cell.elem)
       cell.pred.dispose()
       cell.succ.dispose()
     }
 
-    final protected def disposeData(): Unit = {
+    final protected def disposeData()(implicit tx: T): Unit = {
       var rec = headRef()
       while (rec != null) {
         val tmp = rec.succ()
@@ -335,31 +329,31 @@ object ListObjImpl {
       lastRef.write(out)
     }
 
-    final def isEmpty : Boolean = size == 0
-    final def nonEmpty: Boolean = size > 0
-    final def size    : Int     = sizeRef()
+    final def isEmpty (implicit tx: T): Boolean = size == 0
+    final def nonEmpty(implicit tx: T): Boolean = size > 0
+    final def size    (implicit tx: T): Int     = sizeRef()
 
-    final def headOption: Option[A] = {
+    final def headOption(implicit tx: T): Option[A] = {
       val rec = headRef()
       if (rec != null) Some(rec.elem) else None
     }
 
-    final def lastOption: Option[A] = {
+    final def lastOption(implicit tx: T): Option[A] = {
       val rec = lastRef()
       if (rec != null) Some(rec.elem) else None
     }
 
-    final def head: A = {
+    final def head(implicit tx: T): A = {
       val rec = headRef()
       if (rec != null) rec.elem else throw new NoSuchElementException("head of empty list")
     }
 
-    final def last: A = {
+    final def last(implicit tx: T): A = {
       val rec = lastRef()
       if (rec != null) rec.elem else throw new NoSuchElementException("last of empty list")
     }
 
-    final def iterator: Iterator[A] = new Iter[T, A](headRef())
+    final def iterator(implicit tx: T): Iterator[A] = new Iter[T, A](headRef())
   }
 
   private abstract class Impl1[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]] extends Impl[T, E, Impl1[T, E]] {
@@ -371,10 +365,10 @@ object ListObjImpl {
 
     def modifiableOption: Option[Modifiable[T, A]] = Some(this)
 
-    final override private[lucre] def copy[Out <: Txn[Out]]()(implicit txOut: Out,
+    final override private[lucre] def copy[Out <: Txn[Out]]()(implicit txIn: T, txOut: Out,
                                                               context: Copy[T, Out]): Elem[Out] = {
       val out = newModifiable[Out, E]
-      context.defer[ListAux](in, out)(copyList[T, Out, E](in, out)(tx, txOut, context))
+      context.defer[ListAux](in, out)(copyList[T, Out, E](in, out)(txIn, txOut, context))
       // .connect
       out
     }

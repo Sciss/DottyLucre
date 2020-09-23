@@ -226,9 +226,9 @@ object Adjunct {
     def one : A
 
     // random
-    def rand [Tx](a: A      )(implicit r: TRandom[Tx], tx: Tx): A
-    def rand2[Tx](a: A      )(implicit r: TRandom[Tx], tx: Tx): A
-    def rangeRand[Tx](a: A, b: A)(implicit r: TRandom[Tx], tx: Tx): A
+    def rand [Tx](a: A      )(implicit r: Random[Tx], tx: Tx): A
+    def rand2[Tx](a: A      )(implicit r: Random[Tx], tx: Tx): A
+    def rangeRand[Tx](a: A, b: A)(implicit r: Random[Tx], tx: Tx): A
 
     // ternary
     def fold(a: A, lo: A, hi: A): A
@@ -330,7 +330,7 @@ object Adjunct {
     def hypotApx  (a: A, b: A): A
     def pow       (a: A, b: A): A
 
-    def coin[Tx](a: A)(implicit r: TRandom[Tx], tx: Tx): Boolean
+    def coin[Tx](a: A)(implicit r: Random[Tx], tx: Tx): Boolean
   }
 
   type ScalarNumDouble[A] = NumDouble[A] with Scalar[A]
@@ -527,7 +527,7 @@ object Adjunct {
     def squared   (a: Int): Int = ri.squared(a).toInt
     def cubed     (a: Int): Int = ri2.cubed (a).toInt
 
-    def rand[Tx](a: Int)(implicit r: TRandom[Tx], tx: Tx): Int = {
+    def rand[Tx](a: Int)(implicit r: Random[Tx], tx: Tx): Int = {
       val res = if (a >= 0) r.nextInt(a) // may throw exception
       else r.nextInt(-a) + a
 
@@ -536,12 +536,12 @@ object Adjunct {
       res
     }
 
-    def rand2[Tx](a: Int)(implicit r: TRandom[Tx], tx: Tx): Int = {
+    def rand2[Tx](a: Int)(implicit r: Random[Tx], tx: Tx): Int = {
       val a1 = math.abs(a)
       r.nextInt(2 * a1 + 1) - a1
     }
 
-    def rangeRand[Tx](a: Int, b: Int)(implicit r: TRandom[Tx], tx: Tx): Int =
+    def rangeRand[Tx](a: Int, b: Int)(implicit r: Random[Tx], tx: Tx): Int =
       if (a < b) r.nextInt(b - a + 1) + a
       else       r.nextInt(a - b + 1) + b
 
@@ -626,11 +626,11 @@ object Adjunct {
     def squared   (a: Long): Long = rl.squared(a)
     def cubed     (a: Long): Long = rl2.cubed (a)
 
-    def rand[Tx](a: Long)(implicit r: TRandom[Tx], tx: Tx): Long = ???
+    def rand[Tx](a: Long)(implicit r: Random[Tx], tx: Tx): Long = ???
 
-    def rand2[Tx](a: Long)(implicit r: TRandom[Tx], tx: Tx): Long = ???
+    def rand2[Tx](a: Long)(implicit r: Random[Tx], tx: Tx): Long = ???
 
-    def rangeRand[Tx](a: Long, b: Long)(implicit r: TRandom[Tx], tx: Tx): Long = ???
+    def rangeRand[Tx](a: Long, b: Long)(implicit r: Random[Tx], tx: Tx): Long = ???
 
     def lt  (a: Long, b: Long): Boolean = a <  b
     def leq (a: Long, b: Long): Boolean = a <= b
@@ -782,16 +782,16 @@ object Adjunct {
 
     def reciprocal(a: In): In = 1.0 / a
 
-    def rand[Tx](a: In)(implicit r: TRandom[Tx], tx: Tx): In =
+    def rand[Tx](a: In)(implicit r: Random[Tx], tx: Tx): In =
       r.nextDouble() * a
 
-    def rand2[Tx](a: In)(implicit r: TRandom[Tx], tx: Tx): In =
+    def rand2[Tx](a: In)(implicit r: Random[Tx], tx: Tx): In =
       (r.nextDouble() * 2 - 1) * a
 
-    def rangeRand[Tx](a: In, b: In)(implicit r: TRandom[Tx], tx: Tx): In =
+    def rangeRand[Tx](a: In, b: In)(implicit r: Random[Tx], tx: Tx): In =
       r.nextDouble() * (b - a) + a
 
-    def coin[Tx](a: In)(implicit r: TRandom[Tx], tx: Tx): Boolean =
+    def coin[Tx](a: In)(implicit r: Random[Tx], tx: Tx): Boolean =
       r.nextDouble() < a
 
     def fold(a: In, lo: In, hi: In): In = rd.fold(a, lo, hi)

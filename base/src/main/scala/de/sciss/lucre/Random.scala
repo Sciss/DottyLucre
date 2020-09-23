@@ -14,18 +14,18 @@
 package de.sciss.lucre
 
 /** Like java's random, but within a transactional cell. */
-object TRandom {
+object Random {
 //  def apply[T <: Exec[T]](id: Ident[T])(implicit tx: T): TRandom[T] = impl.TRandomImpl(id)
 //
 //  def apply[T <: Exec[T]](id: Ident[T], seed: Long)(implicit tx: T): TRandom[T] = impl.TRandomImpl(id, seed)
 
-  def wrap[Tx](peer: TVar[Tx, Long]): TRandom[Tx] = impl.TRandomImpl.wrap(peer)
+  def wrap[Tx](peer: Var[Tx, Long]): Random[Tx] = impl.RandomImpl.wrap(peer)
 }
 
 /** A transactional pseudo-random number generator which
  * behaves numerically like `java.util.Random`.
  */
-trait TRandom[-T] {
+trait Random[-T] {
   /** Generates a random `Boolean` value. */
   def nextBoolean  ()(implicit tx: T): Boolean
 

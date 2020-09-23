@@ -40,7 +40,7 @@ object InMemoryImpl {
       res
     }
 
-    final def root[A](init: T => A)(implicit format: TFormat[T, A]): TSource[T, A] =
+    final def root[A](init: T => A)(implicit format: TFormat[T, A]): Source[T, A] =
       step { implicit tx =>
 //        val id  = tx.newId()
         val v   = init(tx)
@@ -49,7 +49,7 @@ object InMemoryImpl {
       }
 
     // may nest
-    def rootJoin[A](init: T => A)(implicit tx: TxnLike, format: TFormat[T, A]): TSource[T, A] =
+    def rootJoin[A](init: T => A)(implicit tx: TxnLike, format: TFormat[T, A]): Source[T, A] =
       root(init)
 
     final def close(): Unit = ()
@@ -64,54 +64,54 @@ object InMemoryImpl {
       TxnExecutor.defaultAtomic(itx => fun(wrap(itx, systemTimeNanos)))
     }
 
-    final def position(implicit tx: T): Unit = ()
+//    final def position(implicit tx: T): Unit = ()
   }
 
   private def opNotSupported(name: String): Nothing = sys.error(s"Operation not supported: $name")
 
-  private final class IdImpl[T <: InMemoryLike.Txn[T]](tx: T)(val id: Int) extends /*Ident[T]*/ InMemoryLike.Id[T] {
+  private final class IdImpl[T <: InMemoryLike.Txn[T]](tx: T)(val id: Int) extends InMemoryLike.Id[T] {
     def write(out: DataOutput): Unit = ()
 
     override def toString         = s"<$id>"
     override def hashCode: Int    = id.##
 
-    def dispose(): Unit = ()
+    def dispose()(implicit tx: T): Unit = ()
 
     def !(implicit tx: T): InMemoryLike.Id[T] = {
       // require (tx eq this.tx)
       this
     }
 
-    def newVar[A](init: A)(implicit format: TFormat[T, A]): Var[A] = {
+    def newVar[A](init: A)(implicit tx: T, format: TFormat[T, A]): Var[T, A] = {
       val peer = ScalaRef(init)
-      new SysInMemoryRef[A](peer, tx.peer)
+      new SysInMemoryRef[A](peer)
     }
 
-    def newBooleanVar(init: Boolean): Var[Boolean] = {
+    def newBooleanVar(init: Boolean)(implicit tx: T): Var[T, Boolean] = {
       val peer = ScalaRef(init)
-      new SysInMemoryRef[Boolean](peer, tx.peer)
+      new SysInMemoryRef[Boolean](peer)
     }
 
-    def newIntVar(init: Int): Var[Int] = {
+    def newIntVar(init: Int)(implicit tx: T): Var[T, Int] = {
       val peer = ScalaRef(init)
-      new SysInMemoryRef[Int](peer, tx.peer)
+      new SysInMemoryRef[Int](peer)
     }
 
-    def newLongVar(init: Long): Var[Long] = {
+    def newLongVar(init: Long)(implicit tx: T): Var[T, Long] = {
       val peer = ScalaRef(init)
-      new SysInMemoryRef[Long](peer, tx.peer)
+      new SysInMemoryRef[Long](peer)
     }
 
-    def readVar[A](in: DataInput)(implicit format: TFormat[T, A]): Var[A] =
+    def readVar[A](in: DataInput)(implicit tx: T, format: TFormat[T, A]): Var[T, A] =
       opNotSupported("readVar")
 
-    def readBooleanVar(in: DataInput): Var[Boolean] =
+    def readBooleanVar(in: DataInput)(implicit tx: T): Var[T, Boolean] =
       opNotSupported("readBooleanVar")
 
-    def readIntVar(in: DataInput): Var[Int] =
+    def readIntVar(in: DataInput)(implicit tx: T): Var[T, Int] =
       opNotSupported("readIntVar")
 
-    def readLongVar(in: DataInput): Var[Long] =
+    def readLongVar(in: DataInput)(implicit tx: T): Var[T, Long] =
       opNotSupported("readLongVar")
 
     override def equals(that: Any): Boolean = that match {
@@ -136,8 +136,8 @@ object InMemoryImpl {
 
     final def newId(): Id = new IdImpl[T](this)(system.newIdValue()(this))
 
-    final def newHandle[A](value: A)(implicit format: TFormat[T, A]): TSource[T, A] =
-      new EphemeralTSource(value)
+    final def newHandle[A](value: A)(implicit format: TFormat[T, A]): Source[T, A] =
+      new EphemeralSource(value)
 
     private[lucre] def getVar[A](vr: Var[A]): A = {
       vr.peer.get(peer)
@@ -163,7 +163,7 @@ object InMemoryImpl {
       val am  = system.attrMap
       val id  = obj.id.!
       am.getOrElse(id, {
-        val m = TMap.Modifiable[T, String, Obj]()
+        val m = MapObj.Modifiable[T, String, Obj]()
         am.put(id, m)
         m
       })

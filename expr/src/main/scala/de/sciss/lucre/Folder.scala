@@ -22,7 +22,7 @@ object Folder extends Obj.Type {
   override def readIdentifiedObj[T <: Txn[T]](in: DataInput)(implicit tx: T): Obj[T] =
     Impl.readIdentifiedObj(in)
 
-  def apply[T <: Txn[T]]()(implicit tx: T): Folder[T] = Impl[T]
+  def apply[T <: Txn[T]]()(implicit tx: T): Folder[T] = Impl[T]()
 
   def read[T <: Txn[T]](in: DataInput)(implicit tx: T): Folder[T] =
     format[T].readT(in)

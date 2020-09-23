@@ -5,9 +5,7 @@ object Test {
   
   private class Impl[Tx <: Exec[Tx]](tx0: Tx) extends Test[Tx] {
     private val _id = tx0.newId()
-    private val vr  = _id.newIntVar(0)
-    
-//    def id: Tx#Id = _id
+    private val vr  = _id.newIntVar(0)(tx0)
     
     def id: Ident[Tx] = _id
     
@@ -18,7 +16,6 @@ object Test {
   }
 }
 trait Test[Tx <: Exec[Tx]] {
-//  def id: Tx#Id
   def id: Ident[Tx]
   
   def apply()(implicit tx: Tx): Int

@@ -50,18 +50,18 @@ object RetroactiveTest extends App {
     }
   }
 
-  final class Foo(val id: Ident[T], val a: LVar[Int], val b: LVar[String]) extends MutableImpl[T] {
+  final class Foo(val id: Ident[T], val a: LVar[T, Int], val b: LVar[T, String]) extends MutableImpl[T] {
     def writeData(out: DataOutput): Unit = {
       a.write(out)
       b.write(out)
     }
 
-    def disposeData(): Unit = {
+    def disposeData()(implicit tx: T): Unit = {
       a.dispose()
       b.dispose()
     }
 
-    def print: String = s"Foo(a = ${a()}, b = ${b()})"
+    def print(implicit tx: T): String = s"Foo(a = ${a()}, b = ${b()})"
   }
 
   println("\nINIT\n")

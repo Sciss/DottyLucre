@@ -16,7 +16,7 @@ package de.sciss.lucre.data
 import java.io.PrintStream
 
 import de.sciss.lucre.geom.{DistanceMeasure, HyperCube, QueryShape, Space}
-import de.sciss.lucre.{Disposable, Exec, Ident, Identified, Mutable, Var}
+import de.sciss.lucre.{Disposable, Exec, Ident, Identified, Mutable, TOrdering, Var}
 import de.sciss.serial.impl.ByteArrayOutputStream
 import de.sciss.serial.{DataInput, DataOutput, TFormat, Writable, WritableFormat}
 
@@ -71,16 +71,16 @@ object DetSkipOctree {
   }
 
   def empty[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](hyperCube: H, skipGap: Int = 2)
-                                           (implicit view: (A /*, T*/) => PL, tx: T, space: Space[PL, P, H],
-                                            keyFormat: TFormat[T, A]): DetSkipOctree[T, PL, P, H, A] =
+                                                          (implicit view: (A, T) => PL, tx: T, space: Space[PL, P, H],
+                                                           keyFormat: TFormat[T, A]): DetSkipOctree[T, PL, P, H, A] =
     new ImplNew[T, PL, P, H, A](skipGap, tx.newId(), hyperCube, view, tx)
 
   def read[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](in: DataInput)(implicit tx: T,
-                                                                         pointView: (A /*, T*/) => PL,
+                                                                         pointView: (A, T) => PL,
                                                                          space: Space[PL, P, H],
                                                                          keyFormat: TFormat[T, A]): DetSkipOctree[T, PL, P, H, A] = {
     val _pointView      = pointView
-    val _keyFormat  = keyFormat
+    val _keyFormat      = keyFormat
     val _tx: tx.type    = tx
     val _space          = space
 
@@ -93,10 +93,9 @@ object DetSkipOctree {
 //                                                                                val keyFormat: TFormat[T, A])
 
     new Impl[T, PL, P, H, A] {
-      val pointView: (A /*, T*/) => PL      = _pointView
+      val pointView: (A, T) => PL   = _pointView
       val keyFormat: TFormat[T, A]  = _keyFormat
-      val tx: T                             = _tx
-      val space: Space[PL, P, H]            = _space
+      val space: Space[PL, P, H]    = _space
 
       {
         val version = in.readByte()
@@ -107,25 +106,26 @@ object DetSkipOctree {
       val id: Ident[T] = _tx.readId(in)
       val hyperCube: H = space.hyperCubeFormat.read(in) // (in, tx)
       val skipList: HASkipList.Set[T, this.Leaf] = {
-        implicit val ord: Ordering[this.Leaf] = LeafOrdering
-        implicit val r1: TFormat[T, this.Leaf] = LeafFormat
+        implicit val ord: TOrdering [T, this.Leaf] = LeafOrdering
+        implicit val r1 : TFormat   [T, this.Leaf] = LeafFormat
         HASkipList.Set.format[T, this.Leaf](KeyObserver).readT(in)(_tx)
       }
       val headTree: this.LeftTopBranch = LeftTopBranchFormat.readT(in)(_tx)
-      val lastTreeRef: Var[this.TopBranch] = {
+      val lastTreeRef: Var[T, this.TopBranch] = {
         implicit val r4: TFormat[T, this.TopBranch] = TopBranchFormat
         id.readVar[this.TopBranch](in)
       }
     }
   }
 
-  implicit def format[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A /*, T*/) => PL, space: Space[PL, P, H],
-                                                     keyFormat: TFormat[T, A]): TFormat[T, DetSkipOctree[T, PL, P, H, A]] =
+  implicit def format[T <: Exec[T], PL, P,
+    H <: HyperCube[PL, H], A](implicit view: (A, T) => PL, space: Space[PL, P, H],
+                              keyFormat: TFormat[T, A]): TFormat[T, DetSkipOctree[T, PL, P, H, A]] =
     new OctreeFormat[T, PL, P, H, A]
 
-  private final class OctreeFormat[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A /*, T*/) => PL,
-                                                                  space: Space[PL, P, H], 
-                                                                  keyFormat: TFormat[T, A])
+  private final class OctreeFormat[T <: Exec[T], PL, P,
+    H <: HyperCube[PL, H], A](implicit view: (A, T) => PL, space: Space[PL, P, H],
+                              keyFormat: TFormat[T, A])
     extends WritableFormat[T, DetSkipOctree[T, PL, P, H, A]] {
 
     override def readT(in: DataInput)(implicit tx: T): DetSkipOctree[T, PL, P, H, A] =
@@ -134,21 +134,19 @@ object DetSkipOctree {
     override def toString = "DetSkipOctree.format"
   }
 
-  private final class ImplNew[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](skipGap: Int,
-                                                                             val id: Ident[T], val hyperCube: H,
-                                                              val pointView: (A /*, T*/) => PL, val tx: T)
-                                                             (implicit val space: Space[PL, P, H],
-                                                              val keyFormat: TFormat[T, A])
+  private final class ImplNew[T <: Exec[T], PL, P,
+    H <: HyperCube[PL, H], A](skipGap: Int, val id: Ident[T], val hyperCube: H, val pointView: (A, T) => PL, tx0: T)
+                             (implicit val space: Space[PL, P, H], val keyFormat: TFormat[T, A])
     extends Impl[T, PL, P, H, A] { octree =>
 
     val skipList: HASkipList.Set[T, this.Leaf] =
-      HASkipList.Set.empty[T, this.Leaf](skipGap, KeyObserver)(tx, LeafOrdering, LeafFormat)
+      HASkipList.Set.empty[T, this.Leaf](skipGap, KeyObserver)(tx0, LeafOrdering, LeafFormat)
 
     val headTree: this.LeftTopBranch = {
       val sz  = numOrthants
-//      val ch  = tx.newVarArray[this.LeftChild](sz)
-      val ch  = new Array[Var[this.LeftChild]](sz)
-      val cid = tx.newId()
+      val ch  = new Array[Var[T, this.LeftChild]](sz)
+      val cid = tx0.newId()
+      implicit val tx: T = tx0
       implicit val r1: TFormat[T, this.LeftChild] = LeftChildFormat
       var i = 0
       while (i < sz) {
@@ -159,8 +157,10 @@ object DetSkipOctree {
       val headRight = cid.newVar[this.Next](Empty)
       new LeftTopBranchImpl(octree, cid, children = ch, nextRef = headRight)
     }
-    val lastTreeRef: Var[this.TopBranch] = {
+
+    val lastTreeRef: Var[T, this.TopBranch] = {
       implicit val r3: TFormat[T, this.TopBranch] = TopBranchFormat
+      implicit val tx: T = tx0
       id.newVar[this.TopBranch](headTree)
     }
   }
@@ -196,13 +196,13 @@ object DetSkipOctree {
      * hyper-cube and the given point will be placed in
      * separated orthants of this resulting hyper-cube.
      */
-    def union(mq: H, point: PL): H
+    def union(mq: H, point: PL)(implicit tx: T): H
 
     /**
      * Queries the orthant index for this (leaf's or node's) hyper-cube
      * with respect to a given outer hyper-cube `iq`.
      */
-    def orthantIndexIn(iq: H): Int
+    def orthantIndexIn(iq: H)(implicit tx: T): Int
   }
 
   sealed trait Left
@@ -212,23 +212,23 @@ object DetSkipOctree {
     /** Returns the hyper-cube covered by this node. */
     def hyperCube: H
 
-    def nextOption: Option[Branch[T, PL, P, H, A]]
+    def nextOption(implicit tx: T): Option[Branch[T, PL, P, H, A]]
 
     /** Returns the corresponding interesting
      * node in Qi+1, or `empty` if no such
      * node exists.
      */
-    def next: Next[T, PL, P, H, A]
+    def next(implicit tx: T): Next[T, PL, P, H, A]
 
     /** Sets the corresponding interesting
      * node in Qi+1.
      */
-    private[DetSkipOctree] def next_=(n: Next[T, PL, P, H, A]): Unit
+    private[DetSkipOctree] def next_=(n: Next[T, PL, P, H, A])(implicit tx: T): Unit
 
     def prevOption: Option[Branch[T, PL, P, H, A]]
 
     /** Returns the child for a given orthant index. */
-    def child(idx: Int): Child[T, PL, P, H, A]
+    def child(idx: Int)(implicit tx: T): Child[T, PL, P, H, A]
 
     /** Assuming that the given `leaf` is a child of this node,
      * removes the child from this node's children. This method
@@ -236,7 +236,7 @@ object DetSkipOctree {
      * with its parent if it becomes uninteresting as part of the
      * removal.
      */
-    private[DetSkipOctree] def demoteLeaf(point: PL, leaf: Leaf[T, PL, P, H, A]): Unit
+    private[DetSkipOctree] def demoteLeaf(point: PL, leaf: Leaf[T, PL, P, H, A])(implicit tx: T): Unit
   }
 
   sealed trait Leaf[T <: Exec[T], PL, P, H, A]
@@ -247,9 +247,9 @@ object DetSkipOctree {
 
     def value: A
 
-    private[DetSkipOctree] def parent_=(b: Branch[T, PL, P, H, A]): Unit
+    private[DetSkipOctree] def parent_=(b: Branch[T, PL, P, H, A])(implicit tx: T): Unit
 
-    private[DetSkipOctree] def remove(): Unit
+    private[DetSkipOctree] def remove()(implicit tx: T): Unit
   }
 
   /** A common trait used in pattern matching, comprised of `Leaf` and `LeftChildBranch`. */
@@ -258,14 +258,14 @@ object DetSkipOctree {
       with  NonEmptyChild[T, PL, P, H, A]
       with  LeftChild    [T, PL, P, H, A] with Writable {
 
-    private[DetSkipOctree] def updateParentLeft(p: LeftBranch[T, PL, P, H, A]): Unit
+    private[DetSkipOctree] def updateParentLeft(p: LeftBranch[T, PL, P, H, A])(implicit tx: T): Unit
   }
 
   sealed trait RightChild[+T, +PL, +P, +H, +A] extends Child[T, PL, P, H, A]
 
   /** An inner non empty tree element has a mutable parent node. */
   sealed trait NonEmptyChild[T <: Exec[T], PL, P, H, A] extends NonEmpty[T, PL, P, H] with Child[T, PL, P, H, A] {
-    def parent: Branch[T, PL, P, H, A]
+    def parent(implicit tx: T): Branch[T, PL, P, H, A]
   }
 
   protected sealed trait LeafOrEmpty[+T, +PL, +P, +H, +A] extends LeftChild[T, PL, P, H, A]
@@ -275,7 +275,7 @@ object DetSkipOctree {
     extends RightChild   [T, PL, P, H, A]
       with  NonEmptyChild[T, PL, P, H, A] with Writable {
 
-    private[DetSkipOctree] def updateParentRight(p: RightBranch[T, PL, P, H, A]): Unit
+    private[DetSkipOctree] def updateParentRight(p: RightBranch[T, PL, P, H, A])(implicit tx: T): Unit
   }
 
   sealed trait TopBranch[T <: Exec[T], PL, P, H, A] extends Branch[T, PL, P, H, A]
@@ -283,7 +283,7 @@ object DetSkipOctree {
   sealed trait LeftTopBranch[T <: Exec[T], PL, P, H, A]
     extends LeftBranch  [T, PL, P, H, A]
       with  TopBranch   [T, PL, P, H, A]
-      with  Disposable
+      with  Disposable  [T]
 
   sealed trait RightTopBranch[T <: Exec[T], PL, P, H, A]
     extends RightBranch [T, PL, P, H, A]
@@ -309,11 +309,11 @@ object DetSkipOctree {
 
     def prevOption: Option[Branch[T, PL, P, H, A]]
 
-    def child(idx: Int): LeftChild[T, PL, P, H, A]
+    def child(idx: Int)(implicit tx: T): LeftChild[T, PL, P, H, A]
 
-    private[DetSkipOctree] def insert(point: PL, value: A): Leaf[T, PL, P, H, A] /* Impl */
+    private[DetSkipOctree] def insert(point: PL, value: A)(implicit tx: T): Leaf[T, PL, P, H, A]
 
-    private[DetSkipOctree] def updateChild(idx: Int, c: LeftChild[T, PL, P, H, A]): Unit
+    private[DetSkipOctree] def updateChild(idx: Int, c: LeftChild[T, PL, P, H, A])(implicit tx: T): Unit
 
     /** Instantiates an appropriate
      * leaf whose parent is this node, and which should be
@@ -325,7 +325,7 @@ object DetSkipOctree {
      *          parent and is already stored in this node's children
      *          at index `qIdx`
      */
-    private[DetSkipOctree] def newLeaf(qIdx: Int, value: A): Leaf[T, PL, P, H, A]
+    private[DetSkipOctree] def newLeaf(qIdx: Int, value: A)(implicit tx: T): Leaf[T, PL, P, H, A]
   }
 
 
@@ -336,7 +336,7 @@ object DetSkipOctree {
   sealed trait RightBranch[T <: Exec[T], PL, P, H, A] extends Next[T, PL, P, H, A] with Branch[T, PL, P, H, A] {
     def prev: Branch[T, PL, P, H, A]
 
-    private[DetSkipOctree] def updateChild(idx: Int, c: RightChild[T, PL, P, H, A]): Unit
+    private[DetSkipOctree] def updateChild(idx: Int, c: RightChild[T, PL, P, H, A])(implicit tx: T): Unit
 
     /** Promotes a leaf that exists in Qi-1 to this
      * tree, by inserting it into this node which
@@ -351,7 +351,7 @@ object DetSkipOctree {
      * This method also sets the parent of the leaf
      * accordingly.
      */
-    private[DetSkipOctree] def insert(point: PL, leaf: Leaf[T, PL, P, H, A]): Unit
+    private[DetSkipOctree] def insert(point: PL, leaf: Leaf[T, PL, P, H, A])(implicit tx: T): Unit
   }
 
   sealed trait LeftChildBranch[T <: Exec[T], PL, P, H, A]
@@ -359,9 +359,9 @@ object DetSkipOctree {
       with  ChildBranch       [T, PL, P, H, A]
       with  LeftNonEmptyChild [T, PL, P, H, A] {
 
-    def parent: LeftBranch[T, PL, P, H, A]
+    def parent(implicit tx: T): LeftBranch[T, PL, P, H, A]
 
-    private[DetSkipOctree] def parent_=(node: LeftBranch[T, PL, P, H, A]): Unit
+    private[DetSkipOctree] def parent_=(node: LeftBranch[T, PL, P, H, A])(implicit tx: T): Unit
   }
 
   sealed trait RightChildBranch[T <: Exec[T], PL, P, H, A]
@@ -369,9 +369,9 @@ object DetSkipOctree {
       with  ChildBranch       [T, PL, P, H, A]
       with  RightNonEmptyChild[T, PL, P, H, A] {
 
-    def parent: RightBranch[T, PL, P, H, A]
+    def parent(implicit tx: T): RightBranch[T, PL, P, H, A]
 
-    private[DetSkipOctree] def parent_=(node: RightBranch[T, PL, P, H, A]): Unit
+    private[DetSkipOctree] def parent_=(node: RightBranch[T, PL, P, H, A])(implicit tx: T): Unit
   }
 
   /* Nodes are defined by a hyperCube area as well as a list of children,
@@ -383,33 +383,33 @@ object DetSkipOctree {
 
     // ---- abstract ----
 
-    protected def nextRef: Var[Next[T, PL, P, H, A]]
+    protected def nextRef: Var[T, Next[T, PL, P, H, A]]
 
     /** Called when a leaf has been removed from the node.
      * The node may need to cleanup after this, e.g. promote
      * an under-full node upwards.
      */
-    protected def leafRemoved(): Unit
+    protected def leafRemoved()(implicit tx: T): Unit
 
     protected def nodeName: String
 
     // ---- impl ----
 
-    final def next_=(node: Next[T, PL, P, H, A]): Unit = nextRef() = node
+    final def next_=(node: Next[T, PL, P, H, A])(implicit tx: T): Unit = nextRef() = node
 
-    final def next: Next[T, PL, P, H, A] = nextRef()
+    final def next(implicit tx: T): Next[T, PL, P, H, A] = nextRef()
 
-    final def nextOption: Option[Branch[T, PL, P, H, A]] = thisBranch.next match {
+    final def nextOption(implicit tx: T): Option[Branch[T, PL, P, H, A]] = thisBranch.next match {
       case Empty                      => None
       case b: Branch[T, PL, P, H, A]  => Some(b)
     }
 
-    final override def union(mq: H, point2: PL): H = {  // scalac warning bug
+    final def union(mq: H, point2: PL)(implicit tx: T): H = {  // scalac warning bug
       val q = thisBranch.hyperCube
       mq.greatestInterestingH(q, point2)
     }
 
-    final def orthantIndexIn(iq: H): Int =  // scalac warning bug
+    final def orthantIndexIn(iq: H)(implicit tx: T): Int =  // scalac warning bug
       iq.indexOfH(thisBranch.hyperCube)
 
     protected final def shortString = s"$nodeName($thisBranch.hyperCube)"
@@ -428,17 +428,18 @@ object DetSkipOctree {
      * -- they are instances of `LeftChild` and thus support
      * order intervals.
      */
-    protected def children: Array[Var[LeftChild[T, PL, P, H, A]]]
+    protected def children: Array[Var[T, LeftChild[T, PL, P, H, A]]]
 
     // ---- impl ----
 
     final def prevOption: Option[Branch[T, PL, P, H, A]] = None
 
-    final def child(idx: Int): LeftChild[T, PL, P, H, A] = children(idx)()
+    final def child(idx: Int)(implicit tx: T): LeftChild[T, PL, P, H, A] = children(idx)()
 
-    final def updateChild(idx: Int, c: LeftChild[T, PL, P, H, A]): Unit = children(idx)() = c
+    final def updateChild(idx: Int, c: LeftChild[T, PL, P, H, A])(implicit tx: T): Unit =
+      children(idx)() = c
 
-    final def demoteLeaf(point: PL, leaf: Leaf[T, PL, P, H, A]): Unit = {
+    final def demoteLeaf(point: PL, leaf: Leaf[T, PL, P, H, A])(implicit tx: T): Unit = {
       val qIdx  = branch.hyperCube.indexOfP(point)
       val ok    = child(qIdx) == leaf
       if (ok) {
@@ -451,7 +452,7 @@ object DetSkipOctree {
       }
     }
 
-    final def insert(point: PL, value: A): Leaf[T, PL, P, H, A] = {
+    final def insert(point: PL, value: A)(implicit tx: T): Leaf[T, PL, P, H, A] = {
       val qIdx = branch.hyperCube.indexOfP(point)
       child(qIdx) match {
         case Empty =>
@@ -490,9 +491,9 @@ object DetSkipOctree {
      *          parent and is already stored in this node's children
      *          at index `qIdx`
      */
-    private[DetSkipOctree] def newLeaf(qIdx: Int, value: A): Leaf[T, PL, P, H, A] = {
-      val leafId    = octree.tx.newId()
-      val parentRef = leafId.newVar[Branch[T, PL, P, H, A]](this)(octree.BranchFormat)
+    private[DetSkipOctree] def newLeaf(qIdx: Int, value: A)(implicit tx: T): Leaf[T, PL, P, H, A] = {
+      val leafId    = tx.newId()
+      val parentRef = leafId.newVar[Branch[T, PL, P, H, A]](this)(tx, octree.BranchFormat)
       val l         = new LeafImpl[T, PL, P, H, A](octree, leafId, value, parentRef)
       updateChild(qIdx, l)
       l
@@ -509,18 +510,17 @@ object DetSkipOctree {
      *          parent and is already stored in this node's children
      *          at index `qIdx`
      */
-    private[this] def newNode(qIdx: Int, iq: H): LeftChildBranch[T, PL, P, H, A] = {
+    private[this] def newNode(qIdx: Int, iq: H)(implicit tx: T): LeftChildBranch[T, PL, P, H, A] = {
       val sz  = children.length
-      //        val ch  = tx.newVarArray[LeftChild](sz)
-      val ch  = new Array[Var[LeftChild[T, PL, P, H, A]]](sz)
-      val cid = octree.tx.newId()
+      val ch  = new Array[Var[T, LeftChild[T, PL, P, H, A]]](sz)
+      val cid = tx.newId()
       var i = 0
       while (i < sz) {
-        ch(i) = cid.newVar[LeftChild[T, PL, P, H, A]](Empty)(octree.LeftChildFormat)
+        ch(i) = cid.newVar[LeftChild[T, PL, P, H, A]](Empty)(tx, octree.LeftChildFormat)
         i += 1
       }
-      val parentRef   = cid.newVar[LeftBranch[T, PL, P, H, A]](this)(octree.LeftBranchFormat)
-      val rightRef    = cid.newVar[Next[T, PL, P, H, A]](Empty)(octree.RightOptionReader)
+      val parentRef   = cid.newVar[LeftBranch[T, PL, P, H, A]](this)(tx, octree.LeftBranchFormat)
+      val rightRef    = cid.newVar[Next[T, PL, P, H, A]](Empty)(tx, octree.RightOptionReader)
       val n           = new LeftChildBranchImpl[T, PL, P, H, A](
         octree, cid, parentRef, iq, children = ch, nextRef = rightRef
       )
@@ -538,21 +538,22 @@ object DetSkipOctree {
    * points into the highest level octree that
    * the leaf resides in, according to the skiplist.
    */
-  private final class LeafImpl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](octree: Impl[T, PL, P, H, A],
-                                                                              val id: Ident[T], val value: A, 
-                                                                              parentRef: Var[Branch[T, PL, P, H, A]])
+  private final class LeafImpl[T <: Exec[T], PL, P,
+    H <: HyperCube[PL, H], A](octree: Impl[T, PL, P, H, A], val id: Ident[T], val value: A,
+                              parentRef: Var[T, Branch[T, PL, P, H, A]])
     extends LeftNonEmptyChild [T, PL, P, H, A] 
       with RightNonEmptyChild [T, PL, P, H, A]
       with LeafOrEmpty        [T, PL, P, H, A]
       with Leaf               [T, PL, P, H, A] {
 
-    def updateParentLeft (p: LeftBranch [T, PL, P, H, A] ): Unit = parent_=(p)
-    def updateParentRight(p: RightBranch[T, PL, P, H, A] ): Unit = parent_=(p)
+    def updateParentLeft (p: LeftBranch [T, PL, P, H, A])(implicit tx: T): Unit = parent_=(p)
+    def updateParentRight(p: RightBranch[T, PL, P, H, A])(implicit tx: T): Unit = parent_=(p)
 
-    def parent    : Branch[T, PL, P, H, A]          = parentRef()
-    def parent_=(p: Branch[T, PL, P, H, A] ): Unit  = parentRef() = p
+    def parent(implicit tx: T): Branch[T, PL, P, H, A] = parentRef()
 
-    def dispose(): Unit = {
+    def parent_=(p: Branch[T, PL, P, H, A])(implicit tx: T): Unit = parentRef() = p
+
+    def dispose()(implicit tx: T): Unit = {
       id.dispose()
       parentRef.dispose()
     }
@@ -564,23 +565,22 @@ object DetSkipOctree {
       parentRef.write(out)
     }
 
-    def union(mq: H, point2: PL): H =
-      mq.greatestInterestingP(octree.pointView(value /*, tx*/), point2)
+    def union(mq: H, point2: PL)(implicit tx: T): H =
+      mq.greatestInterestingP(octree.pointView(value, tx), point2)
 
-    def orthantIndexIn(iq: H): Int =
-      iq.indexOfP(octree.pointView(value /*, tx*/))
+    def orthantIndexIn(iq: H)(implicit tx: T): Int =
+      iq.indexOfP(octree.pointView(value, tx))
 
     def shortString = s"Leaf($value)"
 
-    def remove(): Unit = dispose()
+    def remove()(implicit tx: T): Unit = dispose()
   }
 
-  private final class LeftChildBranchImpl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](val octree: Impl[T, PL, P, H, A],
-                                                                                         val id: Ident[T],
-                                                                                         parentRef: Var[LeftBranch[T, PL, P, H, A]], 
-                                                                                         val hyperCube: H,
-                                            protected val children: Array[Var[LeftChild[T, PL, P, H, A]]],
-                                            protected val nextRef: Var[Next[T, PL, P, H, A]])
+  private final class LeftChildBranchImpl[T <: Exec[T], PL, P,
+    H <: HyperCube[PL, H], A](val octree: Impl[T, PL, P, H, A], val id: Ident[T],
+                              parentRef: Var[T, LeftBranch[T, PL, P, H, A]], val hyperCube: H,
+                              protected val children: Array[Var[T, LeftChild[T, PL, P, H, A]]],
+                              protected val nextRef: Var[T, Next[T, PL, P, H, A]])
     extends LeftBranchImpl[T, PL, P, H, A] 
       with LeftChildBranch[T, PL, P, H, A] {
 
@@ -588,12 +588,13 @@ object DetSkipOctree {
 
     protected def nodeName = "LeftInner"
 
-    def updateParentLeft(p: LeftBranch[T, PL, P, H, A]): Unit = parent = p
+    def updateParentLeft(p: LeftBranch[T, PL, P, H, A])(implicit tx: T): Unit = parent = p
 
-    def parent       : LeftBranch[T, PL, P, H, A]         = parentRef()
-    def parent_=(node: LeftBranch[T, PL, P, H, A]): Unit  = parentRef() = node
+    def parent(implicit tx: T): LeftBranch[T, PL, P, H, A] = parentRef()
 
-    def dispose(): Unit = {
+    def parent_=(node: LeftBranch[T, PL, P, H, A])(implicit tx: T): Unit = parentRef() = node
+
+    def dispose()(implicit tx: T): Unit = {
       id        .dispose()
       parentRef .dispose()
       var i = 0
@@ -619,11 +620,11 @@ object DetSkipOctree {
       nextRef.write(out)
     }
 
-    private[this] def remove(): Unit = dispose()
+    private[this] def remove()(implicit tx: T): Unit = dispose()
 
     // make sure the node is not becoming uninteresting, in which case
     // we need to merge upwards
-    protected def leafRemoved(): Unit = {
+    protected def leafRemoved()(implicit tx: T): Unit = {
       val sz = children.length
       @tailrec def removeIfLonely(i: Int): Unit =
         if (i < sz) child(i) match {
@@ -659,14 +660,16 @@ object DetSkipOctree {
     
     protected val octree: Impl[T, PL, P, H, A]
 
-    protected def children: Array[Var[RightChild[T, PL, P, H, A]]]
+    protected def children: Array[Var[T, RightChild[T, PL, P, H, A]]]
 
     // ---- impl ----
 
     final def prevOption: Option[Branch[T, PL, P, H, A]] = Some(prev: Branch[T, PL, P, H, A])
 
-    final def child      (idx: Int)               : RightChild[T, PL, P, H, A] = children(idx)()
-    final def updateChild(idx: Int, c: RightChild[T, PL, P, H, A]): Unit       = children(idx)() = c
+    final def child(idx: Int)(implicit tx: T): RightChild[T, PL, P, H, A] = children(idx)()
+
+    final def updateChild(idx: Int, c: RightChild[T, PL, P, H, A])(implicit tx: T): Unit =
+      children(idx)() = c
 
     /** Promotes a leaf that exists in Qi-1 to this
      * tree, by inserting it into this node which
@@ -681,8 +684,7 @@ object DetSkipOctree {
      * This method also sets the parent of the leaf
      * accordingly.
      */
-    final def insert(point: PL, leaf: Leaf[T, PL, P, H, A]): Unit = {
-      //         val point   = pointView( leaf.value )
+    final def insert(point: PL, leaf: Leaf[T, PL, P, H, A])(implicit tx: T): Unit = {
       val qIdx = branch.hyperCube.indexOfP(point)
       child(qIdx) match {
         case Empty =>
@@ -734,26 +736,26 @@ object DetSkipOctree {
      * @return  the new node which has already been inserted into this node's
      *          children at index `qIdx`.
      */
-    @inline private[this] def newNode(qIdx: Int, prev: Branch[T, PL, P, H, A], iq: H): RightChildBranch[T, PL, P, H, A] = {
+    @inline private[this] def newNode(qIdx: Int, prev: Branch[T, PL, P, H, A],
+                                      iq: H)(implicit tx: T): RightChildBranch[T, PL, P, H, A] = {
       val sz  = children.length
-      //        val ch  = tx.newVarArray[RightChild](sz)
-      val ch  = new Array[Var[RightChild[T, PL, P, H, A]]](sz)
-      val cid = octree.tx.newId()
+      val ch  = new Array[Var[T, RightChild[T, PL, P, H, A]]](sz)
+      val cid = tx.newId()
       var i = 0
       implicit val format: TFormat[T, RightChild[T, PL, P, H, A]] = octree.RightChildFormat
       while (i < sz) {
         ch(i) = cid.newVar[RightChild[T, PL, P, H, A]](Empty)
         i += 1
       }
-      val parentRef = cid.newVar[RightBranch[T, PL, P, H, A]](this)(octree.RightBranchFormat)
-      val rightRef  = cid.newVar[Next[T, PL, P, H, A]](Empty)(octree.RightOptionReader)
+      val parentRef = cid.newVar[RightBranch[T, PL, P, H, A]](this)(tx, octree.RightBranchFormat)
+      val rightRef  = cid.newVar[Next[T, PL, P, H, A]](Empty)(tx, octree.RightOptionReader)
       val n         = new RightChildBranchImpl[T, PL, P, H, A](octree, cid, parentRef, prev, iq, ch, rightRef)
       prev.next     = n
       updateChild(qIdx, n)
       n
     }
 
-    final def demoteLeaf(point: PL, leaf: Leaf[T, PL, P, H, A]): Unit = {
+    final def demoteLeaf(point: PL, leaf: Leaf[T, PL, P, H, A])(implicit tx: T): Unit = {
       val qIdx = branch.hyperCube.indexOfP(point)
       assert(child(qIdx) == leaf)
       updateChild(qIdx, Empty)
@@ -770,27 +772,28 @@ object DetSkipOctree {
     }
   }
 
-  private final class RightChildBranchImpl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](val octree: Impl[T, PL, P, H, A],
-                                                                                          val id: Ident[T], 
-                                                                                          parentRef: Var[RightBranch[T, PL, P, H, A]],
-                                           val prev: Branch[T, PL, P, H, A], val hyperCube: H,
-                                           protected val children: Array[Var[RightChild[T, PL, P, H, A]]],
-                                           protected val nextRef: Var[Next[T, PL, P, H, A]])
+  private final class RightChildBranchImpl[T <: Exec[T], PL, P,
+    H <: HyperCube[PL, H], A](val octree: Impl[T, PL, P, H, A], val id: Ident[T],
+                              parentRef: Var[T, RightBranch[T, PL, P, H, A]], val prev: Branch[T, PL, P, H, A],
+                              val hyperCube: H,
+                              protected val children: Array[Var[T, RightChild[T, PL, P, H, A]]],
+                              protected val nextRef: Var[T, Next[T, PL, P, H, A]])
     extends RightChildBranch[T, PL, P, H, A] with RightBranchImpl[T, PL, P, H, A] {
 
     thisBranch =>
 
     protected def nodeName = "RightInner"
 
-    def updateParentRight(p: RightBranch[T, PL, P, H, A]): Unit = parent = p
+    def updateParentRight(p: RightBranch[T, PL, P, H, A])(implicit tx: T): Unit =
+      parent = p
 
-    private[this] def remove(): Unit = {
+    private[this] def remove()(implicit tx: T): Unit = {
       // first unlink
       prev.next = Empty
       dispose()
     }
 
-    def dispose(): Unit = {
+    def dispose()(implicit tx: T): Unit = {
       id.dispose()
       //         // first unlink
       //         prev.next = Empty
@@ -821,17 +824,13 @@ object DetSkipOctree {
       nextRef.write(out)
     }
 
-    //      private def removeAndDispose()( implicit tx: T ): Unit = {
-    //         prev.next = Empty
-    //         dispose()
-    //      }
+    def parent(implicit tx: T): RightBranch[T, PL, P, H, A] = parentRef()
 
-    def parent                     : RightBranch[T, PL, P, H, A] = parentRef()
-    def parent_=(node: RightBranch[T, PL, P, H, A]): Unit        = parentRef() = node
+    def parent_=(node: RightBranch[T, PL, P, H, A])(implicit tx: T): Unit = parentRef() = node
 
     // make sure the node is not becoming uninteresting, in which case
     // we need to merge upwards
-    protected def leafRemoved(): Unit = {
+    protected def leafRemoved()(implicit tx: T): Unit = {
       val sz = children.length
       @tailrec def removeIfLonely(i: Int): Unit =
         if (i < sz) child(i) match {
@@ -857,19 +856,19 @@ object DetSkipOctree {
     }
   }
 
-  private final class LeftTopBranchImpl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](val octree: Impl[T, PL, P, H, A],
-                                                                                       val id: Ident[T],
-                                          protected val children: Array[Var[LeftChild[T, PL, P, H, A]]],
-                                          protected val nextRef: Var[Next[T, PL, P, H, A]])
+  private final class LeftTopBranchImpl[T <: Exec[T], PL, P,
+    H <: HyperCube[PL, H], A](val octree: Impl[T, PL, P, H, A], val id: Ident[T],
+                              protected val children: Array[Var[T, LeftChild[T, PL, P, H, A]]],
+                              protected val nextRef: Var[T, Next[T, PL, P, H, A]])
     extends LeftTopBranch[T, PL, P, H, A]
       with LeftBranchImpl[T, PL, P, H, A] 
       with TopBranchImpl [T, PL, P, H, A] 
       with Mutable[T] {
     
     // that's alright, we don't need to do anything special here
-    protected def leafRemoved(): Unit = ()
+    protected def leafRemoved()(implicit tx: T): Unit = ()
 
-    def dispose(): Unit = {
+    def dispose()(implicit tx: T): Unit = {
       id.dispose()
       var i = 0
       val sz = children.length
@@ -897,18 +896,17 @@ object DetSkipOctree {
   }
 
 
-  private final class RightTopBranchImpl[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](val octree: Impl[T, PL, P, H, A],
-                                                                                        val id: Ident[T],
-                                                                                        val prev: TopBranch[T, PL, P, H, A],
-                                           protected val children: Array[Var[RightChild[T, PL, P, H, A]]],
-                                           protected val nextRef: Var[Next[T, PL, P, H, A]])
+  private final class RightTopBranchImpl[T <: Exec[T], PL, P,
+    H <: HyperCube[PL, H], A](val octree: Impl[T, PL, P, H, A], val id: Ident[T], val prev: TopBranch[T, PL, P, H, A],
+                              protected val children: Array[Var[T, RightChild[T, PL, P, H, A]]],
+                              protected val nextRef: Var[T, Next[T, PL, P, H, A]])
     extends RightTopBranch[T, PL, P, H, A]
       with RightBranchImpl[T, PL, P, H, A]
       with TopBranchImpl  [T, PL, P, H, A] {
 
     protected def nodeName = "RightTop"
 
-    private[this] def remove(): Unit = {
+    private[this] def remove()(implicit tx: T): Unit = {
       // first unlink
       assert(octree.lastTree == this)
       octree.lastTree = prev
@@ -916,7 +914,7 @@ object DetSkipOctree {
       dispose()
     }
 
-    def dispose(): Unit = {
+    def dispose()(implicit tx: T): Unit = {
       id.dispose()
       //         // first unlink
       //         assert( lastTreeImpl == this )
@@ -948,7 +946,7 @@ object DetSkipOctree {
     }
 
     // remove this node if it empty now and right-node tree
-    protected def leafRemoved(): Unit = {
+    protected def leafRemoved()(implicit tx: T): Unit = {
       if (next != Empty) return
 
       val sz = children.length
@@ -996,28 +994,26 @@ object DetSkipOctree {
 
     // ---- abstract types and methods ----
     
-    def tx: T
-
     implicit def space: Space[PL, P, H]
     implicit def keyFormat: TFormat[T, A]
 
     protected def skipList: HASkipList.Set[T, Leaf]
-    protected def lastTreeRef: Var[TopBranch]
+    protected def lastTreeRef: Var[T, TopBranch]
 
     // ----
 
     override def toString = s"Octree-${space.dim}d$id"
 
-    protected object LeafOrdering extends Ordering[Leaf] {
-      /** Leafs are ordered by the tree's in-order traversal,
+    protected object LeafOrdering extends TOrdering[T, Leaf] {
+      /** Leaves are ordered by the tree's in-order traversal,
        * where the quadrants I+II and III+IV can be thought
        * of as dummy nodes to make the octree binary. That is
        * to say, in a node, the child order corresponds to
        * their quadrant indices (I < II < III < IV).
        */
-      def compare(a: Leaf, b: Leaf): Int = {
-        val pa = pointView(a.value) // , tx
-        val pb = pointView(b.value) // , tx
+      def compare(a: Leaf, b: Leaf)(implicit tx: T): Int = {
+        val pa = pointView(a.value, tx)
+        val pb = pointView(b.value, tx)
         space.lexicalOrder.compare(pa, pb)
       }
     }
@@ -1157,14 +1153,14 @@ object DetSkipOctree {
           case Empty => // create new level
             val sz  = numOrthants
 //            val ch  = tx.newVarArray[RightChild](sz)
-            val ch  = new Array[Var[RightChild]](sz)
+            val ch  = new Array[Var[T, RightChild]](sz)
             val cid = tx.newId()
             var i   = 0
             while (i < sz) {
               ch(i) = cid.newVar[RightChild](Empty)
               i += 1
             }
-            val nextRef   = cid.newVar[Next](Empty)(RightOptionReader)
+            val nextRef   = cid.newVar[Next](Empty)(tx, RightOptionReader)
             val prev      = lastTree
             val res       = new RightTopBranchImpl(octree, cid, prev, ch, nextRef)
             prev.next     = res
@@ -1172,7 +1168,7 @@ object DetSkipOctree {
             res
           case r: RightBranch => r
         }
-        pNext.insert(pointView(l.value /*, tx*/), l)
+        pNext.insert(pointView(l.value, tx), l)
       }
 
       def keyDown(l: Leaf)(implicit tx: T): Unit = {
@@ -1181,7 +1177,7 @@ object DetSkipOctree {
         //  square pi(x) containing x in Qi following the pointers. Then
         //  the deletion given pi(x) is as described in Section 2.3."
 
-        l.parent.demoteLeaf(pointView(l.value /*, tx*/), l)
+        l.parent.demoteLeaf(pointView(l.value, tx), l)
       }
     }
 
@@ -1196,14 +1192,14 @@ object DetSkipOctree {
       lastTreeRef .write(out)
     }
 
-    final def clear(): Unit = {
+    final def clear()(implicit tx: T): Unit = {
       val sz = numOrthants
       @tailrec def removeAllLeaves(b: Branch): Unit = {
         @tailrec def stepB(down: Branch, i: Int): Child = {
           if (i == sz) down
           else b.child(i) match {
             case l: Leaf =>
-              removeLeaf(pointView(l.value /*, tx*/), l)
+              removeLeaf(pointView(l.value, tx), l)
               lastTree
             case _ => stepB(down, i + 1)
           }
@@ -1214,7 +1210,7 @@ object DetSkipOctree {
           else b.child(i) match {
             case cb: Branch => stepB(cb, i + 1)
             case l: Leaf =>
-              removeLeaf(pointView(l.value /*, tx*/), l)
+              removeLeaf(pointView(l.value, tx), l)
               lastTree
             case _ => step(i + 1)
           }
@@ -1228,41 +1224,42 @@ object DetSkipOctree {
       removeAllLeaves(lastTree)
     }
 
-    final def dispose(): Unit = {
+    final def dispose()(implicit tx: T): Unit = {
       id          .dispose()
       lastTreeRef .dispose()
       headTree    .dispose()
       skipList    .dispose()
     }
 
-    final def lastTree                   : TopBranch = lastTreeRef()
-    final def lastTree_=(node: TopBranch): Unit      = lastTreeRef() = node
+    final def lastTree(implicit tx: T): TopBranch = lastTreeRef()
 
-    final def size: Int = skipList.size
+    final def lastTree_=(node: TopBranch)(implicit tx: T): Unit = lastTreeRef() = node
 
-    final def add(elem: A): Boolean =
+    final def size(implicit tx: T): Int = skipList.size
+
+    final def add(elem: A)(implicit tx: T): Boolean =
       insertLeaf(elem) match {
         case Empty          => true
         case oldLeaf: Leaf  => oldLeaf.value != elem
       }
 
-    final def update(elem: A): Option[A] =
+    final def update(elem: A)(implicit tx: T): Option[A] =
       insertLeaf(elem) match {
         case Empty          => None
         case oldLeaf: Leaf  => Some(oldLeaf.value)
       }
 
-    final def remove(elem: A): Boolean =
-      removeLeafAt(pointView(elem /*, tx*/)) != Empty
+    final def remove(elem: A)(implicit tx: T): Boolean =
+      removeLeafAt(pointView(elem, tx)) != Empty
 
-    final def removeAt(point: PL): Option[A] =
+    final def removeAt(point: PL)(implicit tx: T): Option[A] =
       removeLeafAt(point) match {
         case Empty          => None
         case oldLeaf: Leaf  => Some(oldLeaf.value)
       }
 
-    final def contains(elem: A): Boolean = {
-      val point = pointView(elem /*, tx*/)
+    final def contains(elem: A)(implicit tx: T): Boolean = {
+      val point = pointView(elem, tx)
       if (!hyperCube.containsP(point)) return false
       findAt(point) match {
         case l: Leaf  => l.value == elem
@@ -1270,12 +1267,12 @@ object DetSkipOctree {
       }
     }
 
-    final def isDefinedAt(point: PL): Boolean = {
+    final def isDefinedAt(point: PL)(implicit tx: T): Boolean = {
       if (!hyperCube.containsP(point)) return false
       findAt(point) != Empty
     }
 
-    final def get(point: PL): Option[A] = {
+    final def get(point: PL)(implicit tx: T): Option[A] = {
       if (!hyperCube.containsP(point)) return None
       findAt(point) match {
         case l: Leaf  => Some(l.value)
@@ -1283,7 +1280,7 @@ object DetSkipOctree {
       }
     }
 
-    final def nearestNeighbor[M](point: PL, metric: DistanceMeasure[M, PL, H]): A = {
+    final def nearestNeighbor[M](point: PL, metric: DistanceMeasure[M, PL, H])(implicit tx: T): A = {
       val nn = new NN(point, metric).find()
       stat_report()
       nn match {
@@ -1292,7 +1289,7 @@ object DetSkipOctree {
       }
     }
 
-    final def nearestNeighborOption[M](point: PL, metric: DistanceMeasure[M, PL, H]): Option[A] = {
+    final def nearestNeighborOption[M](point: PL, metric: DistanceMeasure[M, PL, H])(implicit tx: T): Option[A] = {
       val nn = new NN(point, metric).find()
       stat_report()
       nn match {
@@ -1301,7 +1298,7 @@ object DetSkipOctree {
       }
     }
 
-    final def isEmpty: Boolean = {
+    final def isEmpty(implicit tx: T): Boolean = {
       val n = headTree
       val sz = numOrthants
       @tailrec def step(i: Int): Boolean = if (i == sz) true
@@ -1312,7 +1309,7 @@ object DetSkipOctree {
       step(0)
     }
 
-    final def numLevels: Int = {
+    final def numLevels(implicit tx: T): Int = {
       @tailrec def step(b: Branch, num: Int): Int = {
         b.next match {
           case Empty => num
@@ -1322,7 +1319,7 @@ object DetSkipOctree {
       step(headTree, 1)
     }
 
-    final def +=(elem: A): this.type = {
+    final def +=(elem: A)(implicit tx: T): this.type = {
       insertLeaf(elem)
       //      match {
       //         case oldLeaf: Leaf => oldLeaf.dispose()
@@ -1331,8 +1328,8 @@ object DetSkipOctree {
       this
     }
 
-    final def -=(elem: A): this.type = {
-      removeLeafAt(pointView(elem /*, tx*/))
+    final def -=(elem: A)(implicit tx: T): this.type = {
+      removeLeafAt(pointView(elem, tx))
       //      match {
       //         case oldLeaf: Leaf => oldLeaf.dispose()
       //         case _ =>
@@ -1340,21 +1337,22 @@ object DetSkipOctree {
       this
     }
 
-    final def rangeQuery[Area](qs: QueryShape[Area, PL, H]): Iterator[A] = {
+    final def rangeQuery[Area](qs: QueryShape[Area, PL, H])(implicit tx: T): Iterator[A] = {
       val q = new RangeQuery(qs)
       q.findNextValue()
       q
     }
 
-    final def toIndexedSeq: Vec[A] = iterator.toIndexedSeq
-    final def toList: List[A] = iterator.toList
+    final def toIndexedSeq(implicit tx: T): Vec[A] = iterator.toIndexedSeq
+
+    final def toList(implicit tx: T): List[A] = iterator.toList
 
     // note that `iterator.toSeq` produces a `Stream` !!
-    final def toSeq: Seq[A] = iterator.toIndexedSeq
+    final def toSeq(implicit tx: T): Seq[A] = iterator.toIndexedSeq
 
-    final def toSet: Set[A] = iterator.toSet
+    final def toSet(implicit tx: T): Set[A] = iterator.toSet
 
-    private[this] def findAt(point: PL): LeafOrEmpty = {
+    private[this] def findAt(point: PL)(implicit tx: T): LeafOrEmpty = {
       val p0 = findP0(point) // lastTreeImpl.findP0( point )
       findLeafInP0(p0, point) // p0.findImmediateLeaf( point )
     }
@@ -1363,8 +1361,8 @@ object DetSkipOctree {
     //
     // (( WARNING: if the returned oldLeaf is defined, the caller is
     // responsible for disposing it (after extracting useful information such as its value) ))
-    private[this] def insertLeaf(elem: A): LeafOrEmpty = {
-      val point = pointView(elem /*, tx*/)
+    private[this] def insertLeaf(elem: A)(implicit tx: T): LeafOrEmpty = {
+      val point = pointView(elem, tx)
       if (!hyperCube.containsP(point)) sys.error(s"$point lies out of root hyper-cube $hyperCube")
 
       val p0  = findP0(point) // lastTreeImpl.findP0( point )
@@ -1390,7 +1388,7 @@ object DetSkipOctree {
 
     // WARNING: if the returned oldLeaf is defined, the caller is
     // responsible for disposing it (after extracting useful information such as its value)
-    private[this] def removeLeafAt(point: PL): LeafOrEmpty = {
+    private[this] def removeLeafAt(point: PL)(implicit tx: T): LeafOrEmpty = {
       if (!hyperCube.containsP(point)) return Empty
 
       // "To insert or delete a point y into or from S, we first search the
@@ -1410,7 +1408,7 @@ object DetSkipOctree {
       res
     }
 
-    def transformAt(point: PL)(fun: Option[A] => Option[A]): Option[A] = {
+    def transformAt(point: PL)(fun: Option[A] => Option[A])(implicit tx: T): Option[A] = {
       require(hyperCube.containsP(point), s"$point lies out of root hyper-cube $hyperCube")
 
       val p0 = findP0(point)
@@ -1447,10 +1445,10 @@ object DetSkipOctree {
      * @return  the `Leaf` child in this node associated with the given
      *          `point`, or `empty` if no such leaf exists.
      */
-    private[this] def findLeafInP0(b: LeftBranch, point: PL): LeafOrEmpty = {
+    private[this] def findLeafInP0(b: LeftBranch, point: PL)(implicit tx: T): LeafOrEmpty = {
       val qIdx = b.hyperCube.indexOfP(point)
       b.child(qIdx) match {
-        case l: Leaf if pointView(l.value /*, tx*/) == point => l
+        case l: Leaf if pointView(l.value, tx) == point => l
         case _ => Empty
       }
     }
@@ -1465,7 +1463,7 @@ object DetSkipOctree {
      * @return  the node defined by the given search `point`, or `empty`
      *          if no such node exists.
      */
-    private[this] def findP0(point: PL): LeftBranch = {
+    private[this] def findP0(point: PL)(implicit tx: T): LeftBranch = {
       @tailrec def stepLeft(lb: LeftBranch): LeftBranch = {
         val qIdx = lb.hyperCube.indexOfP(point)
         lb.child(qIdx) match {
@@ -1489,7 +1487,7 @@ object DetSkipOctree {
       step(lastTree)
     }
 
-    private[this] def removeLeaf(point: PL, l: Leaf): Unit = {
+    private[this] def removeLeaf(point: PL, l: Leaf)(implicit tx: T): Unit = {
       // this will trigger removals from upper levels
       val skipOk = skipList.remove(l)
       assert(skipOk, s"Leaf $l with point $point was not found in skip list")
@@ -1497,11 +1495,11 @@ object DetSkipOctree {
       l.parent.demoteLeaf(point /* pointView( l.value ) */ , l)
     }
 
-    final def iterator: Iterator[A] = skipList.iterator.map(_.value)
+    final def iterator(implicit tx: T): Iterator[A] = skipList.iterator.map(_.value)
 
     private[this] final class NNIteration[M](val bestLeaf: LeafOrEmpty, val bestDist: M, val rMax: M)
 
-    private[this] final class NN[M](point: PL, metric: DistanceMeasure[M, PL, H])
+    private[this] final class NN[M](point: PL, metric: DistanceMeasure[M, PL, H])(implicit tx: T)
       extends scala.math.Ordering[VisitedNode[M]] {
 
       stat_reset()
@@ -1531,7 +1529,7 @@ object DetSkipOctree {
         while (i < sz) {
           n0.child(i) match {
             case l: Leaf =>
-              val lDist = metric.distance(point, pointView(l.value /*, tx*/))
+              val lDist = metric.distance(point, pointView(l.value, tx))
               if (metric.isMeasureGreater(bestDist, lDist)) {   // found a point that is closer than previously known best result
                 bestDist = lDist
                 bestLeaf = l
@@ -1633,7 +1631,7 @@ object DetSkipOctree {
     }
 
     // note: Iterator is not specialized, hence we can safe use the effort to specialize in A anyway
-    private[this] final class RangeQuery[Area](qs: QueryShape[Area, PL, H]) extends Iterator[A] {
+    private[this] final class RangeQuery[Area](qs: QueryShape[Area, PL, H])(implicit tx: T) extends Iterator[A] {
       val sz: Int = numOrthants
       val stabbing: MQueue[(Branch, Area)] = MQueue.empty
       // Tuple2 is specialized for Long, too!
@@ -1727,7 +1725,7 @@ object DetSkipOctree {
             while (i < sz) {
               nc.child(i) match {
                 case cl: Leaf =>
-                  if (qs.containsP(pointView(cl.value /*, tx*/))) in += cl
+                  if (qs.containsP(pointView(cl.value, tx))) in += cl
                 case cn: ChildBranch =>
                   val q   = cn.hyperCube
                   val ao  = qs.overlapArea(q)
@@ -1784,13 +1782,13 @@ object DetSkipOctree {
     private[this] def readLeftTopBranch(in: DataInput, id: Ident[T])(implicit tx: T): LeftTopBranch = {
       val sz  = numOrthants
 //      val ch  = tx.newVarArray[LeftChild](sz)
-      val ch  = new Array[Var[LeftChild]](sz)
+      val ch  = new Array[Var[T, LeftChild]](sz)
       var i = 0
       while (i < sz) {
-        ch(i) = id.readVar[LeftChild](in)(LeftChildFormat)
+        ch(i) = id.readVar[LeftChild](in)(tx, LeftChildFormat)
         i += 1
       }
-      val nextRef = id.readVar[Next](in)(RightOptionReader)
+      val nextRef = id.readVar[Next](in)(tx, RightOptionReader)
       new LeftTopBranchImpl(octree, id, children = ch, nextRef = nextRef)
     }
 
@@ -1803,13 +1801,13 @@ object DetSkipOctree {
       val hc          = space.hyperCubeFormat.read(in)
       val sz          = numOrthants
 //      val ch          = tx.newVarArray[LeftChild](sz)
-      val ch          = new Array[Var[LeftChild]](sz)
+      val ch          = new Array[Var[T, LeftChild]](sz)
       var i = 0
       while (i < sz) {
-        ch(i) = id.readVar[LeftChild](in)(LeftChildFormat)
+        ch(i) = id.readVar[LeftChild](in)(tx, LeftChildFormat)
         i += 1
       }
-      val nextRef = id.readVar[Next](in)(RightOptionReader)
+      val nextRef = id.readVar[Next](in)(tx, RightOptionReader)
       new LeftChildBranchImpl(octree, id, parentRef, hc, children = ch, nextRef = nextRef)
     }
     
@@ -1821,13 +1819,13 @@ object DetSkipOctree {
       val prev  = TopBranchFormat.readT(in)
       val sz    = numOrthants
 //      val ch    = tx.newVarArray[RightChild](sz)
-      val ch    = new Array[Var[RightChild]](sz)
+      val ch    = new Array[Var[T, RightChild]](sz)
       var i = 0
       while (i < sz) {
         ch(i) = id.readVar[RightChild](in)
         i += 1
       }
-      val nextRef = id.readVar[Next](in)(RightOptionReader)
+      val nextRef = id.readVar[Next](in)(tx, RightOptionReader)
       new RightTopBranchImpl(octree, id, prev, ch, nextRef)
     }
 
@@ -1840,18 +1838,17 @@ object DetSkipOctree {
       val prev      = BranchFormat.readT(in)
       val hc        = space.hyperCubeFormat.read(in)
       val sz        = numOrthants
-//      val ch        = tx.newVarArray[RightChild](sz)
-      val ch        = new Array[Var[RightChild]](sz)
+      val ch        = new Array[Var[T, RightChild]](sz)
       var i = 0
       while (i < sz) {
         ch(i) = id.readVar[RightChild](in)
         i += 1
       }
-      val nextRef = id.readVar[Next](in)(RightOptionReader)
+      val nextRef = id.readVar[Next](in)(tx, RightOptionReader)
       new RightChildBranchImpl(octree, id, parentRef, prev, hc, ch, nextRef)
     }
     
-    def debugPrint(): String = {
+    def debugPrint()(implicit tx: T): String = {
       val bs  = new ByteArrayOutputStream()
       val ps  = new PrintStream(bs)
       import ps._
@@ -1902,7 +1899,7 @@ object DetSkipOctree {
      * @return           empty if there were no inconsistencies found, otherwise a list of textual descriptions
      *                   of the problems found
      */
-    private def verifyOctreeConsistency(reportOnly: Boolean): Vec[String] = {
+    private def verifyOctreeConsistency(reportOnly: Boolean)(implicit tx: T): Vec[String] = {
       val q                   = hyperCube
       var level               = numLevels
       var h: Branch           = lastTree
@@ -1989,15 +1986,15 @@ object DetSkipOctree {
             def newNode(b: LeftBranch, qIdx: Int, iq: H): LeftChildBranch = {
               val sz  = numOrthants // b.children.length
 //              val ch  = tx.newVarArray[LeftChild](sz)
-              val ch  = new Array[Var[LeftChild]](sz)
+              val ch  = new Array[Var[T, LeftChild]](sz)
               val cid = tx.newId()
               var i = 0
               while (i < sz) {
-                ch(i) = cid.newVar[LeftChild](Empty)(LeftChildFormat)
+                ch(i) = cid.newVar[LeftChild](Empty)(tx, LeftChildFormat)
                 i += 1
               }
-              val parentRef   = cid.newVar[LeftBranch](b    )(LeftBranchFormat)
-              val rightRef    = cid.newVar[Next      ](Empty)(RightOptionReader   )
+              val parentRef   = cid.newVar[LeftBranch](b    )(tx, LeftBranchFormat)
+              val rightRef    = cid.newVar[Next      ](Empty)(tx, RightOptionReader   )
               val n           = new LeftChildBranchImpl(
                 octree, cid, parentRef, iq, children = ch, nextRef = rightRef
               )
@@ -2037,7 +2034,7 @@ object DetSkipOctree {
             h match {
               case lb: LeftBranch =>
                 pointsOnlyInNext.foreach { leaf =>
-                  val point = pointView(leaf.value /*, tx*/)
+                  val point = pointView(leaf.value, tx)
 
                   @tailrec
                   def goDown(b: LeftBranch): Unit = {
@@ -2075,7 +2072,7 @@ object DetSkipOctree {
      * @param reportOnly if `true` simply scans the tree, if `false` it will apply corrections if necessary
      * @return  empty if no problems were found, otherwise a list of strings describing the problems found
      */
-    def verifyConsistency(reportOnly: Boolean): Vec[String] = {
+    def verifyConsistency(reportOnly: Boolean)(implicit tx: T): Vec[String] = {
       var errors    = Vec.empty[String]
       var repair    = !reportOnly
 
@@ -2088,7 +2085,7 @@ object DetSkipOctree {
       // Take skip list as reference. Find if octree levels do not match skip list levels,
       // or whether points in the skip list are not found in the octree.
       skipList.iterator.foreach { leaf =>
-        val pv = pointView(leaf.value /*, tx*/)
+        val pv = pointView(leaf.value, tx)
 
         @tailrec def findLeaf(b: Branch = lastTree,
                               lvl: Int = numLevels, doPrint: Boolean = false): Option[(Branch, Int)] = {
@@ -2167,7 +2164,7 @@ object DetSkipOctree {
               if (repair) {
                 println(s"\n============== BEFORE REMOVING $l ==============")
                 println(debugPrint())
-                b.demoteLeaf(pointView(l.value /*, tx*/), l)
+                b.demoteLeaf(pointView(l.value, tx), l)
                 println(s"\n============== AFTER REMOVING $l ==============")
                 println(debugPrint())
                 return  // XXX dirty - but if there is more than one wrong leaf, continuing may reinstall a lonely parent
@@ -2199,8 +2196,8 @@ object DetSkipOctree {
 sealed trait DetSkipOctree[T <: Exec[T], PL, P, H, A]
   extends SkipOctree[T, PL, P, H, A] {
 
-  def verifyConsistency(reportOnly: Boolean): Vec[String]
+  def verifyConsistency(reportOnly: Boolean)(implicit tx: T): Vec[String]
 
   def headTree: DetSkipOctree.LeftTopBranch[T, PL, P, H, A]
-  def lastTree: DetSkipOctree.TopBranch [T, PL, P, H, A]
+  def lastTree(implicit tx: T): DetSkipOctree.TopBranch [T, PL, P, H, A]
 }

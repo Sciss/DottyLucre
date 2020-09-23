@@ -17,7 +17,7 @@ import de.sciss.lucre.{Exec, Mutable}
 import de.sciss.serial.DataOutput
 
 trait MutableImpl[T <: Exec[T]] extends Mutable[T] {
-  final override def dispose(): Unit = {
+  final override def dispose()(implicit tx: T): Unit = {
     id.dispose()
     disposeData()
   }
@@ -27,7 +27,7 @@ trait MutableImpl[T <: Exec[T]] extends Mutable[T] {
     writeData(out)
   }
 
-  protected def disposeData(): Unit
+  protected def disposeData()(implicit tx: T): Unit
   protected def writeData(out: DataOutput): Unit
 
   override def toString = s"${super.toString}$id"

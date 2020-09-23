@@ -16,19 +16,19 @@ package de.sciss.lucre
 import de.sciss.serial
 import de.sciss.serial.{DataInput, TFormat}
 
-trait Ident[T <: Exec[T]] extends Disposable with serial.Writable {
+trait Ident[T <: Exec[T]] extends Disposable[T] with serial.Writable {
   
-  def newVar[A](init: A)(implicit format: TFormat[T, A]): Var[A]
+  def newVar[A](init: A)(implicit tx: T, format: TFormat[T, A]): Var[T, A]
 
-  def newBooleanVar(init: Boolean): Var[Boolean]
-  def newIntVar    (init: Int    ): Var[Int]
-  def newLongVar   (init: Long   ): Var[Long]
+  def newBooleanVar(init: Boolean)(implicit tx: T): Var[T, Boolean]
+  def newIntVar    (init: Int    )(implicit tx: T): Var[T, Int]
+  def newLongVar   (init: Long   )(implicit tx: T): Var[T, Long]
 
-  def readVar[A](in: DataInput)(implicit format: TFormat[T, A]): Var[A]
+  def readVar[A](in: DataInput)(implicit tx: T, format: TFormat[T, A]): Var[T, A]
 
-  def readBooleanVar(in: DataInput): Var[Boolean]
-  def readIntVar    (in: DataInput): Var[Int]
-  def readLongVar   (in: DataInput): Var[Long]
+  def readBooleanVar(in: DataInput)(implicit tx: T): Var[T, Boolean]
+  def readIntVar    (in: DataInput)(implicit tx: T): Var[T, Int]
+  def readLongVar   (in: DataInput)(implicit tx: T): Var[T, Long]
 
   /** Ensures that the identifier is actually valid in the current transaction. */
   def ! (implicit tx: T): tx.Id

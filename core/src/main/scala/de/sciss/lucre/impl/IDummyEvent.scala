@@ -33,7 +33,7 @@ object IDummyEvent {
 
     private[lucre] def pullUpdate(pull: IPull[T])(implicit tx: T): Option[Any] = None
 
-    def react(fun: T => Any => Unit)(implicit tx: T): TDisposable[T] = TDisposable.empty[T]
+    def react(fun: T => Any => Unit)(implicit tx: T): Disposable[T] = Disposable.empty[T]
   }
 
   private final class ChangeImpl[T <: Exec[T]] extends IChangeEvent[T, Any] {
@@ -44,6 +44,6 @@ object IDummyEvent {
 
     private[lucre] def pullChange(pull: IPull[T])(implicit tx: T, phase: IPull.Phase): Any = ()
 
-    def react(fun: T => Change[Any] => Unit)(implicit tx: T): TDisposable[T] = TDisposable.empty[T]
+    def react(fun: T => Change[Any] => Unit)(implicit tx: T): Disposable[T] = Disposable.empty[T]
   }
 }

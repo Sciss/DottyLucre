@@ -45,7 +45,7 @@ object Elem {
 /** An `Elem` is any type that is globally registered
  * via `Elem.addType` and can be de-serialized through `Elem.read`.
  */
-trait Elem[T <: Txn[T]] extends Form[T] with Writable with Disposable /*with Publisher[T, Any]*/ {
+trait Elem[T <: Txn[T]] extends Form[T] with Writable with Disposable[T] /*with Publisher[T, Any]*/ {
   def tpe: Elem.Type
 
   /** Selects an event during dispatch. Elements that do not provide events
@@ -54,5 +54,5 @@ trait Elem[T <: Txn[T]] extends Form[T] with Writable with Disposable /*with Pub
   private[lucre] def event(slot: Int): Event[T, Any]
 
   /** Makes a deep copy of an element, possibly translating it to a different system `Out`. */
-  private[lucre] def copy[Out <: Txn[Out]]()(implicit txOut: Out, context: Copy[T, Out]): Elem[Out]
+  private[lucre] def copy[Out <: Txn[Out]]()(implicit txIn: T, txOut: Out, context: Copy[T, Out]): Elem[Out]
 }

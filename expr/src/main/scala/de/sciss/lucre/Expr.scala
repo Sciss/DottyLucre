@@ -47,7 +47,7 @@ object Expr {
     type E[T <: Txn[T]] = Repr[T] // yeah, well, we're waiting for Dotty
     // N.B.: this causes trouble:
     //     type Var  [T <: Txn[T]] = Repr[T] with expr.Expr.Var  [S, A, _Ex]
-    type Var  [T <: Txn[T]] = Repr[T] with lucre.Var[Repr[T]]
+    type Var  [T <: Txn[T]] = Repr[T] with lucre.Var[T, Repr[T]]
     type Const[T <: Txn[T]] = Repr[T] with Expr.Const[T, A]
 
     // ---- abstract ----
@@ -67,7 +67,7 @@ object Expr {
         // to some erasure that scalac doesn't warn about
         // if (expr.isInstanceOf[Var[_]]) Some(expr.asInstanceOf[Var[T]]) else None
 
-        if (expr.isInstanceOf[TVar[_, _]]) Some(expr.asInstanceOf[Var[T]]) else None
+        if (expr.isInstanceOf[Var[_]]) Some(expr.asInstanceOf[Var[T]]) else None
       }
     }
 
@@ -95,6 +95,4 @@ object Expr {
  * as a binary operator (e.g., an integer expression that sums two input
  * integer expressions).
  */
-trait Expr[T <: Txn[T], +A] extends ExprLike[T, A] with Obj[T] with Publisher[T, Change[A]] {
-  def value: A
-}
+trait Expr[T <: Txn[T], +A] extends ExprLike[T, A] with Obj[T] with Publisher[T, Change[A]]

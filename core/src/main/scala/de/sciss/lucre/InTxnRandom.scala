@@ -13,13 +13,13 @@
 
 package de.sciss.lucre
 
-import de.sciss.lucre.impl.TRandomImpl.{BaseImpl, calcSeedUniquifier, initialScramble}
+import de.sciss.lucre.impl.RandomImpl.{BaseImpl, calcSeedUniquifier, initialScramble}
 
 import scala.concurrent.stm.{InTxn, Ref => STMRef}
 
 object InTxnRandom {
-  def apply():           TRandom[InTxn] = apply(calcSeedUniquifier() ^ System.nanoTime())
-  def apply(seed: Long): TRandom[InTxn] = new Impl(STMRef(initialScramble(seed)))
+  def apply():           Random[InTxn] = apply(calcSeedUniquifier() ^ System.nanoTime())
+  def apply(seed: Long): Random[InTxn] = new Impl(STMRef(initialScramble(seed)))
 
   private final class Impl(seedRef: STMRef[Long]) extends BaseImpl[InTxn] {
     def rawSeed_=(value: Long)(implicit tx: InTxn): Unit = seedRef() = value

@@ -47,7 +47,7 @@ trait Exec[T <: Exec[T]] {
    * @param format    used to write and freshly read the object
    * @return              the handle
    */
-  def newHandle[A](value: A)(implicit format: TFormat[T, A]): TSource[T, A]
+  def newHandle[A](value: A)(implicit format: TFormat[T, A]): Source[T, A]
 }
 
 trait AnyExec extends Exec[AnyExec]

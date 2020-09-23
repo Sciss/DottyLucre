@@ -16,6 +16,7 @@ object NNPerf extends App {
   while (j <= 262144 * 4) {
     i.step { implicit tx =>
       val cube  = IntSquare(j >> 1, j >> 1, j >> 1)
+      import SkipOctree.nonTxnPointView
       val tree  = SkipOctree.empty[T, IntPoint2DLike, IntPoint2D, IntSquare, IntPoint2D](cube)
       val ins   = (0 until j by down).map { i => IntPoint2D(i, j >> 1) }
       val v     = IntPoint2D(0, j - 1)

@@ -24,17 +24,19 @@ object SkipOctree {
     (a, _) => view(a)
 
   def empty[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](hyperCube: H)
-                                      (implicit tx: T, view: (A) => PL, space: Space[PL, P, H],
+                                      (implicit tx: T, pointView: (A, T) => PL, space: Space[PL, P, H],
                                        keyFormat: TFormat[T, A]): SkipOctree[T, PL, P, H, A] =
     DetSkipOctree.empty[T, PL, P, H, A](hyperCube)
 
-  def read[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](in: DataInput)(implicit tx: T, view: (A) => PL,
-                                                            space: Space[PL, P, H],
-                                                            keyFormat: TFormat[T, A]): SkipOctree[T, PL, P, H, A] =
+  def read[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](in: DataInput)
+                                                         (implicit tx: T, pointView: (A, T) => PL,
+                                                          space: Space[PL, P, H],
+                                                          keyFormat: TFormat[T, A]): SkipOctree[T, PL, P, H, A] =
     DetSkipOctree.read[T, PL, P, H, A](in)
 
-  implicit def format[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A) => PL, space: Space[PL, P, H],
-                                                     keyFormat: TFormat[T, A]): TFormat[T, SkipOctree[T, PL, P, H, A]] =
+  implicit def format[T <: Exec[T], PL, P,
+    H <: HyperCube[PL, H], A](implicit view: (A) => PL, space: Space[PL, P, H],
+                              keyFormat: TFormat[T, A]): TFormat[T, SkipOctree[T, PL, P, H, A]] =
     new Fmt[T, PL, P, H, A]
 
   private final class Fmt[T <: Exec[T], PL, P, H <: HyperCube[PL, H], A](implicit view: (A) => PL, space: Space[PL, P, H],
@@ -58,13 +60,13 @@ trait SkipOctree[T <: Exec[T], PL, P, H, A] extends Mutable[T] {
   def space: Space[PL, P, H]
 
   /** A function which maps an element (possibly through transactional access) to a geometric point coordinate. */
-  def pointView: A /*(A, T)*/ => PL
+  def pointView: (A, T) => PL
 
   /** The base square of the tree. No point can lie outside this square (or hyper-cube). */
   def hyperCube: H
 
   /** Reports the number of decimation levels in the tree. */
-  def numLevels: Int
+  def numLevels(implicit tx: T): Int
 
   /** The number of orthants in each hyperCube. This is equal
    * to `1 << numDimensions` and gives the upper bound
@@ -77,14 +79,14 @@ trait SkipOctree[T <: Exec[T], PL, P, H, A] extends Mutable[T] {
    * @param point  the point to look up.
    * @return `Some` element if found, `None` if the point was not present.
    */
-  def get(point: PL): Option[A]
+  def get(point: PL)(implicit tx: T): Option[A]
 
   /** Queries whether an element is stored at a given point.
    *
    * @param point  the point to query
    * @return   `true` if an element is associated with the query point, `false` otherwise
    */
-  def isDefinedAt(point: PL): Boolean
+  def isDefinedAt(point: PL)(implicit tx: T): Boolean
 
   /** Removes the element stored under a given point view.
    *
@@ -92,12 +94,12 @@ trait SkipOctree[T <: Exec[T], PL, P, H, A] extends Mutable[T] {
    * @return  the element removed, wrapped as `Some`, or `None` if no element was
    *          found for the given point.
    */
-  def removeAt(point: PL): Option[A]
+  def removeAt(point: PL)(implicit tx: T): Option[A]
 
   /** Queries the number of leaves in the tree. This may be a very costly action,
    * so it is recommended to only use it for debugging purposes.
    */
-  def size: Int
+  def size(implicit tx: T): Int
 
   /** Adds an element to the tree (or replaces a given element with the same point location).
    *
@@ -106,7 +108,7 @@ trait SkipOctree[T <: Exec[T], PL, P, H, A] extends Mutable[T] {
    *          same point view is overwritten, this is `true` if the elements were
    *          '''not equal''', `false` if they were equal
    */
-  def add(elem: A): Boolean
+  def add(elem: A)(implicit tx: T): Boolean
 
   /** Looks up a point and applies a transformation to the entry associated with it.
    * This can be used to update an element in-place, or used for maintaining a spatial multi-map.
@@ -118,39 +120,39 @@ trait SkipOctree[T <: Exec[T], PL, P, H, A] extends Mutable[T] {
    *             (in this case, if an element was previously stored, it is removed)
    * @return     the previously stored element (if any)
    */
-  def transformAt(point: PL)(fun: Option[A] => Option[A]): Option[A]
+  def transformAt(point: PL)(fun: Option[A] => Option[A])(implicit tx: T): Option[A]
 
   /** Removes an element from the tree
    *
    * @param   elem  the element to remove
    * @return  `true` if the element had been found in the tree and thus been removed.
    */
-  def remove(elem: A): Boolean
+  def remove(elem: A)(implicit tx: T): Boolean
 
   /** Adds an element to the tree (or replaces a given element with the same point location).
    *
    * @param   elem  the element to add to the tree
    * @return  the old element stored for the same point view, if it existed
    */
-  def update(elem: A): Option[A]
+  def update(elem: A)(implicit tx: T): Option[A]
 
-  def rangeQuery[Area](qs: QueryShape[Area, PL, H]): Iterator[A]
+  def rangeQuery[Area](qs: QueryShape[Area, PL, H])(implicit tx: T): Iterator[A]
 
   /** Tests whether the tree contains an element. */
-  def contains(elem: A): Boolean
+  def contains(elem: A)(implicit tx: T): Boolean
 
   /** Tests whether the tree is empty (`true`) or whether it contains any elements (`false`). */
-  def isEmpty: Boolean
+  def isEmpty(implicit tx: T): Boolean
 
   /** Converts the tree into a linearized indexed sequence. This is not necessarily a
    * very efficient method, and should usually just be used for debugging.
    */
-  def toIndexedSeq: Vec[A]
+  def toIndexedSeq(implicit tx: T): Vec[A]
 
   /** Converts the tree into a linearized list. This is not necessarily a
    * very efficient method, and should usually just be used for debugging.
    */
-  def toList: List[A]
+  def toList(implicit tx: T): List[A]
 
   /** Converts the tree into a linearized sequence. This is not necessarily a
    * very efficient method, and should usually just be used for debugging.
@@ -158,14 +160,14 @@ trait SkipOctree[T <: Exec[T], PL, P, H, A] extends Mutable[T] {
    * produce a `Stream` and thus subject to further changes to the tree while
    * traversing. The returned seq instead is 'forced' and thus stable.
    */
-  def toSeq: Seq[A]
+  def toSeq(implicit tx: T): Seq[A]
 
   /** Converts the tree into a non-transactional set. This is not necessarily a
    * very efficient method, and should usually just be used for debugging.
    */
-  def toSet: Set[A]
+  def toSet(implicit tx: T): Set[A]
 
-  def clear(): Unit
+  def clear()(implicit tx: T): Unit
 
   /** Reports the nearest neighbor entry with respect to
    * a given point.
@@ -182,12 +184,12 @@ trait SkipOctree[T <: Exec[T], PL, P, H, A] extends Mutable[T] {
    *
    * @throws  NoSuchElementException  if the tree is empty
    */
-  def nearestNeighbor[M](point: PL, metric: DistanceMeasure[M, PL, H]): A
+  def nearestNeighbor[M](point: PL, metric: DistanceMeasure[M, PL, H])(implicit tx: T): A
 
   /** Same as `nearestNeighbor` but returning an `Option`, thus not throwing an exception
    * if no neighbor is found.
    */
-  def nearestNeighborOption[M](point: PL, metric: DistanceMeasure[M, PL, H]): Option[A]
+  def nearestNeighborOption[M](point: PL, metric: DistanceMeasure[M, PL, H])(implicit tx: T): Option[A]
 
   /** An `Iterator` which iterates over the points stored
    * in the octree, using an in-order traversal directed
@@ -196,15 +198,15 @@ trait SkipOctree[T <: Exec[T], PL, P, H, A] extends Mutable[T] {
    * Great care has to be taken as the iterator might be corrupted if the tree
    * is successively changed before the iterator is exhausted.
    */
-  def iterator: Iterator[A]
+  def iterator(implicit tx: T): Iterator[A]
 
   /** Adds an element to the tree. If there is already an element stored at the point represented by the
    * new element, it will be replaced. */
-  def +=(elem: A): this.type
+  def +=(elem: A)(implicit tx: T): this.type
 
   /** Removes an element from the tree. If the element is not found, this operation does nothing. */
-  def -=(elem: A): this.type
+  def -=(elem: A)(implicit tx: T): this.type
 
   /** Returns a string debug representation of the octree. */
-  def debugPrint(): String
+  def debugPrint()(implicit tx: T): String
 }

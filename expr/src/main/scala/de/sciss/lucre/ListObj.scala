@@ -51,17 +51,17 @@ object ListObj extends Obj.Type {
    * Removal of the head or last element is O(1). Arbitrary removal takes O(N).
    */
   trait Modifiable[T <: Txn[T], A] extends ListObj[T, A] with Event.Node[T] {
-    def addLast(elem: A): Unit
-    def addHead(elem: A): Unit
+    def addLast(elem: A)(implicit tx: T): Unit
+    def addHead(elem: A)(implicit tx: T): Unit
 
-    def removeLast(): A
-    def removeHead(): A
+    def removeLast()(implicit tx: T): A
+    def removeHead()(implicit tx: T): A
 
-    def insert  (index: Int, elem: A): Unit
-    def remove  (elem: A): Boolean
-    def removeAt(index: Int): A
+    def insert  (index: Int, elem: A)(implicit tx: T): Unit
+    def remove  (elem: A)(implicit tx: T): Boolean
+    def removeAt(index: Int)(implicit tx: T): A
 
-    def clear(): Unit
+    def clear()(implicit tx: T): Unit
 
     override def changed: EventLike[T, Update[T, A, Modifiable[T, A]]]
   }
@@ -84,23 +84,23 @@ object ListObj extends Obj.Type {
  * @tparam A      the element type of the list
  */
 trait ListObj[T <: Txn[T], A] extends Obj[T] with Publisher[T, ListObj.Update[T, A, ListObj[T, A]]] {
-  def isEmpty : Boolean
-  def nonEmpty: Boolean
-  def size    : Int
+  def isEmpty (implicit tx: T): Boolean
+  def nonEmpty(implicit tx: T): Boolean
+  def size    (implicit tx: T): Int
 
-  def apply(index: Int): A
-  def get  (index: Int): Option[A]
+  def apply(index: Int)(implicit tx: T): A
+  def get  (index: Int)(implicit tx: T): Option[A]
 
-  def headOption: Option[A]
-  def lastOption: Option[A]
+  def headOption(implicit tx: T): Option[A]
+  def lastOption(implicit tx: T): Option[A]
 
-  def head: A
-  def last: A
+  def head(implicit tx: T): A
+  def last(implicit tx: T): A
 
-  def iterator: Iterator[A]
+  def iterator(implicit tx: T): Iterator[A]
 
   def modifiableOption: Option[ListObj.Modifiable[T, A]]
 
   /** Note: this is an O(n) operation. */
-  def indexOf(elem: A): Int
+  def indexOf(elem: A)(implicit tx: T): Int
 }

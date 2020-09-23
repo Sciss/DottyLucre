@@ -44,27 +44,27 @@ object SkipList {
   }
 
   object Set {
-    def empty[T <: Exec[T], A](implicit tx: T, ord: Ordering[A],
+    def empty[T <: Exec[T], A](implicit tx: T, ord: TOrdering[T, A],
                                keyFormat: TFormat[T, A]): SkipList.Set[T, A] =
       HASkipList.Set.empty[T, A]
 
     def empty[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
-                              (implicit tx: T, ord: Ordering[A],
+                              (implicit tx: T, ord: TOrdering[T, A],
                                keyFormat: TFormat[T, A]): SkipList.Set[T, A] =
       HASkipList.Set.empty[T, A](keyObserver = keyObserver)
 
     def read[T <: Exec[T], A](in: DataInput, keyObserver: SkipList.KeyObserver[T, A] = NoKeyObserver)
-                             (implicit tx: T, ord: Ordering[A],
+                             (implicit tx: T, ord: TOrdering[T, A],
                               keyFormat: TFormat[T, A]): SkipList.Set[T, A] =
       HASkipList.Set.read[T, A](in, keyObserver)
 
     implicit def format[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A] = SkipList.NoKeyObserver)
-                                            (implicit ord: Ordering[/*T,*/ A],
+                                            (implicit ord: TOrdering[T, A],
                                              keyFormat: TFormat[T, A]): TFormat[T, Set[T, A]] =
       new SetFmt[T, A](keyObserver)
 
     private final class SetFmt[T <: Exec[T], A](keyObserver: SkipList.KeyObserver[T, A])
-                                               (implicit ord: Ordering[/*T,*/ A],
+                                               (implicit ord: TOrdering[T, A],
                                                 keyFormat: TFormat[T, A])
       extends WritableFormat[T, Set[T, A]] {
 
@@ -120,20 +120,20 @@ object SkipList {
      * @return  `true` if the key was new to the set,
      *          `false` if a node with the given key already existed
      */
-    def add(key: A): Boolean
+    def add(key: A)(implicit tx: T): Boolean
 
     /** Removes a key from the set.
      *
      * @param key  the key to remove
      * @return     `true` if the key was found and removed, `false` if it was not found
      */
-    def remove(key: A): Boolean
+    def remove(key: A)(implicit tx: T): Boolean
   }
 
-  trait Map[T <: Exec[T], /* @spec(KeySpec) */ A, /* @spec(ValueSpec) */ B] extends SkipList[T, A, (A, B)] {
+  trait Map[T <: Exec[T], A, B] extends SkipList[T, A, (A, B)] {
 
-    def keysIterator  : Iterator[A]
-    def valuesIterator: Iterator[B]
+    def keysIterator  (implicit tx: T): Iterator[A]
+    def valuesIterator(implicit tx: T): Iterator[B]
 
     /** Inserts a new entry into the map.
      *
@@ -141,25 +141,25 @@ object SkipList {
      * @param   value  the entry's value to insert
      * @return  the previous value stored at the key, or `None` if the key was not in the map
      */
-    def put(key: A, value: B): Option[B]
+    def put(key: A, value: B)(implicit tx: T): Option[B]
 
     /** Removes an entry from the map.
      *
      * @param   key  the key to remove
      * @return  the removed value which had been stored at the key, or `None` if the key was not in the map
      */
-    def remove(key: A): Option[B]
+    def remove(key: A)(implicit tx: T): Option[B]
 
     /** Queries the value for a given key.
      *
      * @param key  the key to look for
      * @return     the value if it was found at the key, otherwise `None`
      */
-    def get(key: A): Option[B]
+    def get(key: A)(implicit tx: T): Option[B]
 
-    def getOrElse[B1 >: B](key: A, default: => B1): B1
+    def getOrElse[B1 >: B](key: A, default: => B1)(implicit tx: T): B1
 
-    def getOrElseUpdate(key: A, op: => B): B
+    def getOrElseUpdate(key: A, op: => B)(implicit tx: T): B
   }
 }
 
@@ -169,7 +169,7 @@ trait SkipList[T <: Exec[T], A, E] extends Mutable[T] {
    * @param   key   the key to search for
    * @return  `true` if the key is in the list, `false` otherwise
    */
-  def contains(key: A): Boolean
+  def contains(key: A)(implicit tx: T): Boolean
 
   /** Finds the entry with the largest key which is smaller than or equal to the search key.
    *
@@ -177,7 +177,7 @@ trait SkipList[T <: Exec[T], A, E] extends Mutable[T] {
    * @return     the found entry, or `None` if there is no key smaller than or equal
    *             to the search key (e.g. the list is empty)
    */
-  def floor(key: A): Option[E]
+  def floor(key: A)(implicit tx: T): Option[E]
 
   /** Finds the entry with the smallest key which is greater than or equal to the search key.
    *
@@ -185,29 +185,29 @@ trait SkipList[T <: Exec[T], A, E] extends Mutable[T] {
    * @return     the found entry, or `None` if there is no key greater than or equal
    *             to the search key (e.g. the list is empty)
    */
-  def ceil(key: A): Option[E]
+  def ceil(key: A)(implicit tx: T): Option[E]
 
   /** Returns the first element. Throws an exception if the list is empty. */
-  def head: E
+  def head(implicit tx: T): E
 
   /** Returns the first element, or `None` if the list is empty. */
-  def headOption: Option[E]
+  def headOption(implicit tx: T): Option[E]
 
   /** Returns the last element. Throws an exception if the list is empty. */
-  def last: E
+  def last(implicit tx: T): E
 
-  def firstKey: A
-  def lastKey : A
+  def firstKey(implicit tx: T): A
+  def lastKey (implicit tx: T): A
 
   /** Returns the last element, or `None` if the list is empty. */
-  def lastOption: Option[E]
+  def lastOption(implicit tx: T): Option[E]
 
-  def toIndexedSeq: Vec[E]
-  def toList      : List[E]
-  def toSeq       : Seq[E]
-  def toSet       : Set[E]
+  def toIndexedSeq(implicit tx: T): Vec[E]
+  def toList      (implicit tx: T): List[E]
+  def toSeq       (implicit tx: T): Seq[E]
+  def toSet       (implicit tx: T): Set[E]
 
-  def clear(): Unit
+  def clear()(implicit tx: T): Unit
 
   /** Finds the nearest item equal or greater
    * than an unknown item from an isomorphic
@@ -224,32 +224,32 @@ trait SkipList[T <: Exec[T], A, E] extends Mutable[T] {
    *
    * @return  the nearest item, or the maximum item
    */
-  def isomorphicQuery(compare: A => Int): (E, Int)
+  def isomorphicQuery(compare: A => Int)(implicit tx: T): (E, Int)
 
   // ---- stuff lost from collection.mutable.Set ----
 
-  def +=(entry: E): this.type
-  def -=(key: A)  : this.type
+  def +=(entry: E)(implicit tx: T): this.type
+  def -=(key: A)  (implicit tx: T): this.type
 
-  def isEmpty : Boolean
-  def nonEmpty: Boolean
+  def isEmpty (implicit tx: T): Boolean
+  def nonEmpty(implicit tx: T): Boolean
 
-  def iterator: Iterator[E]
+  def iterator(implicit tx: T): Iterator[E]
 
-  def debugPrint(): String
+  def debugPrint()(implicit tx: T): String
 
   def keyFormat: TFormat[T, A]
 
   /** The number of levels in the skip list. */
-  def height: Int
+  def height(implicit tx: T): Int
 
   /** Reports the number of keys in the skip list (size of the bottom level).
    * This operation may take up to O(n) time, depending on the implementation.
    */
-  def size: Int
+  def size(implicit tx: T): Int
 
   /** The ordering used for the keys of this list. */
-  implicit def ordering: Ordering[/*T,*/ A]
+  implicit def ordering: TOrdering[T, A]
 
   /** The minimum gap within elements of each skip level. */
   def minGap: Int

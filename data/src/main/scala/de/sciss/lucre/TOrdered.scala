@@ -1,5 +1,5 @@
 /*
- *  ConstImpl.scala
+ *  TOrdered.scala
  *  (Lucre)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
@@ -12,12 +12,7 @@
  */
 
 package de.sciss.lucre
-package impl
 
-import de.sciss.model.Change
-
-trait ExprConstImpl[T <: Txn[T], A] extends Expr.Const[T, A] with ConstObjImpl[T, Change[A]] {
-  final def value(implicit tx: T): A = constValue
-
-  override def toString: String = constValue.toString
+trait TOrdered[-Tx, -A] {
+  def compare(that: A)(implicit tx: Tx): Int
 }

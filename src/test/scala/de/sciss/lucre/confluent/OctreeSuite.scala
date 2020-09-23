@@ -7,7 +7,7 @@ import de.sciss.lucre.geom.IntDistanceMeasure3D.MS
 import de.sciss.lucre.geom.IntSpace.ThreeDim
 import de.sciss.lucre.geom.{DistanceMeasure, HyperCube, IntCube, IntDistanceMeasure3D, IntPoint3D, IntPoint3DLike, QueryShape}
 import de.sciss.lucre.store.BerkeleyDB
-import de.sciss.lucre.{Confluent, ConfluentLike, InTxnRandom, TRandom, TestUtil, Cursor => LCursor, TSource => LTSource}
+import de.sciss.lucre.{Confluent, ConfluentLike, InTxnRandom, Random, TestUtil, Cursor => LCursor, Source => LTSource}
 import org.scalatest.GivenWhenThen
 import org.scalatest.featurespec.AnyFeatureSpec
 
@@ -30,7 +30,7 @@ class OctreeSuite extends AnyFeatureSpec with GivenWhenThen {
   val n             = 0x800   // too slow -- 0x1000    // tree size ;  0xE0    // 0x4000 is the maximum acceptable speed
   val n2: Int       = n >> 3  // 0x1000    // range query and nn
 
-  val rnd: TRandom[InTxn] = InTxnRandom(2L) // ( 12L )
+  val rnd: Random[InTxn] = InTxnRandom(2L) // ( 12L )
 
   val cube: IntCube = IntCube(0x40000000, 0x40000000, 0x40000000, 0x40000000)
 
@@ -41,7 +41,7 @@ class OctreeSuite extends AnyFeatureSpec with GivenWhenThen {
     withTree[T](sysName, () => {
       val system = sysCreator()
       // import SpaceFormats.{IntPoint3DFormat, IntCubeFormat}
-//      implicit val pointView = (p: IntPoint3D /*, _: Any*/ ) => p
+      implicit val pointView = (p: IntPoint3D, _: Any) => p
 //      implicit val ser = DetSkipOctree.format[T, IntPoint3DLike, IntPoint3D, IntCube, IntPoint3D]
       val (access, cursor) = system.cursorRoot { implicit tx =>
         DetSkipOctree.empty[T, IntPoint3DLike, IntPoint3D, IntCube, IntPoint3D](cube)

@@ -27,8 +27,8 @@ object BiPinImpl {
   type Tree[T <: Txn[T], A] = SkipList.Map[T, Long, Leaf[T, A]]
 
   def newEntry[T <: Txn[T], A <: Elem[T]](key: LongObj[T], value: A)(implicit tx: T): Entry[T, A] =
-    if (Expr.isConst(key))     ConstEntry(            key, value)
-    else                   new NodeEntry (Targets[T], key, value).connect()
+    if (Expr.isConst(key))     ConstEntry(              key, value)
+    else                   new NodeEntry (Targets[T](), key, value).connect()
 
   def readEntry[T <: Txn[T], A <: Elem[T]](in: DataInput)(implicit tx: T): Entry[T, A] = {
     val tpe = in.readInt()
@@ -80,7 +80,7 @@ object BiPinImpl {
 
     def changed: EventLike[T, Change[Long]] = DummyEvent[T, Change[Long]]
 
-    private[lucre] override def copy[Out <: Txn[Out]]()(implicit txOut: Out, context: Copy[T, Out]): Elem[Out] =
+    private[lucre] override def copy[Out <: Txn[Out]]()(implicit txIn: T, txOut: Out, context: Copy[T, Out]): Elem[Out] =
       ConstEntry(context(key), context[Elem](value))
   }
 
@@ -91,17 +91,17 @@ object BiPinImpl {
     // ok, it's not really the "root", but the type is the same
     object changed extends Changed with RootEvent[T, Change[Long]]
 
-    private[lucre] override def copy[Out <: Txn[Out]]()(implicit txOut: Out, context: Copy[T, Out]): Elem[Out] =
-      new NodeEntry(Targets[Out], context(key), context[Elem](value)).connect()
+    private[lucre] override def copy[Out <: Txn[Out]]()(implicit txIn: T, txOut: Out, context: Copy[T, Out]): Elem[Out] =
+      new NodeEntry(Targets[Out](), context(key), context[Elem](value)).connect()
 
-    protected def disposeData(): Unit = disconnect()
+    protected def disposeData()(implicit tx: T): Unit = disconnect()
 
-    def connect(): this.type = {
+    def connect()(implicit tx: T): this.type = {
       key.changed ---> changed
       this
     }
 
-    private[this] def disconnect(): Unit = {
+    private[this] def disconnect()(implicit tx: T): Unit = {
       key.changed -/-> changed
     }
   }
@@ -201,7 +201,7 @@ object BiPinImpl {
       def += (elem: Entry[T, A]): Unit = elem.changed ---> this
       def -= (elem: Entry[T, A]): Unit = elem.changed -/-> this
 
-      def pullUpdate(pull: Pull[T]): Option[Update[T, A, Repr]] = {
+      def pullUpdate(pull: Pull[T])(implicit tx: T): Option[Update[T, A, Repr]] = {
         if (pull.isOrigin(this)) return Some(pull.resolve)
 
         val changes: List[Moved[T, A]] = pull.parents(this).iterator.flatMap { evt =>
@@ -226,7 +226,7 @@ object BiPinImpl {
       }
     }
 
-    protected final def disposeData(): Unit = {
+    protected final def disposeData()(implicit tx: T): Unit = {
       tree.iterator.foreach { case (_, xs) =>
         xs.foreach { entry =>
           entry.dispose()
@@ -343,8 +343,7 @@ object BiPinImpl {
 
     final def modifiableOption: Option[BiPin.Modifiable[T, A]] = Some(this)
 
-    private[lucre] final def copy[Out <: Txn[Out]]()(implicit txOut: Out, context: Copy[T, Out]): Elem[Out] = {
-      implicit val txIn: T = tx
+    private[lucre] final def copy[Out <: Txn[Out]]()(implicit txIn: T, txOut: Out, context: Copy[T, Out]): Elem[Out] = {
       new Impl1[Out, E](txOut, Targets[Out]()) { out =>
         val tree: Tree[Out, A] = out.newTree()
         context.defer[PinAux](in, out)(copyTree[T, Out, E, Impl1[Out, E]](in.tree, out.tree, out))

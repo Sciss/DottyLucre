@@ -39,7 +39,7 @@ class OctreeSuite extends AnyFeatureSpec with GivenWhenThen {
       val (system, cursor) = sysCreator()
       val t = cursor.step { implicit tx =>
         import ThreeDim.pointFormat
-//        implicit val pointView: (IntPoint3D, Any) => IntPoint3D = (p, _) => p
+        implicit val pointView: (IntPoint3D, Any) => IntPoint3D = (p, _) => p
         DetSkipOctree.empty[T, IntPoint3DLike, IntPoint3D, IntCube, IntPoint3D](cube)
       }
       (cursor, t, succ => sysCleanUp(system, succ))

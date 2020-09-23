@@ -38,8 +38,8 @@ class RefreshSpec extends FixtureAnyFlatSpec with Matchers {
     }
   }
 
-  class Entity(val id: Ident[T], val field: LVar[Int]) extends MutableImpl[T] {
-    protected def disposeData(): Unit = field.dispose()
+  class Entity(val id: Ident[T], val field: LVar[T, Int]) extends MutableImpl[T] {
+    protected def disposeData()(implicit tx: T): Unit = field.dispose()
 
     protected def writeData(out: DataOutput): Unit = field.write(out)
   }

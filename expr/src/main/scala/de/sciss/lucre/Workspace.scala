@@ -26,10 +26,10 @@ object Workspace {
     private final case class DummyImpl[T <: Txn[T]](system: Sys, cursor: Cursor[T])
       extends Workspace[T] {
 
-      def addDependent   (dep: TDisposable[T])(implicit tx: TxnLike): Unit = ()
-      def removeDependent(dep: TDisposable[T])(implicit tx: TxnLike): Unit = ()
+      def addDependent(dep: Disposable[T])(implicit tx: TxnLike): Unit = ()
+      def removeDependent(dep: Disposable[T])(implicit tx: TxnLike): Unit = ()
 
-      def dependents(implicit tx: TxnLike): Iterable[TDisposable[T]] = Nil
+      def dependents(implicit tx: TxnLike): Iterable[Disposable[T]] = Nil
 
       def folder: Option[File] = None
 
@@ -44,7 +44,7 @@ object Workspace {
     }
   }
 }
-trait Workspace[T <: Txn[T]] extends TDisposable[T] {
+trait Workspace[T <: Txn[T]] extends Disposable[T] {
   implicit def system: Sys
 
   def cursor: Cursor[T]
@@ -60,10 +60,10 @@ trait Workspace[T <: Txn[T]] extends TDisposable[T] {
    *
    * @param dep  the dependent. This must be an _ephemeral_ object.
    */
-  def addDependent   (dep: TDisposable[T])(implicit tx: TxnLike /* T */): Unit
-  def removeDependent(dep: TDisposable[T])(implicit tx: TxnLike /* T */): Unit
+  def addDependent(dep: Disposable[T])(implicit tx: TxnLike /* T */): Unit
+  def removeDependent(dep: Disposable[T])(implicit tx: TxnLike /* T */): Unit
 
-  def dependents(implicit tx: TxnLike): Iterable[TDisposable[T]]
+  def dependents(implicit tx: TxnLike): Iterable[Disposable[T]]
 
   def root(implicit tx: T): Folder[T]
 }

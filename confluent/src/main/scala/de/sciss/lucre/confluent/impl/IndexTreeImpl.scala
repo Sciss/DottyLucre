@@ -14,10 +14,10 @@
 package de.sciss.lucre.confluent.impl
 
 import de.sciss.lucre.data.Ancestor
-import de.sciss.lucre.{DurableLike, TDisposable}
+import de.sciss.lucre.{DurableLike, Disposable}
 import de.sciss.serial.{DataOutput, Writable}
 
-private[impl] trait IndexTree[D <: DurableLike.Txn[D]] extends Writable with TDisposable[D] {
+private[impl] trait IndexTree[D <: DurableLike.Txn[D]] extends Writable with Disposable[D] {
   def tree : Ancestor.Tree[D, Long]
   def level: Int
   def term : Long

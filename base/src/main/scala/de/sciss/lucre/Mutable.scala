@@ -16,4 +16,4 @@ package de.sciss.lucre
 import de.sciss.lucre.{Disposable, Exec, Identified}
 import de.sciss.serial.Writable
 
-trait Mutable[T <: Exec[T]] extends Identified[T] with Writable with Disposable
+trait Mutable[T <: Exec[T]] extends Identified[T] with Writable with Disposable[T]

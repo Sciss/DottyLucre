@@ -17,7 +17,7 @@ package impl
 import de.sciss.lucre.confluent.Log.log
 import de.sciss.lucre.confluent.impl.{PathImpl => Path}
 import de.sciss.lucre.impl.BasicTxnImpl
-import de.sciss.lucre.{Confluent, Durable, DurableLike, IdentMap, InMemory, Obj, ReactionMap, TMap, Ident => LIdent}
+import de.sciss.lucre.{Confluent, Durable, DurableLike, IdentMap, InMemory, Obj, ReactionMap, MapObj, Ident => LIdent}
 import de.sciss.serial.{ConstFormat, DataInput, TFormat}
 
 import scala.collection.immutable.{IndexedSeq => Vec, Queue => IQueue}
@@ -118,7 +118,7 @@ trait TxnMixin[Tx <: Txn[Tx]]
   // final protected def partialCache  = system.partialCache
 
   final def newId(): Id = {
-    val res = new ConfluentId[T](this, system.newIdValue()(this), Path.empty[T])
+    val res = new ConfluentId[T](system.newIdValue()(this), Path.empty[T])
     log(s"txn newId $res")
     res
   }
@@ -150,7 +150,7 @@ trait TxnMixin[Tx <: Txn[Tx]]
     val mBase     = id.base | 0x80000000  // XXX TODO --- a bit cheesy to throw away one bit entirely
     val mapOpt    = fullCache.getCacheTxn[Obj.AttrMap[T]](mBase, this)(id.path, Obj.attrMapFormat)
     mapOpt.getOrElse {
-      val map = TMap.Modifiable[T, String, Obj]()(TMap.Key.String, this)
+      val map = MapObj.Modifiable[T, String, Obj]()(MapObj.Key.String, this)
       fullCache.putCacheTxn[Obj.AttrMap[T]](mBase, map, this)(id.path, Obj.attrMapFormat)
       markDirty()
       map
@@ -194,13 +194,13 @@ trait TxnMixin[Tx <: Txn[Tx]]
     }
   }
 
-  final def newHandle[A](value: A)(implicit format: TFormat[T, A]): TSource[T, A] = {
+  final def newHandle[A](value: A)(implicit format: TFormat[T, A]): Source[T, A] = {
     val h = new HandleImpl[T, A](value, inputAccess.index)
     addDirtyLocalCache(h)
     h
   }
 
-  final def newHandleM[A](value: A)(implicit format: TFormat[T, A]): TSource[T, A] =
+  final def newHandleM[A](value: A)(implicit format: TFormat[T, A]): Source[T, A] =
     newHandle(value)
 
   final def getNonTxn[A](id: Id)(implicit format: ConstFormat[A]): A = {
@@ -265,16 +265,14 @@ trait TxnMixin[Tx <: Txn[Tx]]
 //    res
 //  }
 
-//  final def newVarArray[A](size: Int): Array[Var[A]] = new Array[Var[A]](size)
-
   override final def newIdentMap[A]: IdentMap[LIdent[T], T, A] = {
     val map = InMemoryConfluentMap.newIntMap[T]
     new InMemoryIdMapImpl[T, A](map)
   }
 
-  override final def readId(in: DataInput)/*(implicit acc: Acc)*/: Id = {
+  override final def readId(in: DataInput): Id = {
     val base  = in./* PACKED */ readInt()
-    val res   = new ConfluentId(this, base, Path.readAndAppend[T](in, readAccess)(this))
+    val res   = new ConfluentId(base, Path.readAndAppend[T](in, readAccess)(this))
     log(s"txn readId $res")
     res
   }

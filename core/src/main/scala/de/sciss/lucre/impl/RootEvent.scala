@@ -18,7 +18,7 @@ package impl
  * implementation of `pull` which merely checks if this event has fired or not.
  */
 trait RootEvent[T <: Txn[T], +A] extends Event[T, A] {
-  private[lucre] final def pullUpdate(pull: Pull[T]): Option[A] = Some(pull.resolve[A])
+  private[lucre] final def pullUpdate(pull: Pull[T])(implicit tx: T): Option[A] = Some(pull.resolve[A])
 }
 
 /** A generator without further sources. */

@@ -50,7 +50,7 @@ object CursorImpl {
 
   def newData[T <: Txn[T], D <: LTxn[D]](init: Access[T] = Access.root[T])(implicit tx: D): Data[T, D] = {
     val id    = tx.newId()
-    val path  = id.newVar(init)(pathFormat[T, D])
+    val path  = id.newVar(init)(tx, pathFormat[T, D])
     new DataImpl[T, D](id, path)
   }
 
@@ -69,11 +69,11 @@ object CursorImpl {
     val cookie  = in.readShort()
     if (cookie != COOKIE) throw new IllegalStateException(s"Unexpected cookie $cookie (should be $COOKIE)")
     val id      = tx.readId(in) // implicitly[Format[D#Tx, D#Acc, D#Id]].read(in)
-    val path    = id.readVar[Access[T]](in)(pathFormat[T, D])
+    val path    = id.readVar[Access[T]](in)(tx, pathFormat[T, D])
     new DataImpl[T, D](id, path)
   }
 
-  private final class DataImpl[T <: Txn[T], D <: LTxn[D]](val id: LIdent[D], val path: LVar[Access[T]])
+  private final class DataImpl[T <: Txn[T], D <: LTxn[D]](val id: LIdent[D], val path: LVar[D, Access[T]])
     extends Data[T, D] {
 
     def write(out: DataOutput): Unit = {
@@ -134,7 +134,7 @@ object CursorImpl {
     }
 
     def flushCache(term: Long)(implicit tx: T): Unit = {
-//      implicit val dtx: D1 = system.durableTx(tx)
+      implicit val dtx: D1 = system.durableTx(tx)
       val newPath = tx.inputAccess.addTerm(term)
       data.path() = newPath
       logCursor(s"${data.id} flush path = $newPath")

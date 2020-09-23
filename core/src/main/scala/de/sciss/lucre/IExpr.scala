@@ -13,9 +13,11 @@
 
 package de.sciss.lucre
 
+import de.sciss.lucre
+
 object IExpr {
-  trait Var[T <: Exec[T], A] extends IExpr[T, A] with TVar[T, IExpr[T, A]]
+  trait Var[T <: Exec[T], A] extends IExpr[T, A] with lucre.Var[T, IExpr[T, A]]
 }
-trait IExpr[T <: Exec[T], +A] extends ExprLike[T, A] with IChangePublisher[T, A] with TDisposable[T] {
+trait IExpr[T <: Exec[T], +A] extends ExprLike[T, A] with IChangePublisher[T, A] with Disposable[T] {
   def value(implicit tx: T): A
 }

@@ -28,7 +28,7 @@ trait ConstObjImpl[T <: Txn[T], A] extends Obj[T] with Publisher[T, A] {
     writeData(out)
   }
 
-  final def dispose(): Unit = id.dispose()
+  final def dispose()(implicit tx: T): Unit = id.dispose()
 
   protected def writeData(out: DataOutput): Unit
 }

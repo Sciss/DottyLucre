@@ -159,7 +159,7 @@ class MeldSpec extends ConfluentSpec with TestHasLinkedList {
     def iterate(i1: Int, j1: Int, split1: Int, i2: Int, j2: Int, split2: Int): Unit = {
       val path1 = cursor.step { implicit tx => tx.inputAccess }
 
-      def crossover(i: Int, j: Int, split: Int): (TSource[T, List[Node]], Access[T]) = {
+      def crossover(i: Int, j: Int, split: Int): (Source[T, List[Node]], Access[T]) = {
         val h = forkCursor.stepFrom(path1) { implicit tx =>
           val acc = access()
           val a = acc(i)
@@ -167,7 +167,7 @@ class MeldSpec extends ConfluentSpec with TestHasLinkedList {
 
           // @tailrec def skip(n: Node, rem: Int): Node = if (rem == 0) n else skip(n.next().get, rem - 1)
 
-          @tailrec def skip(rem: Int, next: LVar[Option[Node]]): LVar[Option[Node]] =
+          @tailrec def skip(rem: Int, next: LVar[T, Option[Node]]): LVar[T, Option[Node]] =
             if (rem == 0) next else {
               val nn = next().get
               skip(rem - 1, nn.next)

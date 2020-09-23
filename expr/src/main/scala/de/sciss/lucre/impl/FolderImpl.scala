@@ -18,14 +18,12 @@ import de.sciss.lucre.Event.Targets
 import de.sciss.serial.{DataInput, TFormat}
 
 object FolderImpl {
-  def apply[T <: Txn[T]](implicit _tx: T): Folder[T] =
+  def apply[T <: Txn[T]]()(implicit tx: T): Folder[T] =
     new Impl1[T] {
-      protected val tx: T = _tx
-
-      protected val targets: Targets[T] = Targets[T]()
-      protected val sizeRef: Var[Int]   = id.newIntVar(0)
-      protected val headRef: Var[C]     = id.newVar[C](null)(CellFmt)
-      protected val lastRef: Var[C]     = id.newVar[C](null)(CellFmt)
+      protected val targets: Targets[T]   = Targets[T]()
+      protected val sizeRef: Var[T, Int]  = id.newIntVar(0)
+      protected val headRef: Var[T, C]    = id.newVar[C](null)(tx, CellFmt)
+      protected val lastRef: Var[T, C]    = id.newVar[C](null)(tx, CellFmt)
     }
 
   def format[T <: Txn[T]]: TFormat[T, Folder[T]] =
@@ -51,14 +49,12 @@ object FolderImpl {
     FolderImpl.read(in, targets)
   }
 
-  private def read[T <: Txn[T]](in: DataInput, _targets: Targets[T])(implicit _tx: T): Impl1[T] =
+  private def read[T <: Txn[T]](in: DataInput, _targets: Targets[T])(implicit tx: T): Impl1[T] =
     new Impl1[T] {
-      protected val tx: T = _tx
-
-      protected val targets: Targets[T] = _targets
-      protected val sizeRef: Var[Int] = id.readIntVar(in)
-      protected val headRef: Var[C]   = id.readVar[C](in)
-      protected val lastRef: Var[C]   = id.readVar[C](in)
+      protected val targets: Targets[T]   = _targets
+      protected val sizeRef: Var[T, Int]  = id.readIntVar(in)
+      protected val headRef: Var[T, C]    = id.readVar[C](in)
+      protected val lastRef: Var[T, C]    = id.readVar[C](in)
     }
 
   private abstract class Impl1[T <: Txn[T]]
@@ -72,9 +68,9 @@ object FolderImpl {
 
     def modifiableOption: Option[Folder[T]] = Some(this)
 
-    final override def copy[Out <: Txn[Out]]()(implicit txOut: Out, context: Copy[T, Out]): Elem[Out] = {
-      val out = FolderImpl[Out]
-      context.defer[ListAux](in, out)(copyList(in, out)(tx, txOut, context))
+    final override def copy[Out <: Txn[Out]]()(implicit txIn: T, txOut: Out, context: Copy[T, Out]): Elem[Out] = {
+      val out = FolderImpl[Out]()
+      context.defer[ListAux](in, out)(copyList(in, out)(txIn, txOut, context))
       // .connect
       out
     }

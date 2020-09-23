@@ -15,50 +15,52 @@ package de.sciss.lucre
 package impl
 
 import de.sciss.lucre.Plain.Id
-import de.sciss.serial.{DataInput, DataOutput, TFormat}
+import de.sciss.serial.{DataInput, DataOutput, TFormat, Writable}
 
 object PlainImpl {
   def apply(): Plain = new SysImpl
 
   private def opNotSupported(name: String): Nothing = sys.error(s"Operation not supported: $name")
 
+  type T = Plain
+
   private final class IdImpl extends Ident[Plain] {
     override def toString = s"Plain.Id@${hashCode.toHexString}"
-
-    def dispose()/*(implicit tx: Plain)*/: Unit = ()
+    
+    def dispose()(implicit tx: T): Unit = ()
 
     def !(implicit tx: Plain): Id = this
 
     def write(out: DataOutput): Unit = opNotSupported("Plain.Id.write")
     
-    def newVar[A](init: A)(implicit format: TFormat[Plain, A]): Var[A] = new VarImpl(init)
+    def newVar[A](init: A)(implicit tx: T, format: TFormat[Plain, A]): Var[T, A] = new VarImpl(init)
 
-    def newBooleanVar (init: Boolean): Var[Boolean] = new BooleanVarImpl (init)
-    def newIntVar     (init: Int    ): Var[Int    ] = new IntVarImpl     (init)
-    def newLongVar    (init: Long   ): Var[Long   ] = new LongVarImpl    (init)
+    def newBooleanVar (init: Boolean)(implicit tx: T): Var[T, Boolean] = new BooleanVarImpl (init)
+    def newIntVar     (init: Int    )(implicit tx: T): Var[T, Int    ] = new IntVarImpl     (init)
+    def newLongVar    (init: Long   )(implicit tx: T): Var[T, Long   ] = new LongVarImpl    (init)
 
-    def readVar[A](in: DataInput)(implicit format: TFormat[Plain, A]): Var[A] =
+    def readVar[A](in: DataInput)(implicit tx: T, format: TFormat[Plain, A]): Var[T, A] =
       opNotSupported("readVar")
 
-    def readBooleanVar(in: DataInput): Var[Boolean] = opNotSupported("readBooleanVar" )
-    def readIntVar    (in: DataInput): Var[Int    ] = opNotSupported("readIntVar"     )
-    def readLongVar   (in: DataInput): Var[Long   ] = opNotSupported("readLongVar"    )
+    def readBooleanVar(in: DataInput)(implicit tx: T): Var[T, Boolean] = opNotSupported("readBooleanVar" )
+    def readIntVar    (in: DataInput)(implicit tx: T): Var[T, Int    ] = opNotSupported("readIntVar"     )
+    def readLongVar   (in: DataInput)(implicit tx: T): Var[T, Long   ] = opNotSupported("readLongVar"    )
   }
 
-  private abstract class AbstractVar /*extends Disposable[Plain]*/ {
-    final def dispose()/*(implicit tx: Plain)*/: Unit = ()
+  private abstract class AbstractVar extends Disposable[T] with Writable {
+    final def dispose()(implicit tx: T): Unit = ()
 
     final def write(out: DataOutput): Unit = opNotSupported("Plain.Var.write")
   }
 
   private final class VarImpl[A](private[this] var value: A)
-    extends AbstractVar with Var[/*Plain,*/ A] {
+    extends AbstractVar with Var[T, A] {
 
-    def apply()/*(implicit tx: Plain)*/: A = value
+    def apply()(implicit tx: T): A = value
 
-    def update(v: A)/*(implicit tx: Plain)*/: Unit = value = v
+    def update(v: A)(implicit tx: T): Unit = value = v
 
-    def swap(v: A)/*(implicit tx: Plain)*/: A = {
+    def swap(v: A)(implicit tx: T): A = {
       val res = value
       value = v
       res
@@ -66,13 +68,13 @@ object PlainImpl {
   }
 
   private final class BooleanVarImpl(private[this] var value: Boolean)
-    extends AbstractVar with Var[/*Plain,*/ Boolean] {
+    extends AbstractVar with Var[T, Boolean] {
 
-    def apply()/*(implicit tx: Plain)*/: Boolean = value
+    def apply()(implicit tx: T): Boolean = value
 
-    def update(v: Boolean)/*(implicit tx: Plain)*/: Unit = value = v
+    def update(v: Boolean)(implicit tx: T): Unit = value = v
 
-    def swap(v: Boolean)/*(implicit tx: Plain)*/: Boolean = {
+    def swap(v: Boolean)(implicit tx: T): Boolean = {
       val res = value
       value = v
       res
@@ -80,13 +82,13 @@ object PlainImpl {
   }
 
   private final class IntVarImpl(private[this] var value: Int)
-    extends AbstractVar with Var[/*Plain,*/ Int] {
+    extends AbstractVar with Var[T, Int] {
 
-    def apply()/*(implicit tx: Plain)*/: Int = value
+    def apply()(implicit tx: T): Int = value
 
-    def update(v: Int)/*(implicit tx: Plain)*/: Unit = value = v
+    def update(v: Int)(implicit tx: T): Unit = value = v
 
-    def swap(v: Int)/*(implicit tx: Plain)*/: Int = {
+    def swap(v: Int)(implicit tx: T): Int = {
       val res = value
       value = v
       res
@@ -94,13 +96,13 @@ object PlainImpl {
   }
 
   private final class LongVarImpl(private[this] var value: Long)
-    extends AbstractVar with Var[/*Plain,*/ Long] {
+    extends AbstractVar with Var[T, Long] {
 
-    def apply()/*(implicit tx: Plain)*/: Long = value
+    def apply()(implicit tx: T): Long = value
 
-    def update(v: Long)/*(implicit tx: Plain)*/: Unit = value = v
+    def update(v: Long)(implicit tx: T): Unit = value = v
 
-    def swap(v: Long)/*(implicit tx: Plain)*/: Long = {
+    def swap(v: Long)(implicit tx: T): Long = {
       val res = value
       value = v
       res
@@ -161,7 +163,7 @@ object PlainImpl {
 //    def readIntVar    (id: Id, in: DataInput): Var[Int]      = opNotSupported("readIntVar")
 //    def readLongVar   (id: Id, in: DataInput): Var[Long]     = opNotSupported("readLongVar")
 
-    def newHandle[A](value: A)(implicit format: TFormat[Tx, A]): TSource[Tx, A] =
-      new EphemeralTSource(value)
+    def newHandle[A](value: A)(implicit format: TFormat[Tx, A]): Source[Tx, A] =
+      new EphemeralSource(value)
   }
 }

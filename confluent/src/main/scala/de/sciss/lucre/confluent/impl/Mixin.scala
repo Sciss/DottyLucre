@@ -18,8 +18,8 @@ import de.sciss.lucre.confluent.Log.log
 import de.sciss.lucre.confluent.impl.DurableCacheMapImpl.Store
 import de.sciss.lucre.confluent.impl.{PathImpl => Path}
 import de.sciss.lucre.data.Ancestor
-import de.sciss.lucre.impl.{ReactionMapImpl, TRandomImpl}
-import de.sciss.lucre.{ConfluentLike, DataStore, Ident, IdentMap, Observer, TRandom, TSource, TxnLike, Txn => LTxn}
+import de.sciss.lucre.impl.{ReactionMapImpl, RandomImpl}
+import de.sciss.lucre.{ConfluentLike, DataStore, Ident, IdentMap, Observer, Random, Source, TxnLike, Txn => LTxn}
 import de.sciss.serial.{ConstFormat, DataInput, DataOutput, TFormat}
 
 import scala.annotation.tailrec
@@ -61,7 +61,7 @@ trait Mixin[Tx <: Txn[Tx]]
         val durRootId     = durable.newIdValue() // stm.DurableSurgery.newIdValue(durable)
         val idCnt         = tx.newCachedIntVar(0)
         val versionLinear = tx.newCachedIntVar(0)
-        val versionRandom = tx.newCachedLongVar(TRandomImpl.initialScramble(0L)) // scramble !!!
+        val versionRandom = tx.newCachedLongVar(RandomImpl.initialScramble(0L)) // scramble !!!
         val partialTree   = Ancestor.newTree[D, Long](1L << 32)(tx, TFormat.Long, _.toInt)
         GlobalState[T, D](durRootId = durRootId, idCnt = idCnt, versionLinear = versionLinear,
           versionRandom = versionRandom, partialTree = partialTree)
@@ -69,7 +69,7 @@ trait Mixin[Tx <: Txn[Tx]]
       root()
     }
 
-  private val versionRandom = TRandom.wrap(global.versionRandom)
+  private val versionRandom = Random.wrap(global.versionRandom)
 
   override def toString = "Confluent"
 
@@ -123,13 +123,13 @@ trait Mixin[Tx <: Txn[Tx]]
     Cursor.read[T, D](in)
   }
 
-  final def root[A](init: T => A)(implicit format: TFormat[T, A]): TRef[T, A] =
+  final def root[A](init: T => A)(implicit format: TFormat[T, A]): Ref[T, A] =
     executeRoot { implicit tx =>
       rootBody(init)
     }
 
   final def rootJoin[A](init: T => A)
-                       (implicit itx: TxnLike, format: TFormat[T, A]): TRef[T, A] = {
+                       (implicit itx: TxnLike, format: TFormat[T, A]): Ref[T, A] = {
     log("::::::: rootJoin :::::::")
     TxnExecutor.defaultAtomic { itx =>
       implicit val tx: T = wrapRoot(itx)
@@ -138,13 +138,13 @@ trait Mixin[Tx <: Txn[Tx]]
   }
 
   private def rootBody[A](init: T => A)
-                         (implicit tx: T, format: TFormat[T, A]): TRef[T, A] = {
+                         (implicit tx: T, format: TFormat[T, A]): Ref[T, A] = {
     val (rootVar, _, _) = initRoot(init, _ => (), _ => ())
     rootVar
   }
 
   def cursorRoot[A, B](init: T => A)(result: T => A => B)
-                      (implicit format: TFormat[T, A]): (TRef[T, A], B) =
+                      (implicit format: TFormat[T, A]): (Ref[T, A], B) =
     executeRoot { implicit tx =>
       val (rootVar, rootVal, _) = initRoot(init, _ => (), _ => ())
       rootVar -> result(tx)(rootVal)
@@ -152,7 +152,7 @@ trait Mixin[Tx <: Txn[Tx]]
 
   final def rootWithDurable[A, B](confInt: T => A)(durInit: D => B)
                                  (implicit aFmt: TFormat[T, A],
-                                  bFmt: TFormat[D, B]): (TSource[T, A], B) =
+                                  bFmt: TFormat[D, B]): (Source[T, A], B) =
     executeRoot { implicit tx =>
       implicit val dtx: D = durableTx(tx)
       val (_, confV, durV) = initRoot[A, B](confInt, { _ /* tx */ =>
@@ -178,7 +178,7 @@ trait Mixin[Tx <: Txn[Tx]]
   }
 
   private def initRoot[A, B](initA: T => A, readB: T => B, initB: T => B)
-                            (implicit tx: T, serA: TFormat[T, A]): (TRef[T, A], A, B) = {
+                            (implicit tx: T, serA: TFormat[T, A]): (Ref[T, A], A, B) = {
     val rootVar     = new RootVar[T, A](0, "Root") // format
     val rootPath    = tx.inputAccess
     val arrOpt      = varMap.getImmutable[Array[Byte]](0, tx)(rootPath, ByteArrayFormat)
@@ -371,7 +371,10 @@ trait Mixin[Tx <: Txn[Tx]]
 
     override def toString = s"IndexMap($map)"
 
-    def debugPrint(implicit tx: T): String = map.debugPrint // (durableTx(tx))
+    def debugPrint(implicit tx: T): String = {
+      implicit val dtx: D = durableTx(tx)
+      map.debugPrint
+    }
 
     def nearest(term: Long)(implicit tx: T): (Long, A) = {
       implicit val dtx: D = durableTx(tx)
@@ -550,7 +553,6 @@ trait Mixin[Tx <: Txn[Tx]]
   override final def readIndexMap[A](in: DataInput, tx: T)
                            (implicit index: tx.Acc, format: ConstFormat[A]): IndexMap[T, A] = {
     implicit val dtx: D     = durableTx(tx)
-    implicit val dAcc: Unit = ()
     val term                = index.term
     val tree                = readIndexTree(term)
     val map                 = Ancestor.readMap[D, Long, A](in, dtx, tree.tree)
@@ -578,7 +580,10 @@ trait Mixin[Tx <: Txn[Tx]]
 
     override def toString = s"PartialMap($map)"
 
-    def debugPrint(implicit tx: T): String = map.debugPrint // (durableTx(tx))
+    def debugPrint(implicit tx: T): String = {
+      implicit val dtx: D = durableTx(tx)
+      map.debugPrint
+    }
 
     def nearest(term: Long)(implicit tx: T): (Long, A) = {
       implicit val dtx: D = durableTx(tx)
@@ -634,7 +639,6 @@ trait Mixin[Tx <: Txn[Tx]]
   final def readPartialMap[A](in: DataInput)
                              (implicit tx: T, format: ConstFormat[A]): IndexMap[T, A] = {
     implicit val dtx: D     = durableTx(tx)
-    implicit val dAcc: Unit = ()
     val map   = Ancestor.readMap[D, Long, A](in, dtx, partialTree)
     new PartialMapImpl[A](map)
   }

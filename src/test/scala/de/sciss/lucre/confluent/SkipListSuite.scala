@@ -4,7 +4,7 @@ import java.io.File
 
 import de.sciss.lucre.data.{HASkipList, SkipList}
 import de.sciss.lucre.store.BerkeleyDB
-import de.sciss.lucre.{Confluent, ConfluentLike, InTxnRandom, TRandom, TestUtil, Cursor => LCursor}
+import de.sciss.lucre.{Confluent, ConfluentLike, InTxnRandom, Random, TestUtil, Cursor => LCursor}
 import de.sciss.serial.TFormat
 import org.scalatest.GivenWhenThen
 import org.scalatest.featurespec.AnyFeatureSpec
@@ -37,7 +37,7 @@ class SkipListSuite extends AnyFeatureSpec with GivenWhenThen {
 
   val SEED = 0L
 
-  val rnd: TRandom[InTxn] = InTxnRandom(SEED)
+  val rnd: Random[InTxn] = InTxnRandom(SEED)
 
   // make sure we don't look tens of thousands of actions
   Log.showLog = false
@@ -84,7 +84,7 @@ class SkipListSuite extends AnyFeatureSpec with GivenWhenThen {
 
   def atomic[A](fun: InTxn => A): A = TxnExecutor.defaultAtomic(fun)
 
-  def randFill[T <: Txn[T]](access: TSource[T, SkipList.Set[T, Int]], s: MSet[Int])
+  def randFill[T <: Txn[T]](access: Source[T, SkipList.Set[T, Int]], s: MSet[Int])
                                (implicit cursor: LCursor[T]): Unit = {
     Given("a randomly filled structure")
     val s1 = cursor.step { implicit tx =>
@@ -116,7 +116,7 @@ class SkipListSuite extends AnyFeatureSpec with GivenWhenThen {
     res
   }
 
-  def verifyOrder[T <: Txn[T]](access: TSource[T, SkipList.Set[T, Int]])
+  def verifyOrder[T <: Txn[T]](access: Source[T, SkipList.Set[T, Int]])
                                   (implicit cursor: LCursor[T]): Unit = {
     When("the structure is mapped to its pairwise comparisons")
     //atomic { implicit tx => println( l.toList )}
@@ -133,7 +133,7 @@ class SkipListSuite extends AnyFeatureSpec with GivenWhenThen {
     assert(res == Set(-1), res.toString())
   }
 
-  def verifyElems[T <: Txn[T]](access: TSource[T, SkipList.Set[T, Int]], s: MSet[Int])
+  def verifyElems[T <: Txn[T]](access: Source[T, SkipList.Set[T, Int]], s: MSet[Int])
                                   (implicit cursor: LCursor[T]): Unit = {
     When("the structure l is compared to an independently maintained set s")
     val ll = cursor.step { implicit tx => access().toIndexedSeq }
@@ -153,7 +153,7 @@ class SkipListSuite extends AnyFeatureSpec with GivenWhenThen {
     assert(ll.size == szL, "skip list has size " + szL + " / iterator has size " + ll.size)
   }
 
-  def verifyContainsNot[T <: Txn[T]](access: TSource[T, SkipList.Set[T, Int]], s: MSet[Int])
+  def verifyContainsNot[T <: Txn[T]](access: Source[T, SkipList.Set[T, Int]], s: MSet[Int])
                                         (implicit cursor: LCursor[T]): Unit = {
     When("the structure l is queried for keys not in the independently maintained set s")
     var testSet = Set.empty[Int]
@@ -169,7 +169,7 @@ class SkipListSuite extends AnyFeatureSpec with GivenWhenThen {
     assert(inL.isEmpty, inL.take(10).toString())
   }
 
-  def verifyAddRemoveAll[T <: Txn[T]](access: TSource[T, SkipList.Set[T, Int]], s: MSet[Int])
+  def verifyAddRemoveAll[T <: Txn[T]](access: Source[T, SkipList.Set[T, Int]], s: MSet[Int])
                                          (implicit cursor: LCursor[T]): Unit = {
     When( "all elements of the independently maintained set are added again to l" )
     val szBefore = cursor.step { implicit tx => access().size }
@@ -192,7 +192,7 @@ class SkipListSuite extends AnyFeatureSpec with GivenWhenThen {
   }
 
   private def withList[T <: Txn[T]](name: String, lf: SkipList.KeyObserver[T, Int] =>
-                                      (LCursor[T], TSource[T, SkipList.Set[T, Int]], () => Unit)): Unit = {
+                                      (LCursor[T], Source[T, SkipList.Set[T, Int]], () => Unit)): Unit = {
 
     def scenarioWithTime(description: String)(body: => Unit): Unit =
       Scenario(description) {

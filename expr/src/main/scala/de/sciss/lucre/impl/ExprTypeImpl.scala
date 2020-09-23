@@ -70,7 +70,7 @@ trait ExprTypeImpl[A1, Repr[~ <: Txn[~]] <: Expr[~, A1]] extends Expr.Type[A1, R
   }
 
   protected def mkConst[T <: Txn[T]](id: Ident[T], value: A)(implicit tx: T): Const[T]
-  protected def mkVar  [T <: Txn[T]](targets: Event.Targets[T], vr: lucre.Var[E[T]], connect: Boolean)(implicit tx: T): Var[T]
+  protected def mkVar  [T <: Txn[T]](targets: Event.Targets[T], vr: lucre.Var[T, E[T]], connect: Boolean)(implicit tx: T): Var[T]
 
   override final def read[T <: Txn[T]](in: DataInput)(implicit tx: T): E[T] =
     format[T].readT(in)
@@ -115,7 +115,7 @@ trait ExprTypeImpl[A1, Repr[~ <: Txn[~]] <: Expr[~, A1]] extends Expr.Type[A1, R
 
     final protected def writeData(out: DataOutput): Unit = valueFormat.write(constValue, out)
 
-    private[lucre] def copy[Out <: Txn[Out]]()(implicit txOut: Out, context: Copy[T, Out]): Elem[Out] =
+    private[lucre] def copy[Out <: Txn[Out]]()(implicit txIn: T, txOut: Out, context: Copy[T, Out]): Elem[Out] =
       mkConst[Out](txOut.newId(), constValue)
   }
 
@@ -124,7 +124,7 @@ trait ExprTypeImpl[A1, Repr[~ <: Txn[~]] <: Expr[~, A1]] extends Expr.Type[A1, R
 
     final def tpe: Obj.Type = self
 
-    private[lucre] def copy[Out <: Txn[Out]]()(implicit txOut: Out, context: Copy[T, Out]): Elem[Out] = {
+    private[lucre] def copy[Out <: Txn[Out]]()(implicit txIn: T, txOut: Out, context: Copy[T, Out]): Elem[Out] = {
       val newTgt = Event.Targets[Out]()
       val newVr  = newTgt.id.newVar(context(ref()))
       mkVar[Out](newTgt, newVr, connect = true)

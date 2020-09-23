@@ -15,7 +15,7 @@ class PathologicalSuite extends AnyFunSpec {
   type S  = InMemory
   type T  = InMemory.Txn
   type D  = IntSpace.TwoDim
-//  implicit val view: (IntPoint2D /*, T*/) => IntPoint2D = (p /*, _*/) => p
+  implicit val view: (IntPoint2D, T) => IntPoint2D = (p, _) => p
 
   describe("Tree insertion") {
     it("should work") {

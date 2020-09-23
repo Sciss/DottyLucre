@@ -13,7 +13,8 @@
 
 package de.sciss.lucre.confluent
 
-import de.sciss.lucre.{DataStore, DurableLike, InMemoryLike, TSource, TxnLike, confluent, Sys => LSys}
+import de.sciss.lucre
+import de.sciss.lucre.{DataStore, DurableLike, InMemoryLike, Source, TxnLike, confluent, Sys => LSys}
 import de.sciss.serial.{DataInput, TFormat}
 
 import scala.collection.immutable.{IndexedSeq => Vec}
@@ -28,7 +29,7 @@ trait Sys extends LSys {
   type T               <: confluent.Txn[T]
   final type Id         = confluent.Ident[T]
   final type Acc        = confluent.Access[T]
-  final type Var[A]     = confluent.Var[/*T,*/ A]
+  final type Var[A]     = lucre.Var[T, A] // confluent.Var[/*T,*/ A]
   // final type Entry[A]   = Sys.Entry[T, A]
 
   def durable : DurableLike [D]
@@ -76,7 +77,7 @@ trait Sys extends LSys {
     * @return             the access to the data structure along with the result of the second function.
     */
   def cursorRoot[A, B](init: T => A)(result: T => A => B)
-                      (implicit format: TFormat[T, A]): (TRef[T, A], B)
+                      (implicit format: TFormat[T, A]): (Ref[T, A], B)
 
   /** Initializes the data structure both with a confluently persisted and an ephemeral-durable value.
     *
@@ -92,7 +93,7 @@ trait Sys extends LSys {
     */
   def rootWithDurable[A, B](confluent: T => A)(durable: D => B)
                            (implicit aFmt: TFormat[T, A],
-                            bFmt: TFormat[D, B]): (TSource[T, A], B)
+                            bFmt: TFormat[D, B]): (Source[T, A], B)
 
   /** Retrieves the In information for a given version term. */
   private[confluent] def versionInfo(term: Long)(implicit tx: TxnLike): VersionInfo

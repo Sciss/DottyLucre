@@ -21,5 +21,5 @@ import de.sciss.model.Change
 trait ExprLike[T <: Exec[T], +A] extends Form[T] {
   def changed: Observable[T, Change[A]]
 
-  def valueT(implicit tx: T): A
+  def value(implicit tx: T): A
 }

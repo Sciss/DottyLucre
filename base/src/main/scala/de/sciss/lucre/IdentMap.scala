@@ -27,7 +27,7 @@ package de.sciss.lucre
  * @tparam A    the values stored at the keys. `Unit` can be used if only set
  *              functionality is needed.
  */
-trait IdentMap[-Id, -T, A] extends TDisposable[T] { // XXX TODO remove `Id` type
+trait IdentMap[-Id, -T, A] extends Disposable[T] { // XXX TODO remove `Id` type
   def put      (id: Id, value: A)     (implicit tx: T): Unit
   def get      (id: Id)               (implicit tx: T): Option[A]
   def getOrElse(id: Id, default: => A)(implicit tx: T): A

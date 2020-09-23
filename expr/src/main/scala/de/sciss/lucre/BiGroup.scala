@@ -90,11 +90,11 @@ object BiGroup extends Obj.Type {
   }
 
   trait Modifiable[T <: Txn[T], A] extends BiGroup[T, A] {
-    def add(span: SpanLikeObj[T], elem: A): Entry[T, A]
+    def add(span: SpanLikeObj[T], elem: A)(implicit tx: T): Entry[T, A]
 
-    def remove(span: SpanLikeObj[T], elem: A): Boolean
+    def remove(span: SpanLikeObj[T], elem: A)(implicit tx: T): Boolean
 
-    def clear(): Unit
+    def clear()(implicit tx: T): Unit
 
     override def changed: EventLike[T, BiGroup.Update[T, A, Modifiable[T, A]]]
   }
@@ -112,13 +112,13 @@ trait BiGroup[T <: Txn[T], A] extends Obj[T] with Publisher[T, BiGroup.Update[T,
 
   def modifiableOption: Option[BiGroup.Modifiable[T, A]]
 
-  def iterator: Iterator[Leaf[T, A]]
+  def iterator(implicit tx: T): Iterator[Leaf[T, A]]
 
   /** Returns `true` if not a single element is contained in the collection. */
-  def isEmpty: Boolean
+  def isEmpty(implicit tx: T): Boolean
 
   /** Returns `true` if at least one element is contained in the collection. */
-  def nonEmpty: Boolean
+  def nonEmpty(implicit tx: T): Boolean
 
   /** Queries all elements intersecting a given point in time.
    * That is, returns an iterator of all elements whose span contains the time point
@@ -129,7 +129,7 @@ trait BiGroup[T <: Txn[T], A] extends Obj[T] with Publisher[T, BiGroup.Update[T,
    * @param time the point in time to search at
    * @return  a (possibly empty) iterator of the intersecting elements
    */
-  def intersect(time: Long): Iterator[Leaf[T, A]]
+  def intersect(time: Long)(implicit tx: T): Iterator[Leaf[T, A]]
 
   /** Queries all elements intersecting a given time span.
    * That is, returns an iterator of all elements whose span contains or partly overlaps the query span.
@@ -140,7 +140,7 @@ trait BiGroup[T <: Txn[T], A] extends Obj[T] with Publisher[T, BiGroup.Update[T,
    * @param span the the span to search within (this may be a half-bounded interval or even `Span.All`)
    * @return  a (possibly empty) iterator of the intersecting elements
    */
-  def intersect(span: SpanLike): Iterator[Leaf[T, A]]
+  def intersect(span: SpanLike)(implicit tx: T): Iterator[Leaf[T, A]]
 
   /** Performs a range query according to separate intervals for the allowed start and stop positions
    * of the element spans. That is, returns an iterator of all elements whose span satisfies the
@@ -159,7 +159,7 @@ trait BiGroup[T <: Txn[T], A] extends Obj[T] with Publisher[T, BiGroup.Update[T,
    * @param stop    the constraint for the stop position of the spans of the elements filtered.
    * @return  a (possibly empty) iterator of the intersecting elements
    */
-  def rangeSearch(start: SpanLike, stop: SpanLike): Iterator[Leaf[T, A]]
+  def rangeSearch(start: SpanLike, stop: SpanLike)(implicit tx: T): Iterator[Leaf[T, A]]
 
   /** Queries the closest event (an element's span starting or stopping) later than the given time
    *
@@ -167,7 +167,7 @@ trait BiGroup[T <: Txn[T], A] extends Obj[T] with Publisher[T, BiGroup.Update[T,
    * @return a time, greater than the query time, at which the next event occurs, or `None` if
    *         there are no events after the query time
    */
-  def eventAfter(time: Long): Option[Long]
+  def eventAfter(time: Long)(implicit tx: T): Option[Long]
 
   /** Queries the closest event (an element's span starting or stopping) earlier than the given time
    *
@@ -175,13 +175,13 @@ trait BiGroup[T <: Txn[T], A] extends Obj[T] with Publisher[T, BiGroup.Update[T,
    * @return a time, smaller than the query time, at which the previous event occurs, or `None` if
    *         there are no events before the query time
    */
-  def eventBefore(time: Long): Option[Long]
+  def eventBefore(time: Long)(implicit tx: T): Option[Long]
 
   /** Finds the first occurring event, if there is any. Ignores objects with `Span.All`. */
-  def firstEvent: Option[Long]
+  def firstEvent(implicit tx: T): Option[Long]
 
   /** Finds the last occurring event, if there is any. Ignores objects with `Span.All`. */
-  def lastEvent : Option[Long]
+  def lastEvent(implicit tx: T) : Option[Long]
 
   /** Queries all elements which produce an event (starting or stopping) at a given time.
    *
@@ -190,17 +190,17 @@ trait BiGroup[T <: Txn[T], A] extends Obj[T] with Publisher[T, BiGroup.Update[T,
    *          start at the query time, the second iterator (`_2`) contains the event which
    *          stop at the query time
    */
-  def eventsAt(time: Long): (Iterator[Leaf[T, A]], Iterator[Leaf[T, A]])
+  def eventsAt(time: Long)(implicit tx: T): (Iterator[Leaf[T, A]], Iterator[Leaf[T, A]])
 
   /** Finds the leaf for a given span value (if it exists). */
-  def get(span: SpanLike): Vec[BiGroup.Entry[T, A]]
+  def get(span: SpanLike)(implicit tx: T): Vec[BiGroup.Entry[T, A]]
 
   /** Tries to recover the actual object of an element's position, given only
    * an evaluated span. The result may for example be used in a subsequent removal of the element.
    */
-  def recoverSpan(span: SpanLike, elem: A): Option[SpanLikeObj[T]]
+  def recoverSpan(span: SpanLike, elem: A)(implicit tx: T): Option[SpanLikeObj[T]]
 
-  def debugList: List[(SpanLike, A)]
+  def debugList(implicit tx: T): List[(SpanLike, A)]
 
-  def debugPrint: String
+  def debugPrint(implicit tx: T): String
 }

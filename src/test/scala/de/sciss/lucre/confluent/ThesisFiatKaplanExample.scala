@@ -29,7 +29,7 @@ object ThesisFiatKaplanExample extends App {
         new Impl[T, A] {
           val peerFmt = peer
           val id      = tx.readId(in)
-          val head    = id.readVar[Option[Cell]](in)(TFormat.option(CellFmt))
+          val head    = id.readVar[Option[Cell]](in)(tx, TFormat.option(CellFmt))
         }
       }
     }
@@ -44,7 +44,7 @@ object ThesisFiatKaplanExample extends App {
     private abstract class Impl[T <: Txn[T], A] extends LinkedList[T, A] with MutableImpl[T] {
       implicit def peerFmt: TFormat[T, A]
 
-      def cell(init: A): Cell = new Cell {
+      def cell(init: A)(implicit tx: T): Cell = new Cell {
         val next  = id.newVar(Option.empty[Cell])
         val value = init
       }
@@ -61,7 +61,7 @@ object ThesisFiatKaplanExample extends App {
         }
       }
 
-      def disposeData(): Unit = head.dispose()
+      def disposeData()(implicit tx: T): Unit = head.dispose()
 
       def writeData(out: DataOutput): Unit = head.write(out)
     }
@@ -70,17 +70,17 @@ object ThesisFiatKaplanExample extends App {
 
     override def toString = "LinkedList"
 
-    def head: LVar[Option[Cell]]
+    def head: LVar[T, Option[Cell]]
 
     trait Cell {
       override def toString = s"$list.cell<$next, $value>"
 
-      def next: LVar[Option[Cell]]
+      def next: LVar[T, Option[Cell]]
 
       def value: A
     }
 
-    def cell(init: A): Cell
+    def cell(init: A)(implicit tx: T): Cell
   }
 
   val store = BerkeleyDB.tmp()
