@@ -18,7 +18,7 @@ import de.sciss.lucre.confluent.impl.{ConfluentImpl => Impl}
 trait ConfluentLike[Tx <: confluent.Txn[Tx]] extends confluent.Sys {
   type T = Tx
 
-  type D <: DurableLike.Txn[D]
+//  type D <: DurableLike.Txn[D]
 }
 
 object Confluent {
@@ -27,12 +27,13 @@ object Confluent {
   trait Txn extends confluent.Txn[Txn] {
     def system: Confluent
 
-    type D = Durable.Txn
+    type D = Durable  .Txn
+    type I = InMemory .Txn
   }
 }
 
 trait Confluent extends ConfluentLike[Confluent.Txn] {
-  final protected type S = Confluent
+//  final protected type S = Confluent
   final type D = Durable  .Txn
   final type I = InMemory .Txn
 }

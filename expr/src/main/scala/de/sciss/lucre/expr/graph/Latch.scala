@@ -13,7 +13,7 @@
 
 package de.sciss.lucre.expr.graph
 
-import de.sciss.lucre.TxnLike.peer
+import de.sciss.lucre.Txn.peer
 import de.sciss.lucre.expr.{Context, ITrigger, graph}
 import de.sciss.lucre.impl.IChangeEventImpl
 import de.sciss.lucre.{Caching, IChangeEvent, IExpr, IPull, IPush, ITargets, Txn}

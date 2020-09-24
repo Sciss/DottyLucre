@@ -14,7 +14,7 @@
 package de.sciss.lucre.expr.impl
 
 import de.sciss.lucre.IPush.Parents
-import de.sciss.lucre.TxnLike.peer
+import de.sciss.lucre.Txn.peer
 import de.sciss.lucre.expr.ITrigger
 import de.sciss.lucre.{IChangePublisher, IPull, Txn}
 
@@ -44,10 +44,10 @@ trait ITriggerConsumer[T <: Txn[T], A] extends IChangePublisher[T, A] {
       if (p.exists(pull(_).isDefined)) trigReceived() else valueBefore()
     }
 
-  //  private[lucre] def pullUpdateXXX(pull: IPull[S])(implicit tx: T) : Option[Change[A]] = {
+  //  private[lucre] def pullUpdateXXX(pull: IPull[T])(implicit tx: T) : Option[Change[A]] = {
   //    if (pull.isOrigin(this.changed)) Some(pull.resolve)
   //    else {
-  //      val p: Parents[S] = pull.parents(this.changed)
+  //      val p: Parents[T] = pull.parents(this.changed)
   //      if (p.exists(pull(_).isDefined)) trigReceived() else None
   //    }
   //  }

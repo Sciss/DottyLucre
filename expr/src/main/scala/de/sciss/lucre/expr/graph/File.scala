@@ -16,7 +16,7 @@ package de.sciss.lucre.expr.graph
 import java.io.{File => _File}
 
 import de.sciss.equal.Implicits._
-import de.sciss.lucre.TxnLike.peer
+import de.sciss.lucre.Txn.peer
 import de.sciss.lucre.expr.impl.IActionImpl
 import de.sciss.lucre.expr.{Context, IAction}
 import de.sciss.lucre.impl.IChangeGeneratorEvent

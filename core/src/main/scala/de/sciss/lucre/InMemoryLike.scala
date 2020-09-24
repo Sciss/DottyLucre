@@ -43,7 +43,7 @@ trait InMemoryLike[Tx <: InMemoryLike.Txn[Tx]] extends Sys /*[S]*/ with Cursor[T
 
   type T = Tx // InMemoryLike.Txn[T]
 
-  private[lucre] def attrMap: IdentMap[Id, T, Obj.AttrMap[T]]
+  private[lucre] def attrMap: IdentMap[T, Obj.AttrMap[T]]
 
   private[lucre] def newIdValue()(implicit tx: T): Int
 

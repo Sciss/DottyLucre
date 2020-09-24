@@ -122,7 +122,7 @@ object PlainImpl {
 
     def inMemory: I = this
 
-    def inMemoryTx(tx: Tx): Tx = tx
+    def inMemoryBridge: (Tx => Tx) = tx => tx
 
     // ---- Cursor ----
 
@@ -151,7 +151,7 @@ object PlainImpl {
 //
 //    def newVarArray[A](size: Int): Array[Var[A]] = new Array[Var[A]](size)
 
-    def newIdentMap[A]: IdentMap[Id, Tx, A] = new PlainIdentMap[A]
+    def newIdentMap[A]: IdentMap[Tx, A] = new PlainIdentMap[A]
 
     //    def newInMemoryMap[K, V]: RefMap[S, K, V] = new PlainInMemoryMap[K, V]
     //    def newInMemorySet[A]   : RefSet[S, A]    = new PlainInMemorySet[A]

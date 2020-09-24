@@ -168,10 +168,10 @@ object Adjunct {
   }
 
   trait Ord[A] extends Eq[A] {
-    def lt (a: A, b: A): Boolean
-    def leq(a: A, b: A): Boolean  // XXX TODO should be called `lteq`
-    def gt (a: A, b: A): Boolean
-    def geq(a: A, b: A): Boolean  // XXX TODO should be called `gteq`
+    def lt  (a: A, b: A): Boolean
+    def lteq(a: A, b: A): Boolean
+    def gt  (a: A, b: A): Boolean
+    def gteq(a: A, b: A): Boolean
   }
 
   type ScalarOrd[A] = Ord[A] with Scalar[A]
@@ -187,10 +187,11 @@ object Adjunct {
   //  }
   trait Num[A] extends Ord[A] {
     // binary
-    def +         (a: A, b: A): A
-    def -         (a: A, b: A): A
-    def *         (a: A, b: A): A
-    def %         (a: A, b: A): A
+    def plus      (a: A, b: A): A
+    def minus     (a: A, b: A): A
+    def times     (a: A, b: A): A
+    // standard `%` modulus
+    def rem       (a: A, b: A): A
     def mod       (a: A, b: A): A
     def min       (a: A, b: A): A
     def max       (a: A, b: A): A
@@ -243,7 +244,7 @@ object Adjunct {
     def ceil  (a: A): A
     def frac  (a: A): A
 
-    def /     (a: A, b: A): A
+    def div   (a: A, b: A): A
 
     def reciprocal(a: A): A
   }
@@ -251,32 +252,32 @@ object Adjunct {
   type ScalarNumFrac[A] = NumFrac[A] with Scalar[A]
 
   trait NumLogic[A] extends Eq[A] {
-    def & (a: A, b: A): A
-    def | (a: A, b: A): A
-    def ^ (a: A, b: A): A
+    def and (a: A, b: A): A
+    def or  (a: A, b: A): A
+    def xor (a: A, b: A): A
   }
 
   trait NumBool[A] extends NumLogic[A] {
-    def unary_!(a: A): A
+    def negate(a: A): A
   }
 
   type ScalarNumBool[A] = NumBool[A] with Scalar[A]
 
   trait NumInt[A] extends Num[A] with NumLogic[A] {
-    def unary_~ (a: A): A
+    def not   (a: A): A
 
-    def &       (a: A, b: A): A
-    def |       (a: A, b: A): A
-    def ^       (a: A, b: A): A
+    def and   (a: A, b: A): A
+    def or    (a: A, b: A): A
+    def xor   (a: A, b: A): A
 
     def lcm     (a: A, b: A): A
     def gcd     (a: A, b: A): A
 
-    def <<      (a: A, b: A): A
-    def >>      (a: A, b: A): A
-    def >>>     (a: A, b: A): A
+    def shiftLeft         (a: A, b: A): A
+    def shiftRight        (a: A, b: A): A
+    def unsignedShiftRight(a: A, b: A): A
 
-    def div     (a: A, b: A): A = throw new NotImplementedError() // XXX TODO remove impl in major version
+    def div     (a: A, b: A): A
   }
 
   type ScalarNumInt[A] = NumInt[A] with Scalar[A]
@@ -436,20 +437,20 @@ object Adjunct {
 
     protected val peer: IntTop.type = IntTop
 
-    def unary_~(a: In): In = unOp(a)(peer.unary_~)
+    def not(a: In): In = unOp(a)(peer.not)
 
-    def &   (a: In, b: In): In = binOp(a, b)(peer.&)
-    def |   (a: In, b: In): In = binOp(a, b)(peer.|)
-    def ^   (a: In, b: In): In = binOp(a, b)(peer.^)
+    def and (a: In, b: In): In = binOp(a, b)(peer.and)
+    def or  (a: In, b: In): In = binOp(a, b)(peer.or)
+    def xor (a: In, b: In): In = binOp(a, b)(peer.xor)
 
     def lcm (a: In, b: In): In = binOp(a, b)(peer.lcm)
     def gcd (a: In, b: In): In = binOp(a, b)(peer.gcd)
 
-    def <<  (a: In, b: In): In = binOp(a, b)(peer.<<)
-    def >>  (a: In, b: In): In = binOp(a, b)(peer.>>)
-    def >>> (a: In, b: In): In = binOp(a, b)(peer.>>>)
+    def shiftLeft         (a: In, b: In): In = binOp(a, b)(peer.shiftLeft)
+    def shiftRight        (a: In, b: In): In = binOp(a, b)(peer.shiftRight)
+    def unsignedShiftRight(a: In, b: In): In = binOp(a, b)(peer.unsignedShiftRight)
 
-    override def div (a: In, b: In): In = binOp(a, b)(peer.div)
+    def div (a: In, b: In): In = binOp(a, b)(peer.div)
 
     def fromAny(in: Any): Option[Seq[scala.Int]] = in match {
       case sq: Seq[_] =>
@@ -462,7 +463,7 @@ object Adjunct {
           }
         }
         Some(b.result())
-        
+
       case _ => None
     }
   }
@@ -483,29 +484,29 @@ object Adjunct {
     def toDouble  (a: Int): Double  = a.toDouble
     def toLong    (a: Int): Long    = a.toLong
 
-    def +(a: Int, b: Int): Int = a + b
-    def -(a: Int, b: Int): Int = a - b
-    def *(a: Int, b: Int): Int = a * b
-    def %         (a: Int, b: Int): Int = a % b
+    def plus      (a: Int, b: Int): Int = a + b
+    def minus     (a: Int, b: Int): Int = a - b
+    def times     (a: Int, b: Int): Int = a * b
+    def rem       (a: Int, b: Int): Int = a % b
     def mod       (a: Int, b: Int): Int = ri.mod(a, b)
     def min       (a: Int, b: Int): Int = ri.min(a, b)
     def max       (a: Int, b: Int): Int = ri.max(a, b)
 
-    def &         (a: Int, b: Int): Int = a & b
-    def |         (a: Int, b: Int): Int = a | b
-    def ^         (a: Int, b: Int): Int = a ^ b
+    def and(a: Int, b: Int): Int = a & b
+    def or(a: Int, b: Int): Int = a | b
+    def xor(a: Int, b: Int): Int = a ^ b
     def lcm       (a: Int, b: Int): Int = ri.lcm(a, b)
     def gcd       (a: Int, b: Int): Int = ri.gcd(a, b)
 
-    override def div       (a: Int, b: Int): Int = a / b
+    def div       (a: Int, b: Int): Int = a / b
 
     def roundTo   (a: Int, b: Int): Int = ri2.roundTo  (a, b)
     def roundUpTo (a: Int, b: Int): Int = ri2.roundUpTo(a, b)
     def trunc     (a: Int, b: Int): Int = ri2.trunc    (a, b)
 
-    def <<        (a: Int, b: Int): Int = a << b
-    def >>        (a: Int, b: Int): Int = a >> b
-    def >>>       (a: Int, b: Int): Int = a >>> b
+    def shiftLeft         (a: Int, b: Int): Int = a << b
+    def shiftRight        (a: Int, b: Int): Int = a >> b
+    def unsignedShiftRight(a: Int, b: Int): Int = a >>> b
 
     def difSqr    (a: Int, b: Int): Int = ri2.difSqr(a, b).toInt
     def sumSqr    (a: Int, b: Int): Int = ri2.sumSqr(a, b).toInt
@@ -522,7 +523,7 @@ object Adjunct {
     def abs       (a: Int): Int     = ri.abs(a)
     def signum    (a: Int): Int     = ri.signum(a)
 
-    def unary_~   (a: Int): Int = ~a
+    def not(a: Int): Int = ~a
 
     def squared   (a: Int): Int = ri.squared(a).toInt
     def cubed     (a: Int): Int = ri2.cubed (a).toInt
@@ -546,9 +547,9 @@ object Adjunct {
       else       r.nextInt(a - b + 1) + b
 
     def lt  (a: Int, b: Int): Boolean = a <  b
-    def leq (a: Int, b: Int): Boolean = a <= b
+    def lteq(a: Int, b: Int): Boolean = a <= b
     def gt  (a: Int, b: Int): Boolean = a >  b
-    def geq (a: Int, b: Int): Boolean = a >= b
+    def gteq(a: Int, b: Int): Boolean = a >= b
 
     def fold(a: Int, lo: Int, hi: Int): Int = ri.fold(a, lo, hi)
     def clip(a: Int, lo: Int, hi: Int): Int = ri.clip(a, lo, hi)
@@ -582,29 +583,29 @@ object Adjunct {
     def toDouble  (a: Long): Double = a.toDouble
     def toLong    (a: Long): Long   = a
 
-    def +(a: Long, b: Long): Long = a + b
-    def -(a: Long, b: Long): Long = a - b
-    def *(a: Long, b: Long): Long = a * b
-    def %         (a: Long, b: Long): Long = a % b
+    def plus      (a: Long, b: Long): Long = a + b
+    def minus     (a: Long, b: Long): Long = a - b
+    def times     (a: Long, b: Long): Long = a * b
+    def rem       (a: Long, b: Long): Long = a % b
     def mod       (a: Long, b: Long): Long = rl.mod(a, b)
     def min       (a: Long, b: Long): Long = rl.min(a, b)
     def max       (a: Long, b: Long): Long = rl.max(a, b)
 
-    def &         (a: Long, b: Long): Long = a & b
-    def |         (a: Long, b: Long): Long = a | b
-    def ^         (a: Long, b: Long): Long = a ^ b
+    def and(a: Long, b: Long): Long = a & b
+    def or(a: Long, b: Long): Long = a | b
+    def xor(a: Long, b: Long): Long = a ^ b
     def lcm       (a: Long, b: Long): Long = rl.lcm(a, b)
     def gcd       (a: Long, b: Long): Long = rl.gcd(a, b)
 
-    override def div       (a: Long, b: Long): Long = a / b
+    def div       (a: Long, b: Long): Long = a / b
 
     def roundTo   (a: Long, b: Long): Long = rl2.roundTo  (a, b)
     def roundUpTo (a: Long, b: Long): Long = rl2.roundUpTo(a, b)
     def trunc     (a: Long, b: Long): Long = rl2.trunc    (a, b)
 
-    def <<        (a: Long, b: Long): Long = a << b
-    def >>        (a: Long, b: Long): Long = a >> b
-    def >>>       (a: Long, b: Long): Long = a >>> b
+    def shiftLeft         (a: Long, b: Long): Long = a << b
+    def shiftRight        (a: Long, b: Long): Long = a >> b
+    def unsignedShiftRight(a: Long, b: Long): Long = a >>> b
 
     def difSqr    (a: Long, b: Long): Long = rl2.difSqr(a, b)
     def sumSqr    (a: Long, b: Long): Long = rl2.sumSqr(a, b)
@@ -621,7 +622,7 @@ object Adjunct {
     def abs       (a: Long): Long     = rl.abs(a)
     def signum    (a: Long): Long     = rl.signum(a)
 
-    def unary_~   (a: Long): Long = ~a
+    def not(a: Long): Long = ~a
 
     def squared   (a: Long): Long = rl.squared(a)
     def cubed     (a: Long): Long = rl2.cubed (a)
@@ -633,9 +634,9 @@ object Adjunct {
     def rangeRand[Tx](a: Long, b: Long)(implicit r: Random[Tx], tx: Tx): Long = ???
 
     def lt  (a: Long, b: Long): Boolean = a <  b
-    def leq (a: Long, b: Long): Boolean = a <= b
+    def lteq(a: Long, b: Long): Boolean = a <= b
     def gt  (a: Long, b: Long): Boolean = a >  b
-    def geq (a: Long, b: Long): Boolean = a >= b
+    def gteq(a: Long, b: Long): Boolean = a >= b
 
     def fold (a: Long, lo: Long, hi: Long): Long = rl.fold(a, lo, hi)
     def clip (a: Long, lo: Long, hi: Long): Long = rl.clip(a, lo, hi)
@@ -705,17 +706,17 @@ object Adjunct {
 
     // binary
 
-    def +(a: In, b: In): In = rd.+(a, b)
-    def -(a: In, b: In): In = rd.-(a, b)
-    def *(a: In, b: In): In = rd.*(a, b)
-    def /         (a: In, b: In): In = rd./(a, b)
-    def %         (a: In, b: In): In = rd.%  (a, b)
+    def plus      (a: In, b: In): In = rd.+(a, b)
+    def minus     (a: In, b: In): In = rd.-(a, b)
+    def times     (a: In, b: In): In = rd.*(a, b)
+    def div       (a: In, b: In): In = rd./(a, b)
+    def rem       (a: In, b: In): In = rd.%  (a, b)
     def mod       (a: In, b: In): In = rd.mod(a, b)
 
     def lt        (a: In, b: In): Boolean = a <  b
-    def leq       (a: In, b: In): Boolean = a <= b
+    def lteq      (a: In, b: In): Boolean = a <= b
     def gt        (a: In, b: In): Boolean = a >  b
-    def geq       (a: In, b: In): Boolean = a >= b
+    def gteq      (a: In, b: In): Boolean = a >= b
 
     def min       (a: In, b: In): In = rd.min(a, b)
     def max       (a: In, b: In): In = rd.max(a, b)
@@ -815,18 +816,18 @@ object Adjunct {
   implicit object BooleanSeqTop
     extends NumBool[Seq[Boolean]]
       with SeqLikeEq    [Boolean]
-      with SeqLikeToNum [Boolean] 
+      with SeqLikeToNum [Boolean]
       with FromAny[Seq[Boolean]] {
 
     val peer: BooleanTop.type = BooleanTop
 
     final val id = 5
 
-    def unary_!(a: In): In = unOp(a)(!_)
+    def negate(a: In): In = unOp(a)(!_)
 
-    def & (a: In, b: In): In = binOp(a, b)(_ & _)
-    def | (a: In, b: In): In = binOp(a, b)(_ | _)
-    def ^ (a: In, b: In): In = binOp(a, b)(_ ^ _)
+    def and (a: In, b: In): In = binOp(a, b)(_ & _)
+    def or  (a: In, b: In): In = binOp(a, b)(_ | _)
+    def xor (a: In, b: In): In = binOp(a, b)(_ ^ _)
 
     def fromAny(in: Any): Option[Seq[scala.Boolean]] = in match {
       case sq: Seq[_] =>
@@ -857,11 +858,11 @@ object Adjunct {
     def toDouble(a: In): Double = if (a) 1.0  else 0.0
     def toLong  (a: In): Long   = if (a) 1L   else 0L
 
-    def unary_!(a: In): In = !a
+    def negate(a: In): In = !a
 
-    def & (a: In, b: In): In = a & b
-    def | (a: In, b: In): In = a | b
-    def ^ (a: In, b: In): In = a ^ b
+    def and (a: In, b: In): In = a & b
+    def or  (a: In, b: In): In = a | b
+    def xor (a: In, b: In): In = a ^ b
 
     // ---- FromAny ----
 

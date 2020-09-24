@@ -14,7 +14,7 @@
 package de.sciss.lucre.expr.graph.impl
 
 import de.sciss.lucre.Obj.AttrMap
-import de.sciss.lucre.TxnLike.peer
+import de.sciss.lucre.Txn.peer
 import de.sciss.lucre.edit.EditAttrMap
 import de.sciss.lucre.expr.CellView
 import de.sciss.lucre.expr.graph.Obj

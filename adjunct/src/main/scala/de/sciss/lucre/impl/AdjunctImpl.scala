@@ -58,18 +58,18 @@ trait SeqLikeOrd[A] extends SeqLikeEq[A] with Ord[Seq[A]] {
   protected val peer: ScalarOrd[A]
 
   def lt  (a: In, b: In): Boolean = binOp(a, b)(peer.lt  ) // IntelliJ highlight bug
-  def leq (a: In, b: In): Boolean = binOp(a, b)(peer.leq ) // IntelliJ highlight bug
+  def lteq(a: In, b: In): Boolean = binOp(a, b)(peer.lteq ) // IntelliJ highlight bug
   def gt  (a: In, b: In): Boolean = binOp(a, b)(peer.gt  ) // IntelliJ highlight bug
-  def geq (a: In, b: In): Boolean = binOp(a, b)(peer.geq ) // IntelliJ highlight bug
+  def gteq(a: In, b: In): Boolean = binOp(a, b)(peer.gteq ) // IntelliJ highlight bug
 }
 
 trait SeqLikeNum[A] extends SeqLikeOrd[A] with Num[Seq[A]] {
   override protected val peer: ScalarNum[A]
 
-  final def +(a: In, b: In): In = binOp(a, b)(peer.+      )
-  final def -(a: In, b: In): In = binOp(a, b)(peer.-     )
-  final def *(a: In, b: In): In = binOp(a, b)(peer.*     )
-  final def %         (a: In, b: In): In = binOp(a, b)(peer.%         )
+  final def plus(a: In, b: In): In = binOp(a, b)(peer.plus      )
+  final def minus(a: In, b: In): In = binOp(a, b)(peer.minus     )
+  final def times(a: In, b: In): In = binOp(a, b)(peer.times     )
+  final def rem(a: In, b: In): In = binOp(a, b)(peer.rem         )
   final def mod       (a: In, b: In): In = binOp(a, b)(peer.mod       )
   final def min       (a: In, b: In): In = binOp(a, b)(peer.min       )
   final def max       (a: In, b: In): In = binOp(a, b)(peer.max       )
@@ -114,7 +114,7 @@ trait SeqLikeNumFrac[A] extends SeqLikeNum[A] with NumFrac[Seq[A]] {
   final def frac      (a: In): In = unOp(a)(peer.frac       )
   final def reciprocal(a: In): In = unOp(a)(peer.reciprocal )
 
-  final def /         (a: In, b: In): In = binOp(a, b)(peer./)
+  final def div(a: In, b: In): In = binOp(a, b)(peer.div)
 }
 
 trait SeqLikeNumDouble[A] extends SeqLikeNumFrac[A] with NumDouble[Seq[A]] {

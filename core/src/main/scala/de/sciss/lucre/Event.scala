@@ -210,7 +210,7 @@ object Event {
     protected def writeData(out: DataOutput): Unit
     protected def disposeData()(implicit tx: T): Unit
 
-    private[lucre] final def _targets: Targets[T] = targets
+    private[lucre] final def getTargets: Targets[T] = targets
 
     final def id: Ident[T] = targets.id
 
@@ -241,10 +241,10 @@ trait Event[T <: Txn[T], +A] extends EventLike[T, A] with Writable {
   // ---- implemented ----
 
   final def ---> (sink: Event[T, Any])(implicit tx: T): Unit =
-    node._targets.add(slot, sink)
+    node.getTargets.add(slot, sink)
 
   final def -/-> (sink: Event[T, Any])(implicit tx: T): Unit =
-    node._targets.remove(slot, sink)
+    node.getTargets.remove(slot, sink)
 
   final def write(out: DataOutput): Unit = {
     out.writeByte(slot)

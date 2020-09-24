@@ -16,12 +16,14 @@ package de.sciss.lucre
 import de.sciss.lucre.impl.InMemoryImpl
 
 object InMemory {
-  trait Txn extends InMemoryLike.Txn[Txn]
+  trait Txn extends InMemoryLike.Txn[Txn] {
+    final type I = InMemory.Txn
+  }
 
   def apply(): InMemory = InMemoryImpl()
 }
 /** A thin in-memory (non-durable) wrapper around Scala-STM. */
 trait InMemory extends InMemoryLike[InMemory.Txn] {
   //  final type Tx = InMemoryLike.Txn[InMemory]
-  final type I  = InMemory
+//  final type I  = InMemory
 }

@@ -17,7 +17,7 @@ package impl
 import de.sciss.lucre.confluent.Log.log
 import de.sciss.lucre.confluent.impl.{PathImpl => Path}
 import de.sciss.lucre.impl.BasicTxnImpl
-import de.sciss.lucre.{Confluent, Durable, DurableLike, IdentMap, InMemory, Obj, ReactionMap, MapObj, Ident => LIdent}
+import de.sciss.lucre.{Confluent, Durable, DurableLike, IdentMap, InMemory, Obj, ReactionMap, MapObj}
 import de.sciss.serial.{ConstFormat, DataInput, TFormat}
 
 import scala.collection.immutable.{IndexedSeq => Vec, Queue => IQueue}
@@ -265,7 +265,7 @@ trait TxnMixin[Tx <: Txn[Tx]]
 //    res
 //  }
 
-  override final def newIdentMap[A]: IdentMap[LIdent[T], T, A] = {
+  override final def newIdentMap[A]: IdentMap[T, A] = {
     val map = InMemoryConfluentMap.newIntMap[T]
     new InMemoryIdMapImpl[T, A](map)
   }
@@ -307,6 +307,8 @@ trait RootTxnMixin[Tx <: Txn[Tx], D <: DurableLike.Txn[D]]
 
 private[impl] sealed trait TxnImpl extends Confluent.Txn /*Txn[Confluent.Txn]*/ {
   final lazy val inMemory: InMemory.Txn = system.inMemory.wrap(peer)
+
+  def inMemoryBridge: (Confluent.Txn => InMemory.Txn) = _.inMemory
 }
 
 private[impl] final class RegularTxn(val system: Confluent, val durable: Durable.Txn,

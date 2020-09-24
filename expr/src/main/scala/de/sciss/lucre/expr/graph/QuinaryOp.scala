@@ -44,8 +44,8 @@ object QuinaryOp {
       val inHiVal   = w.widen1(inHi)
       val outLoVal  = w.widen2(outLo)
       val outHiVal  = w.widen2(outHi)
-      num.+(num.*(num./(num.-(inVal, inLoVal), num.-(inHiVal, inLoVal)),
-        num.-(outHiVal, outLoVal)), outLoVal)
+      num.plus(num.times(num.div(num.minus(inVal, inLoVal), num.minus(inHiVal, inLoVal)),
+        num.minus(outHiVal, outLoVal)), outLoVal)
     }
 
     def name = "LinLin"
@@ -62,10 +62,10 @@ object QuinaryOp {
       val inHiVal   = w.widen1(inHi)
       val outLoVal  = w.widen2(outLo)
       val outHiVal  = w.widen2(outHi)
-      num.*(
+      num.times(
         num.pow(
-          num./(outHiVal, outLoVal),
-          num./(num.-(inVal, inLoVal), num.-(inHiVal, inLoVal))),
+          num.div(outHiVal, outLoVal),
+          num.div(num.minus(inVal, inLoVal), num.minus(inHiVal, inLoVal))),
         outLoVal)
     }
 
@@ -83,12 +83,12 @@ object QuinaryOp {
       val inHiVal   = w.widen1(inHi)
       val outLoVal  = w.widen2(outLo)
       val outHiVal  = w.widen2(outHi)
-      num.+(
-        num.*(
-          num./(
-            num.log(num./(inVal  , inLoVal)),
-            num.log(num./(inHiVal, inLoVal))),
-          num.-(outHiVal, outLoVal)
+      num.plus(
+        num.times(
+          num.div(
+            num.log(num.div(inVal  , inLoVal)),
+            num.log(num.div(inHiVal, inLoVal))),
+          num.minus(outHiVal, outLoVal)
         ),
         outLoVal
       )
@@ -108,12 +108,12 @@ object QuinaryOp {
       val inHiVal   = w.widen1(inHi)
       val outLoVal  = w.widen2(outLo)
       val outHiVal  = w.widen2(outHi)
-      num.*(
+      num.times(
         num.pow(
-          num./(outHiVal, outLoVal),
-          num./(
-            num.log(num./(inVal  , inLoVal)),
-            num.log(num./(inHiVal, inLoVal))
+          num.div(outHiVal, outLoVal),
+          num.div(
+            num.log(num.div(inVal  , inLoVal)),
+            num.log(num.div(inHiVal, inLoVal))
           )
         ),
         outLoVal

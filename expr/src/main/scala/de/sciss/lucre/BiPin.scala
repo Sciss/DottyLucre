@@ -73,9 +73,9 @@ object BiPin extends Obj.Type {
   }
 
   trait Modifiable[T <: Txn[T], A] extends BiPin[T, A] {
-    def add   (key: LongObj[T], value: A): Unit
-    def remove(key: LongObj[T], value: A): Boolean
-    def clear(): Unit
+    def add   (key: LongObj[T], value: A)(implicit tx: T): Unit
+    def remove(key: LongObj[T], value: A)(implicit tx: T): Boolean
+    def clear()(implicit tx: T): Unit
 
     override def changed: EventLike[T, Update[T, A, Modifiable[T, A]]]
   }
@@ -96,10 +96,10 @@ trait BiPin[T <: Txn[T], A] extends Obj[T] with Publisher[T, BiPin.Update[T, A, 
   def modifiableOption: Option[BiPin.Modifiable[T, A]]
 
   /** Returns `true` if not a single element is contained in the collection. */
-  def isEmpty: Boolean
+  def isEmpty(implicit tx: T): Boolean
 
   /** Returns `true` if at least one element is contained in the collection. */
-  def nonEmpty: Boolean
+  def nonEmpty(implicit tx: T): Boolean
 
   /** Queries the element valid for the given point in time.
    * Unlike, `intersect`, if there are multiple elements sharing
@@ -111,9 +111,9 @@ trait BiPin[T <: Txn[T], A] extends Obj[T] with Publisher[T, BiPin.Update[T, A, 
    * @param time the query time point
    * @return  an element for the given time point, if it exists, otherwise `None`
    */
-  def at(time: Long): Option[Entry[T, A]]
+  def at(time: Long)(implicit tx: T): Option[Entry[T, A]]
 
-  def valueAt(time: Long): Option[A]
+  def valueAt(time: Long)(implicit tx: T): Option[A]
 
   /** Finds the entry at the given time, or the closest entry before the given time.
    *
@@ -121,7 +121,7 @@ trait BiPin[T <: Txn[T], A] extends Obj[T] with Publisher[T, BiPin.Update[T, A, 
    * @return     the entry nearest in time to the query time, but not later than the
    *             query time, or `None` if there is no entry at such time
    */
-  def floor(time: Long): Option[Entry[T, A]]
+  def floor(time: Long)(implicit tx: T): Option[Entry[T, A]]
 
   /** Finds the entry at the given time, or the closest entry after the given time.
    *
@@ -129,7 +129,7 @@ trait BiPin[T <: Txn[T], A] extends Obj[T] with Publisher[T, BiPin.Update[T, A, 
    * @return     the entry nearest in time to the query time, but not earlier than the
    *             query time, or `None` if there is no entry at such time
    */
-  def ceil(time: Long): Option[Entry[T, A]]
+  def ceil(time: Long)(implicit tx: T): Option[Entry[T, A]]
 
   /** Queries all elements which are found at a given point in time.
    * There may be multiple time expressions which are not equal but
@@ -139,7 +139,7 @@ trait BiPin[T <: Txn[T], A] extends Obj[T] with Publisher[T, BiPin.Update[T, A, 
    * @param time the query point
    * @return  the sequence of elements found along with their time expressions
    */
-  def intersect(time: Long): Leaf[T, A]
+  def intersect(time: Long)(implicit tx: T): Leaf[T, A]
 
   /** Finds the entry with the smallest time which is greater than the query time.
    *
@@ -147,7 +147,7 @@ trait BiPin[T <: Txn[T], A] extends Obj[T] with Publisher[T, BiPin.Update[T, A, 
    * @return     the time corresponding to the next entry, or `None` if there is no entry
    *             later than the given time
    */
-  def eventAfter(time: Long): Option[Long]
+  def eventAfter(time: Long)(implicit tx: T): Option[Long]
 
   /** Finds the entry with the greatest time which is less than the query time.
    *
@@ -155,7 +155,7 @@ trait BiPin[T <: Txn[T], A] extends Obj[T] with Publisher[T, BiPin.Update[T, A, 
    * @return     the time corresponding to the next entry, or `None` if there is no entry
    *             earlier than the given time
    */
-  def eventBefore(time: Long): Option[Long]
+  def eventBefore(time: Long)(implicit tx: T): Option[Long]
 
-  def debugList: List[(Long, A)]
+  def debugList(implicit tx: T): List[(Long, A)]
 }

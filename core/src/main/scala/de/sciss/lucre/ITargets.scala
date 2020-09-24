@@ -20,7 +20,7 @@ object ITargets {
   def apply[T <: Txn[T]]: ITargets[T] = new Impl[T]
 
   private final class Impl[T <: Txn[T]] extends ITargets[T] {
-    import TxnLike.peer
+    import Txn.peer
 
     private[this] val connections = TMap.empty[IEvent[T, Any], List[IEvent[T, Any]]]
     private[this] val reactions   = TMap.empty[IEvent[T, Any], List[Observer[T, _]]]

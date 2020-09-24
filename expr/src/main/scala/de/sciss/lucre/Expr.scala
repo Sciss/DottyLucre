@@ -15,7 +15,6 @@ package de.sciss.lucre
 
 import de.sciss.lucre
 import de.sciss.lucre.Event.Targets
-import de.sciss.lucre.expr.LongExtensions
 import de.sciss.lucre.expr.impl.{ExObjBridgeImpl, ExSeqObjBridgeImpl}
 import de.sciss.model.Change
 import de.sciss.serial.{ConstFormat, DataInput, TFormat}
@@ -23,7 +22,7 @@ import de.sciss.serial.{ConstFormat, DataInput, TFormat}
 import scala.collection.immutable.{IndexedSeq => Vec}
 import scala.language.implicitConversions
 
-object Expr {
+object Expr extends expr.Ops {
   // XXX TODO -- we need to rethink this type
   //  trait Var[T <: Txn[T], A, E[~ <: Txn[~]] <: Expr[~, A]] extends Expr[S, A] with stm.Var[T, E[T]]
   //  trait Var[T <: Txn[T], A] extends Expr[T, A] with lucre.Var[Expr[T, A]]
@@ -138,16 +137,6 @@ object Expr {
 
     def tryParse(value: Any): Option[A]
   }
-  
-  // ---- Ops ----
-
-//  implicit def intObjOps      [T <: Txn[T]](obj: IntObj     [T]): IntExtensions     .Ops[T] = new IntExtensions     .Ops(obj)
-  implicit def longObjOps     [T <: Txn[T]](obj: LongObj    [T]): LongExtensions    .Ops[T] = new LongExtensions    .Ops(obj)
-//  implicit def doubleObjOps   [T <: Txn[T]](obj: DoubleObj  [T]): DoubleExtensions  .Ops[T] = new DoubleExtensions  .Ops(obj)
-//  implicit def booleanObjOps  [T <: Txn[T]](obj: BooleanObj [T]): BooleanExtensions .Ops[T] = new BooleanExtensions .Ops(obj)
-//  implicit def stringObjOps   [T <: Txn[T]](obj: StringObj  [T]): StringExtensions  .Ops[T] = new StringExtensions  .Ops(obj)
-//  implicit def spanLikeObjOps [T <: Txn[T]](obj: SpanLikeObj[T]): SpanLikeExtensions.Ops[T] = new SpanLikeExtensions.Ops(obj)
-//  implicit def spanObjOps     [T <: Txn[T]](obj: SpanObj    [T]): SpanExtensions    .Ops[T] = new SpanExtensions    .Ops(obj)
 }
 
 /** An expression is a computation that reduces to a single value of type `A`.

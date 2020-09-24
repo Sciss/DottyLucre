@@ -7,19 +7,6 @@ import scala.concurrent.stm.Txn.ExternalDecider
 import scala.concurrent.stm.{InTxn, InTxnEnd, TxnExecutor, TxnLocal, Txn => ScalaTxn}
 import scala.util.control.NonFatal
 
-object TxnLike {
-  /** Implicitly extracts a Scala STM transaction from a `TxnLike` instance. */
-  implicit def peer(implicit tx: TxnLike): InTxn = tx.peer
-
-  /** Implicitly treats a Scala STM transaction as a `TxnLike` instance. */
-  implicit def wrap(implicit peer: InTxn): TxnLike = new Wrapped(peer)
-
-  private final class Wrapped(val peer: InTxn) extends TxnLike {
-    override def toString: String = peer.toString
-
-    def afterCommit (code: => Unit): Unit = ScalaTxn.afterCommit(_ => code)(peer)
-  }
-}
 /** This is a minimal trait for any type of transactions that wrap an underlying Scala-STM transaction. */
 trait TxnLike {
   /** Every transaction has a plain Scala-STM transaction as a peer. This comes handy for
@@ -37,6 +24,18 @@ trait TxnLike {
 
 object Txn {
   trait Resource extends Closeable with ExternalDecider
+
+  /** Implicitly extracts a Scala STM transaction from a `TxnLike` instance. */
+  implicit def peer(implicit tx: TxnLike): InTxn = tx.peer
+
+  /** Implicitly treats a Scala STM transaction as a `TxnLike` instance. */
+  implicit def wrap(implicit peer: InTxn): TxnLike = new Wrapped(peer)
+
+  private final class Wrapped(val peer: InTxn) extends TxnLike {
+    override def toString: String = peer.toString
+
+    def afterCommit (code: => Unit): Unit = ScalaTxn.afterCommit(_ => code)(peer)
+  }
 
   private[this] final class Decider(var instances: scala.List[Resource])
     extends ExternalDecider {
@@ -73,7 +72,7 @@ object Txn {
 
   private[this] val decider = TxnLocal[Decider]()
 
-  private[lucre] def addResource(resource: Resource)(implicit tx: InTxn): Unit =
+  private[lucre] def addResource(resource: Resource)(implicit peer: InTxn): Unit =
     if (decider.isInitialized) {
       decider().instances ::= resource
     } else {
@@ -113,7 +112,7 @@ object Txn {
 }
 
 trait Txn[T <: Txn[T]] extends Exec[T] with TxnLike {
-  //  def inMemory: S#I#Tx
+  override type I <: Txn[I]
 
   override def system: Sys
 

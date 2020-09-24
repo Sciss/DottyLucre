@@ -308,49 +308,49 @@ trait InMemoryCacheMapImpl[T <: Txn[T], /* @spec(KeySpec) */ K]
 
 // ---------------------------------------------------------------------
 
-object PartialCacheMapImpl {
-  import CacheMapImpl.Entry
-
-  private type Store[T <: Txn[T], K] = DurablePersistentMap[T, K]
-
-  def newIntCache[T <: Txn[T]](map: Store[T, Int]): CacheMap.Partial[T, Int, Store[T, Int]] =
-    new PartialCacheMapImpl[T, Int] {
-
-      // final protected def emptyCache: Map[Int, Any] = Map.empty
-      final val store: DurablePersistentMap[T, Int] = map
-    }
-
-  private final class PartialEntry[T <: Txn[T], K, A](val fullPath: Access[T], val value: A)
-                                                     (implicit format: TFormat[T, A])
-    extends Entry[T, K, Store[T, K]] {
-
-    override def toString = s"PartialEntry($value)"
-
-    val path: Access[T] = fullPath.partial
-
-    def flush(key: K, outTerm: Long, store: Store[T, K])(implicit tx: T): Unit = {
-      val pathOut = fullPath.addTerm(outTerm)
-      log(s"txn flush write $value for ${pathOut.mkString(s"<$key @ ", ",", ">")}")
-//      val out     = DataOutput()
-//      format.write(value, out)
-//      val arr     = out.toByteArray
-      store.put(key, value, tx)(pathOut, format)
-    }
-  }
-}
-
-trait PartialCacheMapImpl[T <: Txn[T], K]
-  extends CacheMap.Partial[T, K, DurablePersistentMap[T, K]]
-  with CacheMapImpl       [T, K, DurablePersistentMap[T, K]] {
-
-  import PartialCacheMapImpl._
-
-  final def putPartial[A](key: K, value: A, tx: T)(implicit path: tx.Acc, format: TFormat[T, A]): Unit =
-    putCacheOnly(key, new PartialEntry[T, K, A](path, value))(tx)
-
-  final def getPartial[A](key: K, tx: T)(implicit path: tx.Acc, format: TFormat[T, A]): Option[A] =
-    getCacheOnly(key, tx)(path.partial) orElse store.get[A](key, tx)
-
-  final def removeCache(key: K, tx: T)(implicit path: tx.Acc): Boolean =
-    removeCacheOnly(key, tx) || store.remove(key, tx)
-}
+//object PartialCacheMapImpl {
+//  import CacheMapImpl.Entry
+//
+//  private type Store[T <: Txn[T], K] = DurablePersistentMap[T, K]
+//
+//  def newIntCache[T <: Txn[T]](map: Store[T, Int]): CacheMap.Partial[T, Int, Store[T, Int]] =
+//    new PartialCacheMapImpl[T, Int] {
+//
+//      // final protected def emptyCache: Map[Int, Any] = Map.empty
+//      final val store: DurablePersistentMap[T, Int] = map
+//    }
+//
+//  private final class PartialEntry[T <: Txn[T], K, A](val fullPath: Access[T], val value: A)
+//                                                     (implicit format: TFormat[T, A])
+//    extends Entry[T, K, Store[T, K]] {
+//
+//    override def toString = s"PartialEntry($value)"
+//
+//    val path: Access[T] = fullPath.partial
+//
+//    def flush(key: K, outTerm: Long, store: Store[T, K])(implicit tx: T): Unit = {
+//      val pathOut = fullPath.addTerm(outTerm)
+//      log(s"txn flush write $value for ${pathOut.mkString(s"<$key @ ", ",", ">")}")
+////      val out     = DataOutput()
+////      format.write(value, out)
+////      val arr     = out.toByteArray
+//      store.put(key, value, tx)(pathOut, format)
+//    }
+//  }
+//}
+//
+//trait PartialCacheMapImpl[T <: Txn[T], K]
+//  extends CacheMap.Partial[T, K, DurablePersistentMap[T, K]]
+//  with CacheMapImpl       [T, K, DurablePersistentMap[T, K]] {
+//
+//  import PartialCacheMapImpl._
+//
+//  final def putPartial[A](key: K, value: A, tx: T)(implicit path: tx.Acc, format: TFormat[T, A]): Unit =
+//    putCacheOnly(key, new PartialEntry[T, K, A](path, value))(tx)
+//
+//  final def getPartial[A](key: K, tx: T)(implicit path: tx.Acc, format: TFormat[T, A]): Option[A] =
+//    getCacheOnly(key, tx)(path.partial) orElse store.get[A](key, tx)
+//
+//  final def removeCache(key: K, tx: T)(implicit path: tx.Acc): Boolean =
+//    removeCacheOnly(key, tx) || store.remove(key, tx)
+//}

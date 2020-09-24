@@ -13,9 +13,15 @@
 
 package de.sciss.lucre
 
+import de.sciss.lucre.impl.IdentFormat
 import de.sciss.serial
 import de.sciss.serial.{DataInput, TFormat}
 
+object Ident {
+  implicit def format[T <: Exec[T]]: TFormat[T, Ident[T]] = anyFmt.asInstanceOf[TFormat[T, Ident[T]]]
+
+  private val anyFmt = new IdentFormat[AnyExec]
+}
 trait Ident[T <: Exec[T]] extends Disposable[T] with serial.Writable {
   
   def newVar[A](init: A)(implicit tx: T, format: TFormat[T, A]): Var[T, A]

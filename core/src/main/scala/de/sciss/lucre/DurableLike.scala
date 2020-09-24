@@ -26,6 +26,8 @@ object DurableLike {
   trait Txn[T <: Txn[T]] extends lucre.Txn[T] {
     def system: DurableLike[T]
 
+    type I <: InMemoryLike.Txn[I]
+
     final type Id     = DurableLike.Id[T]
 
     def newCachedVar[A](  init: A    )(implicit format: TFormat[T, A]): Var[T, A]
@@ -40,8 +42,8 @@ trait DurableLike[Tx <: DurableLike.Txn[Tx]] extends Sys /*[S]*/ with Cursor[Tx]
 
   final type Id          = DurableLike.Id[T]
 
-//  type Tx               <: DurableLike.Txn[S]
   type T = Tx
+
   type I <: InMemoryLike.Txn[I]
 
   /** Reports the current number of records stored in the database. */

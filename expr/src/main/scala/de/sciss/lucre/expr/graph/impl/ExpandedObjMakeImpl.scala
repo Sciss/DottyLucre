@@ -13,7 +13,7 @@
 
 package de.sciss.lucre.expr.graph.impl
 
-import de.sciss.lucre.TxnLike.peer
+import de.sciss.lucre.Txn.peer
 import de.sciss.lucre.expr.IAction
 import de.sciss.lucre.expr.impl.ITriggerConsumer
 import de.sciss.lucre.impl.IChangeGeneratorEvent

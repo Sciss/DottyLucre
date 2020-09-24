@@ -14,7 +14,7 @@
 package de.sciss.lucre.expr
 package impl
 
-import de.sciss.lucre.TxnLike.peer
+import de.sciss.lucre.Txn.peer
 import de.sciss.lucre.{Disposable, Txn}
 
 import scala.concurrent.stm.Ref

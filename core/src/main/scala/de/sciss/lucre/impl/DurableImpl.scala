@@ -36,8 +36,8 @@ object DurableImpl {
 
     def store: DataStore
 
-    protected final val eventMap: IdentMap[Ident[T], T, Map[Int, scala.List[Observer[T, _]]]] =
-      IdentMapImpl[Ident[T], T, Map[Int, scala.List[Observer[T, _]]]] { implicit tx => id => id.!.id }
+    protected final val eventMap: IdentMap[T, Map[Int, scala.List[Observer[T, _]]]] =
+      IdentMapImpl[T, Map[Int, scala.List[Observer[T, _]]]] { implicit tx => id => id.!.id }
 
     private[this] val idCntVar = step { implicit tx =>
       val _id = store.get(_.writeInt(0))(_.readInt()).getOrElse(1)
@@ -164,8 +164,8 @@ object DurableImpl {
       res
     }
 
-    final def newIdentMap[A]: IdentMap[Ident[T], T, A] =
-      IdentMapImpl[Ident[T], T, A] { implicit tx => id => id.!.id }
+    final def newIdentMap[A]: IdentMap[T, A] =
+      IdentMapImpl[T, A] { implicit tx => id => id.!.id }
 
     final def readCachedVar[A](in: DataInput)(implicit format: TFormat[T, A]): Var[T, A] = {
       val id = in./* PACKED */ readInt()
@@ -470,7 +470,9 @@ object DurableImpl {
   private final class TxnImpl(val system: System, val peer: InTxn)
     extends TxnMixin[Durable.Txn] with Durable.Txn {
 
-//    lazy val inMemory: InMemory#Tx = system.inMemory.wrap(peer)
+    lazy val inMemory: InMemory.Txn = system.inMemory.wrap(peer)
+
+    def inMemoryBridge: (Durable.Txn => InMemory.Txn) = _.inMemory
 
     override def toString = s"Durable.Txn@${hashCode.toHexString}"
   }

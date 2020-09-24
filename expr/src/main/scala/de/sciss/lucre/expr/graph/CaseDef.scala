@@ -14,7 +14,7 @@
 package de.sciss.lucre.expr.graph
 
 import de.sciss.lucre.Adjunct.{FromAny, HasDefault}
-import de.sciss.lucre.TxnLike.peer
+import de.sciss.lucre.Txn.peer
 import de.sciss.lucre.expr.impl.IActionImpl
 import de.sciss.lucre.expr.{Context, IAction, IControl, graph}
 import de.sciss.lucre.impl.IChangeGeneratorEvent

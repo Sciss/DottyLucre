@@ -27,11 +27,11 @@ object InMemoryImpl {
 
     //    protected val idIntView: T => Ident[]
 
-    protected final val eventMap: IdentMap[Ident[T], T, Map[Int, scala.List[Observer[T, _]]]] =
-      IdentMapImpl[Ident[T], T, Map[Int, scala.List[Observer[T, _]]]] { implicit tx => id => id.!.id }
+    protected final val eventMap: IdentMap[T, Map[Int, scala.List[Observer[T, _]]]] =
+      IdentMapImpl[T, Map[Int, scala.List[Observer[T, _]]]] { implicit tx => id => id.!.id }
 
-    private[lucre] final val attrMap: IdentMap[Ident[T], T, Obj.AttrMap[T]] =
-      IdentMapImpl[Ident[T], T, Obj.AttrMap[T]] { implicit tx => id => id.!.id }
+    private[lucre] final val attrMap: IdentMap[T, Obj.AttrMap[T]] =
+      IdentMapImpl[T, Obj.AttrMap[T]] { implicit tx => id => id.!.id }
 
     private[lucre] final def newIdValue()(implicit tx: T): Int = {
       val peer  = tx.peer
@@ -123,10 +123,9 @@ object InMemoryImpl {
   private final class TxnImpl(val system: InMemory, val peer: InTxn)
     extends TxnMixin[InMemory.Txn] with InMemory.Txn {
 
-    //    implicit def inMemory: InMemory#I#Tx = this
-    //
-    //    type T  = InMemory.Txn
-    //    type Id = Ident[T]
+    def inMemory: InMemory.Txn = this
+
+    def inMemoryBridge: (InMemory.Txn => InMemory.Txn) = tx => tx
 
     override def toString = s"InMemory.Txn@${hashCode.toHexString}"
   }
@@ -149,8 +148,8 @@ object InMemoryImpl {
 
     final def newVarArray[A](size: Int) = new Array[Var[A]](size)
 
-    final def newIdentMap[A]: IdentMap[Ident[T] /*Id*/, T, A] =
-      IdentMapImpl[Ident[T], T, A] { implicit tx => id => id.!.id }
+    final def newIdentMap[A]: IdentMap[T, A] =
+      IdentMapImpl[T, A] { implicit tx => id => id.!.id }
 
     override def readId(in: DataInput): Id = opNotSupported("readId")
 
@@ -178,8 +177,10 @@ object InMemoryImpl {
   }
 
   private final class System extends Mixin[InMemory.Txn] with InMemory {
-    def inMemory: I = this
-    def inMemoryTx(tx: T): T = tx
+//    def inMemory: I = this
+//    def inMemoryTx(tx: T): T = tx
+
+//    def inMemoryBridge: (T => T) = tx => tx
 
     override def toString = s"InMemory@${hashCode.toHexString}"
 

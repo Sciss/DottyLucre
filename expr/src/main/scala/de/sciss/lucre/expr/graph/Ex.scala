@@ -411,9 +411,9 @@ object Ex {
     }
 
     def lt  (a: _File, b: _File): Boolean = _File.NameOrdering.lt(a, b)
-    def leq (a: _File, b: _File): Boolean = _File.NameOrdering.lteq(a, b)
+    def lteq(a: _File, b: _File): Boolean = _File.NameOrdering.lteq(a, b)
     def gt  (a: _File, b: _File): Boolean = _File.NameOrdering.gt(a, b)
-    def geq (a: _File, b: _File): Boolean = _File.NameOrdering.gteq(a, b)
+    def gteq(a: _File, b: _File): Boolean = _File.NameOrdering.gteq(a, b)
     def eq  (a: _File, b: _File): Boolean = _File.NameOrdering.compare(a, b) === 0
     def neq (a: _File, b: _File): Boolean = _File.NameOrdering.compare(a, b) !== 0
   }

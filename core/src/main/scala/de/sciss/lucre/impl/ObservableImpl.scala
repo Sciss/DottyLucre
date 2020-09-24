@@ -15,7 +15,7 @@ package de.sciss.lucre
 package impl
 
 import de.sciss.equal.Implicits._
-import de.sciss.lucre.TxnLike.peer
+import de.sciss.lucre.Txn.peer
 
 import scala.concurrent.stm.Ref
 

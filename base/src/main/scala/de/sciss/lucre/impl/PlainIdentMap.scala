@@ -19,7 +19,7 @@ import de.sciss.lucre.{IdentMap, Plain}
 
 import scala.collection.mutable
 
-final class PlainIdentMap[A] extends IdentMap[Id, Plain, A] {
+final class PlainIdentMap[A] extends IdentMap[Plain, A] {
   private[this] val peer = mutable.Map.empty[Id, A]
 
   def put(id: Id, value: A)(implicit tx: Plain): Unit = peer.put(id, value)

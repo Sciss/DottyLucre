@@ -24,10 +24,10 @@ object ListObjImpl {
 
   def newModifiable[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]](implicit tx: T): Modifiable[T, E[T]] =
     new Impl1[T, E] {
-      protected val targets: Targets[T]   = Targets[T]()
-      protected val sizeRef: Var[T, Int]  = id.newIntVar(0)
-      protected val headRef: Var[T, C]    = id.newVar[C](null)(tx, CellFmt)
-      protected val lastRef: Var[T, C]    = id.newVar[C](null)(tx, CellFmt)
+      protected override val targets: Targets[T]   = Targets[T]()
+      protected override val sizeRef: Var[T, Int]  = id.newIntVar(0)
+      protected override val headRef: Var[T, C]    = id.newVar[C](null)(tx, CellFmt)
+      protected override val lastRef: Var[T, C]    = id.newVar[C](null)(tx, CellFmt)
     }
 
   def format[T <: Txn[T], A <: Elem[T]]: TFormat[T, ListObj[T, A]] =
@@ -55,10 +55,10 @@ object ListObjImpl {
 
   private def read[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]](in: DataInput, _targets: Targets[T]): Impl1[T, E] =
     new Impl1[T, E] {
-      protected val targets: Targets[T]   = _targets
-      protected val sizeRef: Var[T, Int]  = id.readIntVar(in)
-      protected val headRef: Var[T, C]    = id.readVar[C](in)
-      protected val lastRef: Var[T, C]    = id.readVar[C](in)
+      protected override val targets: Targets[T]   = _targets
+      protected override val sizeRef: Var[T, Int]  = id.readIntVar(in)
+      protected override val headRef: Var[T, C]    = id.readVar[C](in)
+      protected override val lastRef: Var[T, C]    = id.readVar[C](in)
     }
 
   final class Cell[T <: Txn[T], A](val elem: A,

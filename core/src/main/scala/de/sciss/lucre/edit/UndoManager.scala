@@ -14,7 +14,7 @@
 package de.sciss.lucre
 package edit
 
-import de.sciss.lucre.TxnLike.peer
+import de.sciss.lucre.Txn.peer
 import de.sciss.lucre.edit.impl.UndoManagerImpl
 
 import scala.concurrent.stm.TxnLocal

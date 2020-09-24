@@ -16,7 +16,7 @@ package edit
 package impl
 
 import de.sciss.equal.Implicits._
-import de.sciss.lucre.TxnLike.peer
+import de.sciss.lucre.Txn.peer
 import de.sciss.lucre.edit.UndoManager.{CannotRedoException, CannotUndoException, Update}
 import de.sciss.lucre.impl.{DummyObservableImpl, ObservableImpl}
 

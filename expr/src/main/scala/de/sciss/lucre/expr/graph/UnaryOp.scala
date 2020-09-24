@@ -49,7 +49,7 @@ object UnaryOp {
   }
 
   final case class Not[A]()(implicit num: NumBool[A]) extends NamedOp[A, A] with ProductWithAdjuncts {
-    def apply(a: A): A = num.unary_!(a)
+    def apply(a: A): A = num.negate(a)
 
     override def name = "Not"
 
@@ -57,7 +57,7 @@ object UnaryOp {
   }
 
   final case class BitNot[A]()(implicit num: NumInt[A]) extends NamedOp[A, A] with ProductWithAdjuncts {
-    def apply(a: A): A = num.unary_~(a)
+    def apply(a: A): A = num.not(a)
 
     override def name = "BitNot"
 
@@ -481,7 +481,7 @@ object UnaryOp {
   }
 
   final case class SeqProduct[A]()(implicit num: Num[A]) extends NamedOp[Seq[A], A] with ProductWithAdjuncts {
-    def apply(a: Seq[A]): A = a.foldLeft(num.one)(num.*)
+    def apply(a: Seq[A]): A = a.foldLeft(num.one)(num.times)
 
     override def name = "SeqProduct"
 
@@ -534,7 +534,7 @@ object UnaryOp {
   }
 
   final case class SeqSum[A]()(implicit num: Num[A]) extends NamedOp[Seq[A], A] with ProductWithAdjuncts {
-    def apply(a: Seq[A]): A = a.foldLeft(num.zero)(num.+)
+    def apply(a: Seq[A]): A = a.foldLeft(num.zero)(num.plus)
 
     override def name = "SeqSum"
 

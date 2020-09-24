@@ -23,15 +23,14 @@ package de.sciss.lucre
  * tool to map system entities to ephemeral live views.
  *
  * @tparam T    the underlying system's transaction type
- * @tparam Id   the underlying system's identifier type
  * @tparam A    the values stored at the keys. `Unit` can be used if only set
  *              functionality is needed.
  */
-trait IdentMap[-Id, -T, A] extends Disposable[T] { // XXX TODO remove `Id` type
-  def put      (id: Id, value: A)     (implicit tx: T): Unit
-  def get      (id: Id)               (implicit tx: T): Option[A]
-  def getOrElse(id: Id, default: => A)(implicit tx: T): A
+trait IdentMap[T <: Exec[T], A] extends Disposable[T] {
+  def put      (id: Ident[T], value: A)     (implicit tx: T): Unit
+  def get      (id: Ident[T])               (implicit tx: T): Option[A]
+  def getOrElse(id: Ident[T], default: => A)(implicit tx: T): A
 
-  def contains (id: Id)(implicit tx: T): Boolean
-  def remove   (id: Id)(implicit tx: T): Unit
+  def contains (id: Ident[T])(implicit tx: T): Boolean
+  def remove   (id: Ident[T])(implicit tx: T): Unit
 }

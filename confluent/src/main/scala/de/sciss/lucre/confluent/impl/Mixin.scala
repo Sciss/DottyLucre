@@ -18,8 +18,8 @@ import de.sciss.lucre.confluent.Log.log
 import de.sciss.lucre.confluent.impl.DurableCacheMapImpl.Store
 import de.sciss.lucre.confluent.impl.{PathImpl => Path}
 import de.sciss.lucre.data.Ancestor
-import de.sciss.lucre.impl.{ReactionMapImpl, RandomImpl}
-import de.sciss.lucre.{ConfluentLike, DataStore, Ident, IdentMap, Observer, Random, Source, TxnLike, Txn => LTxn}
+import de.sciss.lucre.impl.{RandomImpl, ReactionMapImpl}
+import de.sciss.lucre.{ConfluentLike, DataStore, IdentMap, Observer, Random, Source, TxnLike, Txn => LTxn}
 import de.sciss.serial.{ConstFormat, DataInput, DataOutput, TFormat}
 
 import scala.annotation.tailrec
@@ -50,7 +50,7 @@ trait Mixin[Tx <: Txn[Tx]]
 
   final val fullCache: CacheMap.Durable[T, Int, Store[T, Int]] = DurableCacheMapImpl.newIntCache[T](varMap)
 
-  final protected val eventMap: IdentMap[Ident[T], T, Map[Int, List[Observer[T, _]]]] = {
+  final protected val eventMap: IdentMap[T, Map[Int, List[Observer[T, _]]]] = {
     val map = InMemoryConfluentMap.newIntMap[T]
     new InMemoryIdMapImpl[T, Map[Int, List[Observer[T, _]]]](map)
   }

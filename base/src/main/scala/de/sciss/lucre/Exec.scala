@@ -18,6 +18,12 @@ import de.sciss.serial.{DataInput, TFormat}
 trait Exec[T <: Exec[T]] {
   type Id <: Ident[T]
 
+  type I <: Exec[I]
+
+  def inMemory: I
+
+  implicit def inMemoryBridge: T => I
+
   def system: Base
 
   def newId(): Id
@@ -33,7 +39,7 @@ trait Exec[T <: Exec[T]] {
    *
    * @tparam A         the value type in the map
    */
-  def newIdentMap[A]: IdentMap[Ident[T] /*Id*/, T, A]
+  def newIdentMap[A]: IdentMap[T, A]
 
   //  def newInMemorySet[A]    : RefSet[S, A]
   //  def newInMemoryMap[A, B] : RefMap[S, A, B]

@@ -23,7 +23,7 @@ final class SysInMemoryRef[A](val peer: ScalaRef[A])
 
   type T = TxnLike
 
-  import TxnLike.{peer => itx}
+  import Txn.{peer => itx}
 
   override def toString = s"Var<${hashCode().toHexString}>"
 

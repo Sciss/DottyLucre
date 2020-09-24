@@ -40,7 +40,7 @@ object BinaryOp {
   final case class Plus[A, B, C]()(implicit widen: Widen2[A, B, C], num: Num[C])
     extends NamedOp[A, B, C] with ProductWithAdjuncts {
 
-    def apply(a: A, b: B): C = num.+(widen.widen1(a), widen.widen2(b))
+    def apply(a: A, b: B): C = num.plus(widen.widen1(a), widen.widen2(b))
 
     def name = "Plus"
 
@@ -50,7 +50,7 @@ object BinaryOp {
   final case class Minus[A, B, C]()(implicit widen: Widen2[A, B, C], num: Num[C])
     extends NamedOp[A, B, C] with ProductWithAdjuncts {
 
-    def apply(a: A, b: B): C = num.-(widen.widen1(a), widen.widen2(b))
+    def apply(a: A, b: B): C = num.minus(widen.widen1(a), widen.widen2(b))
 
     def name = "Minus"
 
@@ -60,7 +60,7 @@ object BinaryOp {
   final case class Times[A, B, C]()(implicit widen: Widen2[A, B, C], num: Num[C])
     extends NamedOp[A, B, C] with ProductWithAdjuncts {
 
-    def apply(a: A, b: B): C = num.*(widen.widen1(a), widen.widen2(b))
+    def apply(a: A, b: B): C = num.times(widen.widen1(a), widen.widen2(b))
 
     def name = "Times"
 
@@ -71,7 +71,7 @@ object BinaryOp {
   final case class Div[A, B, C]()(implicit widen: Widen2[A, B, C], num: NumFrac[C])
     extends NamedOp[A, B, C] with ProductWithAdjuncts {
 
-    def apply(a: A, b: B): C = num./(widen.widen1(a), widen.widen2(b))
+    def apply(a: A, b: B): C = num.div(widen.widen1(a), widen.widen2(b))
 
     def name = "Div"
 
@@ -81,7 +81,7 @@ object BinaryOp {
   final case class ModJ[A, B, C]()(implicit widen: Widen2[A, B, C], num: Num[C])
     extends NamedOp[A, B, C] with ProductWithAdjuncts {
 
-    def apply(a: A, b: B): C = num.%(widen.widen1(a), widen.widen2(b))
+    def apply(a: A, b: B): C = num.rem(widen.widen1(a), widen.widen2(b))
 
     def name = "ModJ"
 
@@ -148,7 +148,7 @@ object BinaryOp {
   final case class Leq[A, B]()(implicit ord: Ord[A] { type Boolean = B })
     extends NamedOp[A, A, B] with ProductWithAdjuncts {
 
-    def apply(a: A, b: A): B = ord.leq(a, b)
+    def apply(a: A, b: A): B = ord.lteq(a, b)
 
     def name = "Leq"
 
@@ -159,7 +159,7 @@ object BinaryOp {
   final case class Geq[A, B]()(implicit ord: Ord[A] { type Boolean = B })
     extends NamedOp[A, A, B] with ProductWithAdjuncts {
 
-    def apply(a: A, b: A): B = ord.geq(a, b)
+    def apply(a: A, b: A): B = ord.gteq(a, b)
 
     def name = "Geq"
 
@@ -191,7 +191,7 @@ object BinaryOp {
   final case class And[A]()(implicit num: NumLogic[A])
     extends NamedOp[A, A, A] with ProductWithAdjuncts {
 
-    def apply(a: A, b: A): A = num.&(a, b)
+    def apply(a: A, b: A): A = num.and(a, b)
 
     def name = "And"
 
@@ -201,7 +201,7 @@ object BinaryOp {
   final case class Or[A]()(implicit num: NumLogic[A])
     extends NamedOp[A, A, A] with ProductWithAdjuncts {
 
-    def apply(a: A, b: A): A = num.|(a, b)
+    def apply(a: A, b: A): A = num.or(a, b)
 
     def name = "Or"
 
@@ -211,7 +211,7 @@ object BinaryOp {
   final case class Xor[A]()(implicit num: NumLogic[A])
     extends NamedOp[A, A, A] with ProductWithAdjuncts {
 
-    def apply(a: A, b: A): A = num.^(a, b)
+    def apply(a: A, b: A): A = num.xor(a, b)
 
     def name = "Xor"
 
@@ -321,7 +321,7 @@ object BinaryOp {
   final case class LeftShift[A]()(implicit num: NumInt[A])
     extends NamedOp[A, A, A] with ProductWithAdjuncts {
 
-    def apply(a: A, b: A): A = num.<<(a, b)
+    def apply(a: A, b: A): A = num.shiftLeft(a, b)
 
     def name = "LeftShift"
 
@@ -331,7 +331,7 @@ object BinaryOp {
   final case class RightShift[A]()(implicit num: NumInt[A])
     extends NamedOp[A, A, A] with ProductWithAdjuncts {
 
-    def apply(a: A, b: A): A = num.>>(a, b)
+    def apply(a: A, b: A): A = num.shiftRight(a, b)
 
     def name = "RightShift"
 
@@ -341,7 +341,7 @@ object BinaryOp {
   final case class UnsignedRightShift[A]()(implicit num: NumInt[A])
     extends NamedOp[A, A, A] with ProductWithAdjuncts {
 
-    def apply(a: A, b: A): A = num.>>>(a, b)
+    def apply(a: A, b: A): A = num.unsignedShiftRight(a, b)
 
     def name = "UnsignedRightShift"
 

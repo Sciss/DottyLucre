@@ -15,7 +15,7 @@ package de.sciss.lucre
 package expr
 package impl
 
-import de.sciss.lucre.TxnLike.peer
+import de.sciss.lucre.Txn.peer
 import de.sciss.lucre.edit.UndoManager
 import de.sciss.lucre.expr.graph.{Control, It}
 

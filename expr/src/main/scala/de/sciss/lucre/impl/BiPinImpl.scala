@@ -132,7 +132,7 @@ object BiPinImpl {
   }
 
   def newModifiable[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]](implicit tx: T): Modifiable[T, E[T]] =
-    new Impl1[T, E](tx, Targets[T]()) {
+    new Impl1[T, E](Targets[T]()) {
       val tree: Tree[T, A] = newTree()
     }
 
@@ -146,7 +146,7 @@ object BiPinImpl {
 
   private def readImpl[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]](in: DataInput, targets: Targets[T])
                                                               (implicit tx: T): Impl1[T, E] =
-    new Impl1[T, E](tx, targets) {
+    new Impl1[T, E](targets) {
       val tree: Tree[T, A] = readTree(in)
     }
 
@@ -180,26 +180,24 @@ object BiPinImpl {
     // ---- abstract ----
     protected def tree: Tree[T, E[T]]
 
-    protected implicit def tx: T
-
     // ---- impl ----
 
-    final def isEmpty : Boolean = tree.isEmpty
-    final def nonEmpty: Boolean = !isEmpty
+    final def isEmpty (implicit tx: T): Boolean = tree.isEmpty
+    final def nonEmpty(implicit tx: T): Boolean = !isEmpty
 
     protected type PinAux[~ <: Txn[~]] = BiPin[~, E[~]]
 
-    protected final def newTree(): Tree[T, A] =
+    protected final def newTree()(implicit tx: T): Tree[T, A] =
       SkipList.Map.empty[T, Long, Leaf[T, A]]()
 
-    protected final def readTree(in: DataInput): Tree[T, A] =
+    protected final def readTree(in: DataInput)(implicit tx: T): Tree[T, A] =
       SkipList.Map.read[T, Long, Leaf[T, E[T]]](in)
 
     // ---- event behaviour ----
 
     object changed extends Changed with GeneratorEvent[T, Update[T, A, Repr]] with Caching {
-      def += (elem: Entry[T, A]): Unit = elem.changed ---> this
-      def -= (elem: Entry[T, A]): Unit = elem.changed -/-> this
+      def += (elem: Entry[T, A])(implicit tx: T): Unit = elem.changed ---> this
+      def -= (elem: Entry[T, A])(implicit tx: T): Unit = elem.changed -/-> this
 
       def pullUpdate(pull: Pull[T])(implicit tx: T): Option[Update[T, A, Repr]] = {
         if (pull.isOrigin(this)) return Some(pull.resolve)
@@ -239,7 +237,7 @@ object BiPinImpl {
 
     // ---- collection behaviour ----
 
-    final def clear(): Unit = {
+    final def clear()(implicit tx: T): Unit = {
       val it = tree.iterator
       if (it.hasNext) {
         val changes = it.toList.flatMap {
@@ -253,7 +251,7 @@ object BiPinImpl {
       }
     }
 
-    final def add(key: LongObj[T], value: A): Unit = {
+    final def add(key: LongObj[T], value: A)(implicit tx: T): Unit = {
       val timeVal = key.value // timeValue
       val entry   = newEntry(key, value)
       addNoFire(timeVal, entry)
@@ -262,18 +260,18 @@ object BiPinImpl {
       changed.fire(Update(pin, Added(timeVal, entry) :: Nil))
     }
 
-    final def intersect(time: Long): Leaf[T, A] = tree.floor(time) match {
+    final def intersect(time: Long)(implicit tx: T): Leaf[T, A] = tree.floor(time) match {
       case Some((_, seq)) => seq
       case _ => Vec.empty
     }
 
-    final def eventAfter (time: Long): Option[Long] = tree.ceil (time + 1).map(_._1)
-    final def eventBefore(time: Long): Option[Long] = tree.floor(time - 1).map(_._1)
+    final def eventAfter (time: Long)(implicit tx: T): Option[Long] = tree.ceil (time + 1).map(_._1)
+    final def eventBefore(time: Long)(implicit tx: T): Option[Long] = tree.floor(time - 1).map(_._1)
 
-    final def at     (time: Long): Option[Entry[T, A]] = intersect(time).headOption
-    final def valueAt(time: Long): Option[         A ] = intersect(time).headOption.map(_.value)
-    final def floor  (time: Long): Option[Entry[T, A]] = tree.floor(time).flatMap(_._2.headOption)
-    final def ceil   (time: Long): Option[Entry[T, A]] = tree.ceil (time).flatMap(_._2.headOption)
+    final def at     (time: Long)(implicit tx: T): Option[Entry[T, A]] = intersect(time).headOption
+    final def valueAt(time: Long)(implicit tx: T): Option[         A ] = intersect(time).headOption.map(_.value)
+    final def floor  (time: Long)(implicit tx: T): Option[Entry[T, A]] = tree.floor(time).flatMap(_._2.headOption)
+    final def ceil   (time: Long)(implicit tx: T): Option[Entry[T, A]] = tree.ceil (time).flatMap(_._2.headOption)
 
     /*
      * Adds a new value, and returns the dirty which corresponds to the new region holding `elem`.
@@ -282,7 +280,7 @@ object BiPinImpl {
      * @param elem    the element which is inserted
      * @return
      */
-    private[this] def addNoFire(timeVal: Long, elem: Entry[T, A]): Unit =
+    private[this] def addNoFire(timeVal: Long, elem: Entry[T, A])(implicit tx: T): Unit =
       tree.get(timeVal) match {
         case Some(oldLeaf) =>
           tree += timeVal -> (elem +: oldLeaf)
@@ -290,19 +288,21 @@ object BiPinImpl {
           tree += timeVal -> Vector(elem)
       }
 
-    final def remove(key: LongObj[T], value: A): Boolean = {
+    final def remove(key: LongObj[T], value: A)(implicit tx: T): Boolean = {
       val timeVal = key.value // timeValue
       val found = remove1(timeVal, key, value, fireAndDispose = true)
       found
     }
 
-    private[this] final def entryRemoved(timeVal: Long, entry: Entry[T, A], visible: Boolean): Unit = {
+    private[this] final def entryRemoved(timeVal: Long, entry: Entry[T, A], visible: Boolean)
+                                        (implicit tx: T): Unit = {
       changed -= entry
       if (visible) changed.fire(Update(pin, Removed(timeVal, entry) :: Nil))
       entry.dispose()
     }
 
-    private[this] final def remove1(timeVal: Long, key: LongObj[T], value: A, fireAndDispose: Boolean): Boolean = {
+    private[this] final def remove1(timeVal: Long, key: LongObj[T], value: A, fireAndDispose: Boolean)
+                                   (implicit tx: T): Boolean = {
       tree.get(timeVal) match {
         case Some(Vec(single)) =>
           val found = single.key == key && single.value == value
@@ -328,13 +328,13 @@ object BiPinImpl {
       }
     }
 
-    def debugList: List[(Long, A)] =
+    def debugList(implicit tx: T): List[(Long, A)] =
       tree.toList.flatMap {
         case (time, seq) => seq.map(time -> _.value)
       }
   }
 
-  private abstract class Impl1[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]](val tx: T, protected val targets: Targets[T])
+  private abstract class Impl1[T <: Txn[T], E[~ <: Txn[~]] <: Elem[~]](protected val targets: Targets[T])
     extends Impl[T, E, Impl1[T, E]] { in =>
 
     def tpe: Obj.Type = BiPin
@@ -344,7 +344,7 @@ object BiPinImpl {
     final def modifiableOption: Option[BiPin.Modifiable[T, A]] = Some(this)
 
     private[lucre] final def copy[Out <: Txn[Out]]()(implicit txIn: T, txOut: Out, context: Copy[T, Out]): Elem[Out] = {
-      new Impl1[Out, E](txOut, Targets[Out]()) { out =>
+      new Impl1[Out, E](Targets[Out]()) { out =>
         val tree: Tree[Out, A] = out.newTree()
         context.defer[PinAux](in, out)(copyTree[T, Out, E, Impl1[Out, E]](in.tree, out.tree, out))
         // out.connect()
