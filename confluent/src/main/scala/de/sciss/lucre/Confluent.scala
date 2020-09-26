@@ -36,4 +36,7 @@ trait Confluent extends ConfluentLike[Confluent.Txn] {
 //  final protected type S = Confluent
   final type D = Durable  .Txn
   final type I = InMemory .Txn
+
+  override def durable : Durable
+  override def inMemory: InMemory
 }

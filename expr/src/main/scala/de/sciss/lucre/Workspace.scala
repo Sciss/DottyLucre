@@ -26,6 +26,8 @@ object Workspace {
     private final case class DummyImpl[T <: Txn[T]](system: Sys, cursor: Cursor[T])
       extends Workspace[T] {
 
+      type S = Sys
+
       def addDependent(dep: Disposable[T])(implicit tx: TxnLike): Unit = ()
       def removeDependent(dep: Disposable[T])(implicit tx: TxnLike): Unit = ()
 
@@ -45,7 +47,14 @@ object Workspace {
   }
 }
 trait Workspace[T <: Txn[T]] extends Disposable[T] {
-  implicit def system: Sys
+  type S <: Sys
+  type Tx = T
+
+  implicit def system: S
+
+  /** Since we obtain `Workspace[_]` from read methods, this is lesser evil, since we
+   * cannot make totally "wrong" casts here. */
+  def cast[T1 <: Txn[T1]]: Workspace[T1] = this.asInstanceOf[Workspace[T1]]
 
   def cursor: Cursor[T]
 
