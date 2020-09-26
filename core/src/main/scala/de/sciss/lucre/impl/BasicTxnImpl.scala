@@ -14,7 +14,7 @@
 package de.sciss.lucre
 package impl
 
-import scala.concurrent.stm.{Txn => ScalaTxn}
+import scala.concurrent.stm.{Txn => ScalaTxn, Ref => ScalaRef}
 
 trait BasicTxnImpl[T <: Txn[T]] extends Txn[T] {
   self: T =>
@@ -25,16 +25,16 @@ trait BasicTxnImpl[T <: Txn[T]] extends Txn[T] {
   def afterCommit(code: => Unit): Unit =
     ScalaTxn.afterCommit(_ => code)(peer)
 
-//  def newInMemoryMap[K, V]: RefMap[T, K, V] =
-//    new SysInMemoryMap[T, K, V]
-//
-//  def newInMemorySet[A]: RefSet[T, A] =
-//    new SysInMemorySet[T, A]
-//
-//  def newRef[A](init: A): Ref[T, A] = {
-//    val peer = ScalaRef(init)
-//    new SysInMemoryRef[T, A](peer)
-//  }
+  def newInMemoryMap[K, V]: RefMap[T, K, V] =
+    new SysInMemoryMap[T, K, V]
+
+  def newInMemorySet[A]: RefSet[T, A] =
+    new SysInMemorySet[T, A]
+
+  def newRef[A](init: A): Ref[T, A] = {
+    val peer = ScalaRef(init)
+    new SysInMemoryRef[A](peer)
+  }
 
   //  @field protected var _context: S#Context = _
   //

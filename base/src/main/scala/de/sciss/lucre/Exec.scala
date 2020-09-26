@@ -28,7 +28,7 @@ trait Exec[T <: Exec[T]] {
 
   def newId(): Id
 
-  //  def newRef[A](init: A): Ref[T, A]
+  def newRef[A](init: A): Ref[T, A]
 
   /** Creates a new in-memory transactional map for storing and retrieving values based on a mutable's identifier
    * as key. If a system is confluently persistent, the `get` operation will find the most recent key that
@@ -41,8 +41,8 @@ trait Exec[T <: Exec[T]] {
    */
   def newIdentMap[A]: IdentMap[T, A]
 
-  //  def newInMemorySet[A]    : RefSet[S, A]
-  //  def newInMemoryMap[A, B] : RefMap[S, A, B]
+  def newInMemorySet[A]    : RefSet[T, A]
+  def newInMemoryMap[A, B] : RefMap[T, A, B]
 
   def readId(in: DataInput): Id
 

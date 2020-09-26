@@ -85,9 +85,9 @@ object IntExtensions {
         // case 18 => Gcd
         //               case 19 => Round
         //               case 20 => Roundup
-        case ShiftLeft          .id => ShiftLeft
-        case ShiftRight         .id => ShiftRight
-        case UnsignedShiftRight .id => UnsignedShiftRight
+        case LeftShift          .id => LeftShift
+        case RightShift         .id => RightShift
+        case UnsignedRightShift .id => UnsignedRightShift
         case AbsDif             .id => AbsDif
         //               case 42 => Clip2
         //               case 44 => Fold2
@@ -108,7 +108,7 @@ object IntExtensions {
     def tpe: Obj.Type = IntObj
 
     private[lucre] def copy[Out <: Txn[Out]]()(implicit tx: T, txOut: Out, context: Copy[T, Out]): Elem[Out] =
-      new Tuple2[Out, T1, ReprT1, T2, ReprT2](Targets[Out], op, context(_1), context(_2)).connect()
+      new Tuple2[Out, T1, ReprT1, T2, ReprT2](Targets[Out](), op, context(_1), context(_2)).connect()
   }
 
   // ---- operators ----
@@ -121,7 +121,7 @@ object IntExtensions {
 
     def apply[T <: Txn[T]](a: ReprT1[T])(implicit tx: T): _Ex[T] = a match {
       case Expr.Const(c)  => IntObj.newConst[T](value(c))
-      case _              => new Tuple1[T, T1, ReprT1](Targets[T], this, a).connect()
+      case _              => new Tuple1[T, T1, ReprT1](Targets[T](), this, a).connect()
     }
 
     def name: String = {
@@ -132,14 +132,15 @@ object IntExtensions {
     }
   }
 
-  final class Tuple1[T <: Txn[T], T1, ReprT1[~ <: Txn[~]] <: Expr[~, T1]](
-                                                                           protected val targets: Targets[T], val op: ExprTuple1Op[Int, T1, IntObj, ReprT1], val _1: ReprT1[T])
+  final class Tuple1[T <: Txn[T], T1,
+    ReprT1[~ <: Txn[~]] <: Expr[~, T1]](protected val targets: Targets[T],
+                                        val op: ExprTuple1Op[Int, T1, IntObj, ReprT1], val _1: ReprT1[T])
     extends ExprTuple1[T, Int, T1, IntObj, ReprT1] with IntObj[T] {
 
     def tpe: Obj.Type = IntObj
 
     private[lucre] def copy[Out <: Txn[Out]]()(implicit tx: T, txOut: Out, context: Copy[T, Out]): Elem[Out] =
-      new Tuple1[Out, T1, ReprT1](Targets[Out], op, context(_1)).connect()
+      new Tuple1[Out, T1, ReprT1](Targets[Out](), op, context(_1)).connect()
   }
 
   // ---- Int => Int ----
@@ -207,7 +208,7 @@ object IntExtensions {
     final def apply[T <: Txn[T]](a: _Ex[T], b: _Ex[T])(implicit tx: T): _Ex[T] = (a, b) match {
       case (Expr.Const(ca), Expr.Const(cb)) => IntObj.newConst(value(ca, cb))
       case _ =>
-        new Tuple2[T, Int, IntObj, Int, IntObj](Targets[T], this,  a, b).connect()
+        new Tuple2[T, Int, IntObj, Int, IntObj](Targets[T](), this,  a, b).connect()
     }
 
     def value(a: Int, b: Int): Int
@@ -283,21 +284,21 @@ object IntExtensions {
     val isInfix = false
   }
 
-  private[this] case object ShiftLeft extends BinaryOp {
+  private[this] case object LeftShift extends BinaryOp {
     final val id = 16
     override val name = "<<"
     def value(a: Int, b: Int): Int = a << b
     val isInfix = false
   }
 
-  private[this] case object ShiftRight extends BinaryOp {
+  private[this] case object RightShift extends BinaryOp {
     final val id = 17
     override val name = ">>"
     def value(a: Int, b: Int): Int = a >> b
     val isInfix = false
   }
 
-  private[this] case object UnsignedShiftRight extends BinaryOp {
+  private[this] case object UnsignedRightShift extends BinaryOp {
     final val id = 18
     override val name = ">>>"
     def value(a: Int, b: Int): Int = a >>> b
@@ -339,9 +340,9 @@ object IntExtensions {
     def &   (b: E)(implicit tx: T): E = BitAnd            (a, b)
     def |   (b: E)(implicit tx: T): E = BitOr             (a, b)
     def ^   (b: E)(implicit tx: T): E = BitXor            (a, b)
-    def <<  (b: E)(implicit tx: T): E = ShiftLeft         (a, b)
-    def >>  (b: E)(implicit tx: T): E = ShiftRight        (a, b)
-    def >>> (b: E)(implicit tx: T): E = UnsignedShiftRight(a, b)
+    def <<  (b: E)(implicit tx: T): E = LeftShift         (a, b)
+    def >>  (b: E)(implicit tx: T): E = RightShift        (a, b)
+    def >>> (b: E)(implicit tx: T): E = UnsignedRightShift(a, b)
 
     // ---- (Int, Int) => Boolean ----
 

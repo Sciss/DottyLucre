@@ -134,34 +134,16 @@ object PlainImpl {
 
     val system: S = this
 
-    //    type Id = Ident[Plain]
-
     def newId(): Id = new IdImpl
 
     def readId(in: DataInput): Id = opNotSupported("readId")
 
-//    def newRef[A](init: A): Ref[Tx, A] = new VarImpl(init)
-
-//    def newVar[A](id: Id, init: A)(implicit format: TxFormat[Tx, A]): Var[A] =
-//      new VarImpl(init)
-//
-//    def newBooleanVar (id: Id, init: Boolean ): Var[Boolean] = new BooleanVarImpl (init)
-//    def newIntVar     (id: Id, init: Int     ): Var[Int]     = new IntVarImpl     (init)
-//    def newLongVar    (id: Id, init: Long    ): Var[Long]    = new LongVarImpl    (init)
-//
-//    def newVarArray[A](size: Int): Array[Var[A]] = new Array[Var[A]](size)
+    def newRef[A](init: A): Ref[Tx, A] = new VarImpl(init)
 
     def newIdentMap[A]: IdentMap[Tx, A] = new PlainIdentMap[A]
 
-    //    def newInMemoryMap[K, V]: RefMap[S, K, V] = new PlainInMemoryMap[K, V]
-    //    def newInMemorySet[A]   : RefSet[S, A]    = new PlainInMemorySet[A]
-
-//    def readVar[A](id: Id, in: DataInput)(implicit format: TFormat[Tx, A]): Var[A] =
-//      opNotSupported("readVar")
-//
-//    def readBooleanVar(id: Id, in: DataInput): Var[Boolean]  = opNotSupported("readBooleanVar")
-//    def readIntVar    (id: Id, in: DataInput): Var[Int]      = opNotSupported("readIntVar")
-//    def readLongVar   (id: Id, in: DataInput): Var[Long]     = opNotSupported("readLongVar")
+    def newInMemoryMap[K, V]: RefMap[S, K, V] = new PlainInMemoryMap[K, V]
+    def newInMemorySet[A]   : RefSet[S, A]    = new PlainInMemorySet[A]
 
     def newHandle[A](value: A)(implicit format: TFormat[Tx, A]): Source[Tx, A] =
       new EphemeralSource(value)
