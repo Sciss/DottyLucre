@@ -309,6 +309,7 @@ private[impl] sealed trait TxnImpl extends Confluent.Txn /*Txn[Confluent.Txn]*/ 
   final lazy val inMemory: InMemory.Txn = system.inMemory.wrap(peer)
 
   def inMemoryBridge: (Confluent.Txn => InMemory.Txn) = _.inMemory
+  def durableBridge : (Confluent.Txn => Durable .Txn) = _.durable
 }
 
 private[impl] final class RegularTxn(val system: Confluent, val durable: Durable.Txn,

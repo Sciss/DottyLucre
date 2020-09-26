@@ -152,19 +152,18 @@ private[confluent] object PathImpl {
 
     def apply(idx: Int): Long = tree.find1(_._1 > idx)._2
 
-    // XXX TODO testing one two
-    def partial: Access[T] = {
-      val sz = size
-      if (sz == 0) return this
-
-      var res = FingerTree.empty[(Int, Long), Long](PathMeasure)
-      if (sz % 2 != 0) {
-        println(s"?? partial from index $this")
-      }
-      res :+= head
-      res :+= last
-      wrap(res)
-    }
+//    def partial: Access[T] = {
+//      val sz = size
+//      if (sz == 0) return this
+//
+//      var res = FingerTree.empty[(Int, Long), Long](PathMeasure)
+//      if (sz % 2 != 0) {
+//        println(s"?? partial from index $this")
+//      }
+//      res :+= head
+//      res :+= last
+//      wrap(res)
+//    }
 
     def maxPrefixLength(term: Long): Int = {
       val pre = tree.takeWhile(_._2 < term)

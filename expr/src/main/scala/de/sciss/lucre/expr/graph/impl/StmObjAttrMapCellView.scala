@@ -16,7 +16,7 @@ package de.sciss.lucre.expr.graph.impl
 import de.sciss.lucre.expr.CellView
 import de.sciss.lucre.{Disposable, Txn, Obj => LObj}
 
-// XXX TODO --- unfortunate that despite MapLike we have to distinguish
+// XXX TODO --- unfortunate that despite MapObjLike we have to distinguish
 // because LObj.AttrMap must be put into a handle...
 
 /** A `CellView[T, Option[LObj[T]]` built from an `LObj.attr` */

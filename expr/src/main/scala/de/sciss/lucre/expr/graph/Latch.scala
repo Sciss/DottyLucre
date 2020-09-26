@@ -45,13 +45,6 @@ object Latch {
         ref()         = newValue
         newValue
       }
-
-//    private[lucre] def pullUpdateXXX(pull: IPull[T])(implicit tx: T): Option[Change[A]] =
-//      if (pull(trig.changed).isEmpty) None else {
-//        val newValue  = in.value
-//        val oldValue  = ref.swap(newValue)
-//        if (oldValue == newValue) None else Some(Change(oldValue, newValue))
-//      }
   }
 }
 /** Latches the expression based on the trigger argument.

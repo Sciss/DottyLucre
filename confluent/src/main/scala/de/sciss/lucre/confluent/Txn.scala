@@ -24,6 +24,8 @@ trait Txn[T <: Txn[T]] extends lucre.Txn[T] {
 
   implicit def durable: D
 
+  implicit def durableBridge: T => D
+
   type Id     = Ident[T]
   type Acc    = Access[T]
   type Var[A] = lucre.Var[T, A] // confluent.Var[A]

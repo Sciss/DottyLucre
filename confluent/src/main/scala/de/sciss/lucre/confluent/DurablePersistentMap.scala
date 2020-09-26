@@ -13,7 +13,7 @@
 
 package de.sciss.lucre.confluent
 
-import de.sciss.lucre.confluent.impl.{ConfluentIntMapImpl, ConfluentLongMapImpl, PartialIntMapImpl}
+import de.sciss.lucre.confluent.impl.{ConfluentIntMapImpl, ConfluentLongMapImpl}
 import de.sciss.lucre.DataStore
 import de.sciss.serial.{ConstFormat, TFormat}
 
@@ -25,9 +25,6 @@ object DurablePersistentMap {
   def newConfluentLongMap[T <: Txn[T]](store: DataStore, handler: IndexMapHandler[T],
                                        isOblivious: Boolean): DurablePersistentMap[T, Long] =
     new ConfluentLongMapImpl[T](store, handler, isOblivious)
-
-  def newPartialMap[T <: Txn[T]](store: DataStore, handler: PartialMapHandler[T]): DurablePersistentMap[T, Int] =
-    new PartialIntMapImpl[T](store, handler)
 }
 
 /** Interface for a confluently or partially persistent storing key value map. Keys (type `K`) might

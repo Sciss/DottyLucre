@@ -43,12 +43,4 @@ trait ITriggerConsumer[T <: Txn[T], A] extends IChangePublisher[T, A] {
       val p: Parents[T] = pull.parents(this.changed)
       if (p.exists(pull(_).isDefined)) trigReceived() else valueBefore()
     }
-
-  //  private[lucre] def pullUpdateXXX(pull: IPull[T])(implicit tx: T) : Option[Change[A]] = {
-  //    if (pull.isOrigin(this.changed)) Some(pull.resolve)
-  //    else {
-  //      val p: Parents[T] = pull.parents(this.changed)
-  //      if (p.exists(pull(_).isDefined)) trigReceived() else None
-  //    }
-  //  }
 }

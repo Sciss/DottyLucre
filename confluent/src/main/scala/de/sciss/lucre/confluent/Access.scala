@@ -52,7 +52,7 @@ trait Access[T <: Txn[T]] extends Writable with PathLike {
 
   def seminal: Access[T]
 
-  private[confluent] def partial: Access[T]
+//  private[confluent] def partial: Access[T]
 
   private[confluent] def tree: FingerTree[(Int, Long), Long] // :-( it's unfortunate having to expose this
 
