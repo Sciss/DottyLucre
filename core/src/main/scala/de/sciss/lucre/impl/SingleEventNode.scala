@@ -1,6 +1,6 @@
 /*
- *  SingleNode.scala
- *  (Lucre)
+ *  SingleEventNode.scala
+ *  (Lucre 4)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
  *
@@ -13,8 +13,6 @@
 
 package de.sciss.lucre
 package impl
-
-import de.sciss.lucre.{Event, Txn}
 
 /** Standalone events unite a node and one particular event.
  *

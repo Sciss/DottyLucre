@@ -1,6 +1,6 @@
 /*
  *  Mixin.scala
- *  (Lucre)
+ *  (Lucre 4)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
  *
@@ -19,7 +19,7 @@ import de.sciss.lucre.confluent.impl.DurableCacheMapImpl.Store
 import de.sciss.lucre.confluent.impl.{PathImpl => Path}
 import de.sciss.lucre.data.Ancestor
 import de.sciss.lucre.impl.{RandomImpl, ReactionMapImpl}
-import de.sciss.lucre.{ConfluentLike, DataStore, IdentMap, Observer, Random, Source, TxnLike, Txn => LTxn}
+import de.sciss.lucre.{ConfluentLike, DataStore, IdentMap, Observer, Random, TxnLike, Txn => LTxn}
 import de.sciss.serial.{ConstFormat, DataInput, DataOutput, TFormat}
 
 import scala.annotation.tailrec
@@ -151,8 +151,7 @@ trait Mixin[Tx <: Txn[Tx]]
     }
 
   final def rootWithDurable[A, B](confInt: T => A)(durInit: D => B)
-                                 (implicit aFmt: TFormat[T, A],
-                                  bFmt: TFormat[D, B]): (Source[T, A], B) =
+                                 (implicit aFmt: TFormat[T, A], bFmt: TFormat[D, B]): (Source[T, A], B) =
     executeRoot { implicit tx =>
       implicit val dtx: D = durableTx(tx)
       val (_, confV, durV) = initRoot[A, B](confInt, { _ /* tx */ =>

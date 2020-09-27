@@ -1,3 +1,16 @@
+/*
+ *  SkipListSuite.scala
+ *  (Lucre 4)
+ *
+ *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
+ *
+ *  This software is published under the GNU Affero General Public License v3+
+ *
+ *
+ *  For further information, please contact Hanns Holger Rutz at
+ *  contact@sciss.de
+ */
+
 package de.sciss.lucre.confluent
 
 import java.io.File
@@ -11,7 +24,7 @@ import org.scalatest.featurespec.AnyFeatureSpec
 
 import scala.collection.immutable.IntMap
 import scala.collection.mutable.{Set => MSet}
-import scala.concurrent.stm.{InTxn, Ref, TxnExecutor}
+import scala.concurrent.stm.{InTxn, Ref => STMRef, TxnExecutor}
 
 /*
 
@@ -302,9 +315,9 @@ class SkipListSuite extends AnyFeatureSpec with GivenWhenThen {
   }
 
   final class Obs[T <: Txn[T]] extends SkipList.KeyObserver[T, Int] {
-    var allUp: Ref[IntMap[Int]] = Ref(IntMap.empty[Int])
-    var allDn: Ref[IntMap[Int]] = Ref(IntMap.empty[Int])
-    var oneUp: Ref[IntMap[Int]] = Ref(IntMap.empty[Int])
+    var allUp: STMRef[IntMap[Int]] = STMRef(IntMap.empty[Int])
+    var allDn: STMRef[IntMap[Int]] = STMRef(IntMap.empty[Int])
+    var oneUp: STMRef[IntMap[Int]] = STMRef(IntMap.empty[Int])
 
     def keyUp(key: Int)(implicit tx: T): Unit = {
       implicit val itx: InTxn = tx.peer

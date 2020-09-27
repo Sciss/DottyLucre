@@ -1,6 +1,6 @@
 /*
  *  Sys.scala
- *  (Lucre)
+ *  (Lucre 4)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
  *
@@ -14,7 +14,7 @@
 package de.sciss.lucre.confluent
 
 import de.sciss.lucre
-import de.sciss.lucre.{DataStore, DurableLike, InMemoryLike, Source, TxnLike, confluent, Sys => LSys}
+import de.sciss.lucre.{DataStore, DurableLike, InMemoryLike, TxnLike, confluent, Sys => LSys}
 import de.sciss.serial.{DataInput, TFormat}
 
 import scala.collection.immutable.{IndexedSeq => Vec}

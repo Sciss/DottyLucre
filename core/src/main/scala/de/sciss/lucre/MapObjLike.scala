@@ -1,6 +1,6 @@
 /*
- *  TMapLike.scala
- *  (Lucre)
+ *  MapObjLike.scala
+ *  (Lucre 4)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
  *
@@ -14,7 +14,6 @@
 package de.sciss.lucre
 
 import de.sciss.lucre.MapObjLike.Update
-import de.sciss.lucre.{Disposable, Observable, Txn}
 
 object MapObjLike {
   trait Update[K, V] {

@@ -1,6 +1,6 @@
 /*
  *  ReactionMap.scala
- *  (Lucre)
+ *  (Lucre 4)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
  *
@@ -14,7 +14,6 @@
 package de.sciss.lucre
 
 import de.sciss.lucre.impl.ReactionMapImpl
-import de.sciss.lucre.{Event, Observer, Txn}
 
 object ReactionMap {
   def apply[T <: Txn[T]]()(implicit tx: T): ReactionMap[T] = ReactionMapImpl[T]()

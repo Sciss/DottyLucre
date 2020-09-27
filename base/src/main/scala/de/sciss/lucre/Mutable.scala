@@ -1,6 +1,6 @@
 /*
  *  Mutable.scala
- *  (Lucre)
+ *  (Lucre 4)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
  *
@@ -13,7 +13,6 @@
 
 package de.sciss.lucre
 
-import de.sciss.lucre.{Disposable, Exec, Identified}
 import de.sciss.serial.Writable
 
 trait Mutable[T <: Exec[T]] extends Identified[T] with Writable with Disposable[T]

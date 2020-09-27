@@ -1,6 +1,6 @@
 /*
  *  Cursor.scala
- *  (Lucre)
+ *  (Lucre 4)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
  *
@@ -14,7 +14,7 @@
 package de.sciss.lucre.confluent
 
 import de.sciss.lucre.confluent.impl.{CursorImpl => Impl}
-import de.sciss.lucre.{ConfluentLike, DurableLike, Ident, Disposable, Cursor => LCursor, Txn => LTxn, Var => LVar}
+import de.sciss.lucre.{ConfluentLike, Disposable, DurableLike, Ident => LIdent, Cursor => LCursor, Txn => LTxn, Var => LVar}
 import de.sciss.serial.{DataInput, TFormat, Writable}
 
 object Cursor {
@@ -44,7 +44,7 @@ object Cursor {
       Impl.dataFormat[T, D]
   }
   trait Data[T <: Txn[T], D <: LTxn[D]] extends Disposable[D] with Writable {
-    def id  : Ident[D] // D#Id
+    def id  : LIdent[D] // D#Id
     def path: LVar[D, Access[T]] // D#Var[S#Acc]
   }
 }

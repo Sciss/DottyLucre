@@ -5,7 +5,7 @@ lazy val mimaVersion      = "4.0.0"
 
 lazy val deps = new {
   val base = new {
-    val serial        = "2.0.0-SNAPSHOT"
+    val serial        = "2.0.0"
   }
   val adjunct = new {
     val numbers       = "0.2.1"
@@ -18,7 +18,7 @@ lazy val deps = new {
   val expr = new {
     def equal: String = core.equal
     val fileUtil      = "1.1.5"
-    val span          = "2.0.0-SNAPSHOT"
+    val span          = "2.0.0"
   }
   val confluent = new {
     val finger        = "1.5.5"
@@ -37,7 +37,7 @@ lazy val commonSettings = Seq(
   description         := "Extension of Scala-STM, adding optional durability layer, and providing API for confluent and reactive event layers",
   homepage            := Some(url(s"https://git.iem.at/sciss/$baseName")),
   scalaVersion        := "2.13.3",  // "0.27.0-RC1",
-  crossScalaVersions  := Seq("0.27.0-RC1", "2.13.3"), // "2.12.12",
+  crossScalaVersions  := Seq("0.27.0-RC1", "2.13.3", "2.12.12"),
   scalacOptions      ++= Seq(
     "-Xlint", "-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xsource:2.13"
   ),

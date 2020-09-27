@@ -1,6 +1,6 @@
 /*
  *  Txn.scala
- *  (Lucre)
+ *  (Lucre 4)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
  *
@@ -38,6 +38,9 @@ trait Txn[T <: Txn[T]] extends lucre.Txn[T] {
   private[confluent] def withReadAccess[A](path: Acc)(body: => A): A
 
   def info: VersionInfo.Modifiable
+
+  /** The returned source is confluent. */
+  override def newHandle[A](value: A)(implicit format: TFormat[T, A]): Source[T, A]
 
   def isRetroactive: Boolean
 

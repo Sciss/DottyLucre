@@ -1,6 +1,6 @@
 /*
- *  PlainIdentifierMap.scala
- *  (Lucre)
+ *  PlainIdentMap.scala
+ *  (Lucre 4)
  *
  *  Copyright (c) 2009-2020 Hanns Holger Rutz. All rights reserved.
  *
@@ -15,7 +15,6 @@ package de.sciss.lucre
 package impl
 
 import de.sciss.lucre.Plain.Id
-import de.sciss.lucre.{IdentMap, Plain}
 
 import scala.collection.mutable
 
