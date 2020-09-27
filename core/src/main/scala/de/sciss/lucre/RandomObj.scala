@@ -13,8 +13,9 @@
 
 package de.sciss.lucre
 
+import de.sciss.lucre.impl.CastExecFormat
 import de.sciss.lucre.impl.RandomImpl.{SysLike, calcSeedUniquifier, initialScramble}
-import de.sciss.serial.{DataInput, DataOutput, TFormat, WritableFormat}
+import de.sciss.serial.{DataInput, DataOutput, TFormat}
 
 object RandomObj {
   private final class Impl[T <: Exec[T]](val id: Ident[T], protected val seedRef: Var[T, Long])
@@ -48,11 +49,11 @@ object RandomObj {
   def read[T <: Exec[T]](in: DataInput)(implicit tx: T): RandomObj[T] =
     format[T].readT(in)
 
-  implicit def format[T <: Exec[T]]: TFormat[T, RandomObj[T]] = anyFmt.asInstanceOf[Fmt[T]]
+  implicit def format[T <: Exec[T]]: TFormat[T, RandomObj[T]] = anyFmt.cast
 
   private val anyFmt = new Fmt[Plain]
 
-  private final class Fmt[T <: Exec[T]] extends WritableFormat[T, RandomObj[T]] {
+  private final class Fmt[T <: Exec[T]] extends CastExecFormat[T, RandomObj] {
     def readT(in: DataInput)(implicit tx: T): RandomObj[T] = {
       val id      = tx.readId(in)
       val seedRef = id.readLongVar(in)

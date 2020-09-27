@@ -55,7 +55,7 @@ object StringExtensions  {
     def tpe: Obj.Type = StringObj
 
     private[lucre] def copy[Out <: Txn[Out]]()(implicit tx: T, txOut: Out, context: Copy[T, Out]): Elem[Out] =
-      new Tuple2[Out, T1, ReprT1, T2, ReprT2](Targets[Out], op, context(_1), context(_2)).connect()
+      new Tuple2[Out, T1, ReprT1, T2, ReprT2](Targets[Out](), op, context(_1), context(_2)).connect()
   }
 
   // ----- operators -----
@@ -75,7 +75,7 @@ object StringExtensions  {
       final def apply[T <: Txn[T]](a: _Ex[T], b: _Ex[T])(implicit tx: T): _Ex[T] = (a, b) match {
         case (Expr.Const(ca), Expr.Const(cb)) => StringObj.newConst(value(ca, cb))
         case _  =>
-          new Tuple2[T, String, StringObj, String, StringObj](Targets[T], this, a, b).connect()
+          new Tuple2[T, String, StringObj, String, StringObj](Targets[T](), this, a, b).connect()
       }
 
       def value(a: String, b: String): String

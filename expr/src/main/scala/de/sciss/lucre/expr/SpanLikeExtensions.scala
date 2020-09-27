@@ -84,7 +84,7 @@ object SpanLikeExtensions {
     def tpe: Obj.Type = SpanLikeObj
 
     private[lucre] def copy[Out <: Txn[Out]]()(implicit tx: T, txOut: Out, context: Copy[T, Out]): Elem[Out] =
-      new Tuple1(Targets[Out], op, context(_1)).connect()
+      new Tuple1(Targets[Out](), op, context(_1)).connect()
   }
 
   final class Tuple2[T <: Txn[T], T1, ReprT1[~ <: Txn[~]] <: Expr[~, T1],
@@ -96,7 +96,7 @@ object SpanLikeExtensions {
     def tpe: Obj.Type = SpanLikeObj
 
     private[lucre] def copy[Out <: Txn[Out]]()(implicit tx: T, txOut: Out, context: Copy[T, Out]): Elem[Out] =
-      new Tuple2[Out, T1, ReprT1, T2, ReprT2](Targets[Out], op, context(_1), context(_2)).connect()
+      new Tuple2[Out, T1, ReprT1, T2, ReprT2](Targets[Out](), op, context(_1), context(_2)).connect()
   }
 
   // ---- operators ----
@@ -132,7 +132,7 @@ object SpanLikeExtensions {
       }
 
       final def apply[T <: Txn[T]](a: LongObj[T])(implicit tx: T): _Ex[T] =
-        new Tuple1[T, Long, LongObj](Targets[T], this, a).connect()
+        new Tuple1[T, Long, LongObj](Targets[T](), this, a).connect()
     }
 
     case object From extends LongOp {
@@ -182,7 +182,7 @@ object SpanLikeExtensions {
       final def apply[T <: Txn[T]](a: _Ex[T], b: LongObj[T])(implicit tx: T): _Ex[T] = (a, b) match {
         case (Expr.Const(ca), Expr.Const(cb)) => SpanLikeObj.newConst(value(ca, cb))
         case _  =>
-          new Tuple2[T, SpanLike, SpanLikeObj, Long, LongObj](Targets[T], this, a, b).connect()
+          new Tuple2[T, SpanLike, SpanLikeObj, Long, LongObj](Targets[T](), this, a, b).connect()
       }
     }
 
@@ -198,7 +198,7 @@ object SpanLikeExtensions {
       }
 
       final def apply[T <: Txn[T]](a: LongObj[T], b: LongObj[T])(implicit tx: T): _Ex[T] =
-        new Tuple2[T, Long, LongObj, Long, LongObj](Targets[T], this, a, b).connect()
+        new Tuple2[T, Long, LongObj, Long, LongObj](Targets[T](), this, a, b).connect()
     }
 
     case object Apply extends LongLongOp {

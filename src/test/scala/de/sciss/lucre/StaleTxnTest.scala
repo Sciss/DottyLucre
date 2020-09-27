@@ -9,8 +9,6 @@ object StaleTxnTest {
 //    type T = InMemory.Txn
 //    val system = InMemory()
 
-    type S = Durable
-    type T = Durable.Txn
     val store  = BerkeleyDB.tmp()
     val system = Durable(store)
 

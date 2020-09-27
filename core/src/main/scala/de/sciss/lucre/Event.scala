@@ -15,7 +15,8 @@ package de.sciss.lucre
 
 import de.sciss.equal.Implicits._
 import de.sciss.lucre.Log.logEvent
-import de.sciss.serial.{DataInput, DataOutput, TFormat, Writable, WritableFormat}
+import de.sciss.lucre.impl.CastTxnFormat
+import de.sciss.serial.{DataInput, DataOutput, TFormat, Writable}
 
 import scala.annotation.switch
 import scala.collection.immutable.{IndexedSeq => Vec}
@@ -46,7 +47,7 @@ trait EventLike[T <: Txn[T], +A] extends Observable[T, A] {
 }
 
 object Event {
-  implicit def format[T <: Txn[T]]: TFormat[T, Event[T, Any]] = anyFmt.asInstanceOf[Fmt[T]]
+  implicit def format[T <: Txn[T]]: TFormat[T, Event[T, Any]] = anyFmt.cast
 
   private val anyFmt = new Fmt[AnyTxn]
 
@@ -56,7 +57,7 @@ object Event {
     node.event(slot)
   }
 
-  private final class Fmt[T <: Txn[T]] extends WritableFormat[T, Event[T, Any]] {
+  private final class Fmt[T <: Txn[T]] extends CastTxnFormat[T, ({ type Repr[~ <: Txn[~]] = Event[~, Any] }) # Repr] {
     override def readT(in: DataInput)(implicit tx: T): Event[T, Any] =
       Event.read(in)
   }

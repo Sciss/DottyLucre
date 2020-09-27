@@ -13,8 +13,6 @@
 
 package de.sciss.lucre
 
-import de.sciss.lucre.Disposable
-
 object Observable {
   def empty[Tx, A]: Observable[Tx, A] = Empty.asInstanceOf[Observable[Tx, A]]
 

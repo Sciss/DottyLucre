@@ -85,7 +85,7 @@ object DoubleExtensions {
     def tpe: Obj.Type = DoubleObj
 
     private[lucre] def copy[Out <: Txn[Out]]()(implicit tx: T, txOut: Out, context: Copy[T, Out]): Elem[Out] =
-      new Tuple1[Out, T1, ReprT1](Targets[Out], op, context(_1)).connect()
+      new Tuple1[Out, T1, ReprT1](Targets[Out](), op, context(_1)).connect()
   }
 
   private[this] object DoubleTuple2s extends Expr.Type.Extension1[DoubleObj] {
@@ -161,7 +161,7 @@ object DoubleExtensions {
     def tpe: Obj.Type = DoubleObj
 
     private[lucre] def copy[Out <: Txn[Out]]()(implicit tx: T, txOut: Out, context: Copy[T, Out]): Elem[Out] =
-      new Tuple2[Out, T1, ReprT1, T2, ReprT2](Targets[Out], op, context(_1), context(_2)).connect()
+      new Tuple2[Out, T1, ReprT1, T2, ReprT2](Targets[Out](), op, context(_1), context(_2)).connect()
   }
 
   // ----- operators -----
@@ -173,7 +173,7 @@ object DoubleExtensions {
       def id: Int
       final def apply[T <: Txn[T]](_1: _Ex[T])(implicit tx: T): _Ex[T] = _1 match {
         case Expr.Const(c)  => DoubleObj.newConst(value(c))
-        case _              => new Tuple1[T, Double, DoubleObj](Targets[T], this, _1).connect()
+        case _              => new Tuple1[T, Double, DoubleObj](Targets[T](), this, _1).connect()
       }
 
       def toString[T <: Txn[T]](_1: _Ex[T]): String = s"${_1}.$name"
@@ -372,7 +372,7 @@ object DoubleExtensions {
       final def apply[T <: Txn[T]](_1: _Ex[T], _2: _Ex[T])(implicit tx: T): _Ex[T] = (_1, _2) match {
         case (Expr.Const(ca), Expr.Const(cb)) => DoubleObj.newConst(value(ca, cb))
         case _ =>
-          new Tuple2[T, Double, DoubleObj, Double, DoubleObj](Targets[T], this, _1, _2).connect()
+          new Tuple2[T, Double, DoubleObj, Double, DoubleObj](Targets[T](), this, _1, _2).connect()
       }
 
       def value(a: Double, b: Double): Double

@@ -14,7 +14,7 @@
 package de.sciss.lucre
 package impl
 
-import de.sciss.serial.{DataInput, TFormat, WritableFormat}
+import de.sciss.serial.{DataInput, TFormat}
 
 import scala.annotation.meta.field
 
@@ -25,7 +25,7 @@ object ObjImpl {
     tpe.readIdentifiedObj(in)
   }
 
-  implicit def format[T <: Txn[T]]: TFormat[T, Obj[T]] = anyFmt.asInstanceOf[Fmt[T]]
+  implicit def format[T <: Txn[T]]: TFormat[T, Obj[T]] = anyFmt.cast
 
   @field private[this] final val sync   = new AnyRef
   @field private[this] final val anyFmt = new Fmt[AnyTxn]
@@ -44,7 +44,7 @@ object ObjImpl {
   @inline
   def getType(id: Int): Obj.Type = map.getOrElse(id, sys.error(s"Unknown object type $id (0x${id.toHexString})"))
 
-  private final class Fmt[T <: Txn[T]] extends WritableFormat[T, Obj[T]] {
+  private final class Fmt[T <: Txn[T]] extends CastTxnFormat[T, Obj] {
     override def readT(in: DataInput)(implicit tx: T): Obj[T] = ObjImpl.read(in)
   }
 }

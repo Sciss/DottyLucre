@@ -18,7 +18,7 @@ import de.sciss.serial
 import de.sciss.serial.{DataInput, TFormat}
 
 object Ident {
-  implicit def format[T <: Exec[T]]: TFormat[T, Ident[T]] = anyFmt.asInstanceOf[TFormat[T, Ident[T]]]
+  implicit def format[T <: Exec[T]]: TFormat[T, Ident[T]] = anyFmt.cast
 
   private val anyFmt = new IdentFormat[AnyExec]
 }

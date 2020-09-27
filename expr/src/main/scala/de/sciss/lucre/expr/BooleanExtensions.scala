@@ -55,7 +55,7 @@ object BooleanExtensions  {
     def tpe: Obj.Type = BooleanObj
 
     private[lucre] def copy[Out <: Txn[Out]]()(implicit tx: T, txOut: Out, context: Copy[T, Out]): Elem[Out] =
-      new Tuple1[Out, T1, ReprT1](Targets[Out], op, context(_1)).connect()
+      new Tuple1[Out, T1, ReprT1](Targets[Out](), op, context(_1)).connect()
   }
 
   private[this] object BooleanTuple2s extends Expr.Type.Extension1[BooleanObj] {
@@ -112,7 +112,7 @@ object BooleanExtensions  {
     final def apply[T <: Txn[T]](_1: ReprT1[T])(implicit tx: T): _Ex[T] = _1 match {
       case Expr.Const(a) => BooleanObj.newConst[T](value(a))  // IntelliJ highlight error
       case _ =>
-        new Tuple1[T, T1, ReprT1](Targets[T], this, _1).connect()
+        new Tuple1[T, T1, ReprT1](Targets[T](), this, _1).connect()
     }
 
     def toString[T <: Txn[T]](_1: ReprT1[T]): String = s"$name${_1}"
@@ -129,7 +129,7 @@ object BooleanExtensions  {
     def tpe: Obj.Type = BooleanObj
 
     private[lucre] def copy[Out <: Txn[Out]]()(implicit tx: T, txOut: Out, context: Copy[T, Out]): Elem[Out] =
-      new Tuple2[Out, T1, ReprT1, T2, ReprT2](Targets[Out], op, context(_1), context(_2)).connect()
+      new Tuple2[Out, T1, ReprT1, T2, ReprT2](Targets[Out](), op, context(_1), context(_2)).connect()
   }
 
   private[this] case object Not extends UnaryOp[Boolean, BooleanObj] {
@@ -163,7 +163,7 @@ object BooleanExtensions  {
 
     final def apply[T <: Txn[T]](a: _Ex[T], b: _Ex[T])(implicit tx: T): _Ex[T] = (a, b) match {
       case (Expr.Const(ca), Expr.Const(cb)) => BooleanObj.newConst(value(ca, cb))
-      case _ => new LazyTuple2[T](Targets[T], this, a, b).connect()
+      case _ => new LazyTuple2[T](Targets[T](), this, a, b).connect()
     }
   }
 
@@ -178,7 +178,7 @@ object BooleanExtensions  {
 
     final def apply[T <: Txn[T]](a: IntObj[T], b: IntObj[T])(implicit tx: T): _Ex[T] = (a, b) match {
       case (Expr.Const(ca), Expr.Const(cb)) => BooleanObj.newConst(value(ca, cb))
-      case _ => new Tuple2[T, Int, IntObj, Int, IntObj](Targets[T], this, a, b).connect()
+      case _ => new Tuple2[T, Int, IntObj, Int, IntObj](Targets[T](), this, a, b).connect()
     }
   }
 
@@ -204,7 +204,7 @@ object BooleanExtensions  {
     def value(implicit tx: T): Boolean = op.lazyValue(_1, _2)
 
     private[lucre] def copy[Out <: Txn[Out]]()(implicit tx: T, txOut: Out, context: Copy[T, Out]): Elem[Out] =
-      new LazyTuple2(Targets[Out], op, context(_1), context(_2)).connect()
+      new LazyTuple2(Targets[Out](), op, context(_1), context(_2)).connect()
 
     protected def writeData(out: DataOutput): Unit = {
       out.writeByte(1)  // 'node not var'
