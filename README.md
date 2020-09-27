@@ -11,8 +11,8 @@ This project is (C)opyright 2020 by Hanns Holger Rutz. All rights reserved. It i
 the [GNU Affero General Public License](https://raw.github.com/Sciss/DottyLucre/main/LICENSE) and comes with 
 absolutely no warranties. To contact the author, send an e-mail to `contact at sciss.de`.
 
-This will be merged into a dedicated branch of the [upstream project](https://github.com/Sciss/Lucre) soon,
-eventually becoming new major __version 4__ of the framework.
+__This project has now been completed__ and was merged into [a dedicated branch](https://github.com/Sciss/Lucre/commit/f82578cb0b123bb41b1ca03098316868668428b1) of the
+[upstream project](https://github.com/Sciss/Lucre).
 
 ## requirements / installation
 
