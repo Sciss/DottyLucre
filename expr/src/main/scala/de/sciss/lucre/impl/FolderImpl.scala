@@ -26,8 +26,7 @@ object FolderImpl {
       protected val lastRef: Var[T, C]    = id.newVar[C](null)(tx, CellFmt)
     }
 
-  def format[T <: Txn[T]]: TFormat[T, Folder[T]] =
-    anyFmt.asInstanceOf[Fmt[T]]
+  def format[T <: Txn[T]]: TFormat[T, Folder[T]] = anyFmt.cast
 
   private val anyFmt = new Fmt[AnyTxn]
 
@@ -40,7 +39,7 @@ object FolderImpl {
     }
   }
 
-  private class Fmt[T <: Txn[T]] extends ObjFormat[T, Folder[T]] {
+  private class Fmt[T <: Txn[T]] extends ObjCastFormat[T, Folder] {
     def tpe: Obj.Type = Folder
   }
 

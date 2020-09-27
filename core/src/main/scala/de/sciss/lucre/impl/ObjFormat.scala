@@ -28,3 +28,6 @@ trait ObjFormat[T <: Txn[T], Repr <: Obj[T]]
     tpe.readIdentifiedObj(in).asInstanceOf[Repr]
   }
 }
+
+trait ObjCastFormat[T <: Txn[T], Repr[~ <: Txn[~]] <: Obj[~]]
+  extends CastTxnFormat[T, Repr] with ObjFormat[T, Repr[T]]

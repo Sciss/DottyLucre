@@ -54,17 +54,17 @@ object ArtifactImpl {
     new Impl[T](targets, location, _child)
   }
 
-  def format   [T <: Txn[T]]: TFormat[T, Artifact           [T]] = anyFmt   .asInstanceOf[Fmt   [T]]
-  def modFormat[T <: Txn[T]]: TFormat[T, Artifact.Modifiable[T]] = anyModFmt.asInstanceOf[ModFmt[T]]
+  def format   [T <: Txn[T]]: TFormat[T, Artifact           [T]] = anyFmt   .cast
+  def modFormat[T <: Txn[T]]: TFormat[T, Artifact.Modifiable[T]] = anyModFmt.cast
 
   private val anyFmt    = new Fmt   [AnyTxn]
   private val anyModFmt = new ModFmt[AnyTxn]
 
-  private final class Fmt[T <: Txn[T]] extends ObjFormat[T, Artifact[T]] {
+  private final class Fmt[T <: Txn[T]] extends ObjCastFormat[T, Artifact] {
     def tpe: Obj.Type = Artifact
   }
 
-  private final class ModFmt[T <: Txn[T]] extends ObjFormat[T, Artifact.Modifiable[T]] {
+  private final class ModFmt[T <: Txn[T]] extends ObjCastFormat[T, Artifact.Modifiable] {
     def tpe: Obj.Type = Artifact
   }
 
